@@ -3,6 +3,6 @@ from datetime import datetime
 
 
 @dataclass(frozen=True)
-class DecisionContextUpdated:
+class DecisionContextCreated:
     context_id: str
-    updated_at: datetime
+    created_at: datetime
