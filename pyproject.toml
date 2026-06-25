@@ -1,0 +1,12 @@
+[project]
+name = "odis"
+version = "0.1.0"
+description = "Operational reasoning platform"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
