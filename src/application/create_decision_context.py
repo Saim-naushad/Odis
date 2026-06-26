@@ -17,5 +17,6 @@ def create_decision_context(
         id=str(uuid4()),
         goal_id=goal.id,
         situation_id=situation.id,
+        assessment=situation.assessment,
         created_at=datetime.now(timezone.utc),
     )

@@ -9,7 +9,7 @@ class DecisionContext:
     Immutable once created. Records everything the planner knew when it began
     making a decision.
 
-    Immutable fields: id, goal_id, situation_id, created_at.
+    Immutable fields: id, goal_id, situation_id, assessment, created_at.
     Evolving fields: none.
 
     Owned relationships: none.
@@ -19,6 +19,7 @@ class DecisionContext:
     id: str
     goal_id: str
     situation_id: str
+    assessment: str
     created_at: datetime
 
     def __post_init__(self) -> None:
@@ -28,5 +29,7 @@ class DecisionContext:
             raise ValueError("goal_id must not be empty")
         if not self.situation_id:
             raise ValueError("situation_id must not be empty")
+        if not self.assessment:
+            raise ValueError("assessment must not be empty")
         if not isinstance(self.created_at, datetime):
             raise ValueError("created_at must be a datetime")
