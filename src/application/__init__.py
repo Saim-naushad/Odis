@@ -3,6 +3,7 @@ from application.create_operational_situation import create_operational_situatio
 from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher, InMemoryEventPublisher
 from application.operational_situation_assessor import OperationalSituationAssessor
+from application.reasoning_replay import ReplayResult
 from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningResult, ReasoningSession
 from application.trend_detector import TrendDetector
@@ -16,6 +17,7 @@ __all__ = [
     "ReasoningResult",
     "ReasoningRun",
     "ReasoningSession",
+    "ReplayResult",
     "TrendDetector",
     "VariationDetector",
     "create_decision_context",

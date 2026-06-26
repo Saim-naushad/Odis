@@ -4,8 +4,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from application import ReasoningSession
+from application import InMemoryEventPublisher, ReasoningSession
+from application.event_publisher import DomainEvent
 from application.reasoning_run import ReasoningRun
+from application.reasoning_session import ReasoningResult
 from domain.entities import Asset, Observation, OperationalGoal
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
@@ -62,7 +64,7 @@ def print_decision(plan: DecisionPlan, context: DecisionContext) -> None:
     print()
 
 
-def main() -> None:
+def main() -> tuple[ReasoningResult, tuple[Observation, ...], tuple[DomainEvent, ...]]:
     asset = Asset(
         id="transformer-t-12",
         name="Transformer T-12",
@@ -91,7 +93,8 @@ def main() -> None:
         for index, value in enumerate(readings)
     )
 
-    result = ReasoningSession().run(goal, observations)
+    publisher = InMemoryEventPublisher()
+    result = ReasoningSession(event_publisher=publisher).run(goal, observations)
 
     print("ODIS Operational Walkthrough")
     print("Scenario: Rising transformer temperature during a heatwave")
@@ -117,6 +120,8 @@ def main() -> None:
     print_signal_detection(result.trend, result.variation)
     print_assessment(result.situation.assessment)
     print_decision(result.plan, result.context)
+
+    return result, observations, publisher.events
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ PROJECT_ROOT = EXAMPLES_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(EXAMPLES_DIR))
 
+from application.reasoning_replay import ReplayResult
 from heatwave_demo import main as run_heatwave_demo
 from oscillating_operations_demo import main as run_oscillating_demo
 from stable_operations_demo import main as run_stable_operations_demo
@@ -19,6 +20,20 @@ def print_scenario_header(number: int, name: str) -> None:
     print(SCENARIO_SEPARATOR)
     print(f"Scenario {number}: {name}")
     print(SCENARIO_SEPARATOR)
+    print()
+
+
+def print_replay_summary(replay: ReplayResult) -> None:
+    print()
+    print("Replay Summary")
+    print("--------------")
+    print(f"Run ID:             {replay.run.id}")
+    print(f"Observation count:  {len(replay.observations)}")
+    print(f"Trend:              {replay.trend.direction.name.title()}")
+    print(f"Variation:          {replay.variation.level.name}")
+    print(f"Assessment:         {replay.situation.assessment}")
+    print(f"Priority:           {replay.plan.priority.name}")
+    print(f"Published events:   {len(replay.events)}")
     print()
 
 
@@ -45,13 +60,30 @@ def main() -> None:
     print(SCENARIO_SEPARATOR)
 
     print_scenario_header(1, "Heatwave")
-    run_heatwave_demo()
+    heatwave_result, heatwave_observations, heatwave_events = run_heatwave_demo()
+    print_replay_summary(
+        ReplayResult.from_execution(
+            heatwave_result, heatwave_observations, heatwave_events
+        )
+    )
 
     print_scenario_header(2, "Stable Operations")
-    run_stable_operations_demo()
+    stable_result, stable_observations, stable_events = run_stable_operations_demo()
+    print_replay_summary(
+        ReplayResult.from_execution(
+            stable_result, stable_observations, stable_events
+        )
+    )
 
     print_scenario_header(3, "Oscillating Operations")
-    run_oscillating_demo()
+    oscillating_result, oscillating_observations, oscillating_events = (
+        run_oscillating_demo()
+    )
+    print_replay_summary(
+        ReplayResult.from_execution(
+            oscillating_result, oscillating_observations, oscillating_events
+        )
+    )
 
     print_summary()
 
