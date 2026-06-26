@@ -8,10 +8,14 @@ from application import (
     DecisionPlanner,
     OperationalSituationAssessor,
     TrendDetector,
+    VariationDetector,
     create_decision_context,
 )
 from domain.entities import Asset, Observation, OperationalGoal
+from domain.entities.decision_plan import DecisionPlan
 from domain.value_objects import Location, MeasurementType
+from domain.value_objects.detected_trend import DetectedTrend
+from domain.value_objects.detected_variation import DetectedVariation
 
 SEPARATOR = "-" * 60
 
@@ -26,6 +30,30 @@ def print_stage(title: str) -> None:
 
 def format_timestamp(timestamp: datetime) -> str:
     return timestamp.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def print_signal_detection(trend: DetectedTrend, variation: DetectedVariation) -> None:
+    print_stage("3. Signal Detection")
+    print("Trend")
+    print("------")
+    print(trend.direction.name.title())
+    print()
+    print("Variation")
+    print("---------")
+    print(variation.level.name)
+
+
+def print_assessment(assessment: str) -> None:
+    print_stage("4. Assessment")
+    print(assessment)
+
+
+def print_decision(plan: DecisionPlan) -> None:
+    print_stage("5. Decision")
+    print(f"Priority:       {plan.priority.name}")
+    print(f"Recommendation: {plan.recommendation}")
+    print(f"Justification:  {plan.justification}")
+    print()
 
 
 def main() -> None:
@@ -58,7 +86,10 @@ def main() -> None:
     )
 
     trend = TrendDetector().detect(observations)
-    situation = OperationalSituationAssessor().assess(goal, trend, observations)
+    variation = VariationDetector().detect(observations)
+    situation = OperationalSituationAssessor().assess(
+        goal, observations, trend, variation
+    )
     context = create_decision_context(goal, situation)
     plan = DecisionPlanner().plan(context)
 
@@ -82,33 +113,18 @@ def main() -> None:
             f"   {observation.value} {observation.unit}"
         )
 
-    print_stage("3. Signal Detection")
-    print(f"Trend: {trend.direction.name.title()}")
+    print_signal_detection(trend, variation)
+    print_assessment(situation.assessment)
+    print_decision(plan)
 
-    print_stage("4. Operational Assessment")
-    print(situation.assessment)
-
-    print_stage("5. Decision Context")
-    print(f"Goal:       {goal.description}")
-    print(f"Assessment: {context.assessment}")
-
-    print_stage("6. Decision Plan")
-    print(f"Priority:       {plan.priority.name}")
-    print(f"Recommendation: {plan.recommendation}")
-    print(f"Justification:  {plan.justification}")
-
-    print()
     print(SEPARATOR)
     print("Engineering Observation:")
     print(SEPARATOR)
     print()
     print(
-        "The current TrendDetector classifies this sequence as STABLE because "
-        "it evaluates overall direction only."
-    )
-    print(
-        "This scenario motivates future signal detectors that capture variability "
-        "or instability without changing the existing architecture."
+        "Earlier versions of ODIS relied only on trend detection. Multi-signal "
+        "reasoning now combines trend and variation to distinguish stable "
+        "operation from unstable oscillation."
     )
     print()
 

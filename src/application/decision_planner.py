@@ -17,6 +17,12 @@ def _planning_outcome(
             "Investigate operational conditions",
             "Operational assessment indicates increasing stress.",
         )
+    if "unstable" in normalized:
+        return (
+            Priority.HIGH,
+            "Investigate operational conditions",
+            "Operational assessment indicates unstable conditions.",
+        )
     if "stable" in normalized:
         return (
             Priority.LOW,

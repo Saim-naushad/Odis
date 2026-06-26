@@ -30,17 +30,13 @@ def print_summary() -> None:
     print()
     print("ODIS currently demonstrates:")
     print()
-    print("✓ Increasing trend reasoning")
-    print("✓ Stable condition reasoning")
-    print("✓ Explainable recommendations")
-    print("✓ Architecture reuse across scenarios")
+    print("✓ Independent signal detectors")
+    print("✓ Multi-signal operational assessment")
+    print("✓ Explainable planning")
+    print("✓ Deterministic reasoning across scenarios")
     print()
-    print("Known limitation:")
-    print()
-    print(
-        "• Oscillating signals require additional signal detectors "
-        "beyond trend analysis."
-    )
+    print("Richer detectors — rate-of-change, anomaly detection, and others —")
+    print("remain future work within the same architecture.")
     print()
 
 
