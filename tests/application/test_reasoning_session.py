@@ -5,6 +5,7 @@ import pytest
 
 from application.event_publisher import InMemoryEventPublisher
 from application.reasoning_run import ReasoningRun
+from application.reasoning_run_index import ReasoningRunIndex
 from application.reasoning_session import ReasoningSession
 from domain.events.decision_context_created import DecisionContextCreated
 from domain.events.decision_plan_generated import DecisionPlanGenerated
@@ -19,6 +20,9 @@ from infrastructure.repositories.decision_plan_repository import (
 )
 from infrastructure.repositories.observation_repository import (
     InMemoryObservationRepository,
+)
+from infrastructure.repositories.reasoning_run_index_repository import (
+    InMemoryReasoningRunIndexRepository,
 )
 from infrastructure.repositories.reasoning_run_repository import (
     InMemoryReasoningRunRepository,
@@ -271,3 +275,59 @@ def test_reasoning_session_without_run_repository_does_not_persist_run() -> None
 
     assert result.run.id
     assert observation_repository.get(observations[0].id) is observations[0]
+
+
+def test_reasoning_session_persists_run_index_when_configured() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    reasoning_run_index_repository = InMemoryReasoningRunIndexRepository()
+
+    result = ReasoningSession(
+        reasoning_run_index_repository=reasoning_run_index_repository,
+    ).run(goal, observations)
+
+    index = reasoning_run_index_repository.get(result.run.id)
+
+    assert index is not None
+    assert index.run_id == result.run.id
+    assert index.observation_ids == tuple(
+        observation.id for observation in observations
+    )
+    assert index.situation_id == result.situation.id
+    assert index.context_id == result.context.id
+    assert index.plan_id == result.plan.id
+    assert index.action_id == result.action.id
+    assert index.outcome_id == result.outcome.id
+
+
+def test_duplicate_run_index_propagates_failure() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    reasoning_run_index_repository = InMemoryReasoningRunIndexRepository()
+    existing_index = ReasoningRunIndex(
+        run_id="fixed-run-id",
+        observation_ids=("obs-existing",),
+        situation_id="situation-existing",
+        context_id="context-existing",
+        plan_id="plan-existing",
+        action_id="action-existing",
+        outcome_id="outcome-existing",
+    )
+    reasoning_run_index_repository.save(existing_index)
+
+    with patch(
+        "application.reasoning_session.uuid4",
+        return_value=existing_index.run_id,
+    ), pytest.raises(ValueError, match="already exists"):
+        ReasoningSession(
+            reasoning_run_index_repository=reasoning_run_index_repository,
+        ).run(goal, observations)
+
+
+def test_reasoning_session_without_index_repository_is_unchanged() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+
+    result = ReasoningSession().run(goal, observations)
+
+    assert result.situation.assessment == "Increasing operational stress detected"

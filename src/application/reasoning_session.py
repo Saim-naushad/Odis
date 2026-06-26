@@ -8,6 +8,10 @@ from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
 from application.operational_situation_assessor import OperationalSituationAssessor
 from application.reasoning_run import ReasoningRun
+from application.reasoning_run_index import (
+    ReasoningRunIndex,
+    ReasoningRunIndexRepository,
+)
 from application.record_action import record_action
 from application.record_outcome import record_outcome
 from application.trend_detector import TrendDetector
@@ -52,6 +56,7 @@ class ReasoningSession:
         decision_context_repository: DecisionContextRepository | None = None,
         decision_plan_repository: DecisionPlanRepository | None = None,
         reasoning_run_repository: ReasoningRunRepository | None = None,
+        reasoning_run_index_repository: ReasoningRunIndexRepository | None = None,
         event_publisher: EventPublisher | None = None,
     ) -> None:
         self._observation_repository = observation_repository
@@ -59,6 +64,7 @@ class ReasoningSession:
         self._decision_context_repository = decision_context_repository
         self._decision_plan_repository = decision_plan_repository
         self._reasoning_run_repository = reasoning_run_repository
+        self._reasoning_run_index_repository = reasoning_run_index_repository
         self._event_publisher = event_publisher
 
     def run(
@@ -128,6 +134,21 @@ class ReasoningSession:
         action = record_action(plan)
         outcome = record_outcome(action)
         # Action and outcome persistence will follow once repository contracts exist.
+
+        if self._reasoning_run_index_repository is not None:
+            self._reasoning_run_index_repository.save(
+                ReasoningRunIndex(
+                    run_id=run.id,
+                    observation_ids=tuple(
+                        observation.id for observation in observations
+                    ),
+                    situation_id=situation.id,
+                    context_id=context.id,
+                    plan_id=plan.id,
+                    action_id=action.id,
+                    outcome_id=outcome.id,
+                )
+            )
 
         return ReasoningResult(
             run=run,

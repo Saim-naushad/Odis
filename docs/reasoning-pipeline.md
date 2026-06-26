@@ -28,6 +28,8 @@ The executable pipeline today runs from **Observation** through **DecisionPlan**
 
 Each `ReasoningSession.run()` also creates a `ReasoningRun` — application metadata with a unique id and start timestamp. When a `ReasoningRunRepository` is configured, the run is saved immediately (before detectors execute) so the execution has a durable identity. Runs are not domain events; they are bookkeeping for traceability and future replay.
 
+At the end of a successful run, the session can persist a `ReasoningRunIndex` — an immutable snapshot that correlates the run id with every artifact id produced during that execution (observations, situation, context, plan, action, and outcome). This index is application metadata stored separately from domain entities, so a future replay component can resolve which artifacts belong to a run without recomputing the pipeline or adding run ids to domain records.
+
 ## Stage reference
 
 ### Observation

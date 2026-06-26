@@ -7,6 +7,9 @@ from infrastructure.repositories.decision_plan_repository import (
 from infrastructure.repositories.observation_repository import (
     InMemoryObservationRepository,
 )
+from infrastructure.repositories.reasoning_run_index_repository import (
+    InMemoryReasoningRunIndexRepository,
+)
 from infrastructure.repositories.reasoning_run_repository import (
     InMemoryReasoningRunRepository,
 )
@@ -16,6 +19,7 @@ __all__ = [
     "InMemoryDecisionContextRepository",
     "InMemoryDecisionPlanRepository",
     "InMemoryObservationRepository",
+    "InMemoryReasoningRunIndexRepository",
     "InMemoryReasoningRunRepository",
     "InMemorySituationRepository",
 ]
