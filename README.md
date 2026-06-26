@@ -72,6 +72,22 @@ cd Odis
 pip install -e ".[dev]"
 ```
 
+## Public API
+
+After installation, import from the package root:
+
+```python
+from odis import ReasoningSession, ReasoningResult, Observation, OperationalGoal
+
+session = ReasoningSession()
+result = session.run(goal, observations)
+```
+
+Domain entities, value objects, detectors, assessors, planners, and recording
+use cases are available from ``odis``. Internal modules such as ``application``,
+``domain``, and ``infrastructure`` remain importable for development but are not
+the supported public surface.
+
 **Run the unified demo:**
 
 ```bash
