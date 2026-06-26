@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 EXAMPLES_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = EXAMPLES_DIR.parent
@@ -7,9 +7,9 @@ PROJECT_ROOT = EXAMPLES_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 sys.path.insert(0, str(EXAMPLES_DIR))
 
-from heatwave_demo import main as run_heatwave_demo  # noqa: E402
-from oscillating_operations_demo import main as run_oscillating_demo  # noqa: E402
-from stable_operations_demo import main as run_stable_operations_demo  # noqa: E402
+from heatwave_demo import main as run_heatwave_demo
+from oscillating_operations_demo import main as run_oscillating_demo
+from stable_operations_demo import main as run_stable_operations_demo
 
 SCENARIO_SEPARATOR = "=" * 60
 
@@ -37,7 +37,10 @@ def print_summary() -> None:
     print()
     print("Known limitation:")
     print()
-    print("• Oscillating signals require additional signal detectors beyond trend analysis.")
+    print(
+        "• Oscillating signals require additional signal detectors "
+        "beyond trend analysis."
+    )
     print()
 
 

@@ -13,7 +13,8 @@ class DecisionContext:
     Evolving fields: none.
 
     Owned relationships: none.
-    Referenced relationships: OperationalGoal (goal_id), OperationalSituation (situation_id).
+    Referenced relationships: OperationalGoal (goal_id),
+    OperationalSituation (situation_id).
     """
 
     id: str

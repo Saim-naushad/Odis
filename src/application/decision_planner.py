@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from domain.entities.decision_context import DecisionContext
@@ -40,7 +40,7 @@ class DecisionPlanner:
         return DecisionPlan(
             id=str(uuid4()),
             context_id=context.id,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             priority=priority,
             recommendation=recommendation,
             justification=justification,

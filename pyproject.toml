@@ -5,7 +5,11 @@ description = "Operational reasoning platform"
 requires-python = ">=3.11"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
 
 [build-system]
 requires = ["setuptools>=68.0"]
@@ -17,3 +21,54 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
 testpaths = ["tests"]
+
+# ---------------------------------------------------------------------------
+# Ruff — linting only (formatting deferred to a later PR)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["src", "tests", "examples"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort (import ordering)
+    "B",      # flake8-bugbear (likely bugs)
+    "UP",     # pyupgrade (modern Python syntax)
+    "SIM",    # flake8-simplify
+    "RET",    # flake8-return
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "SIM108", # ternary operators — often less readable in domain code
+]
+
+# Examples manipulate sys.path before importing application code.
+[tool.ruff.lint.per-file-ignores]
+"examples/*.py" = ["E402"]
+
+# ---------------------------------------------------------------------------
+# MyPy — static type checking
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.11"
+
+# Practical baseline: catch real errors without requiring full strict mode yet.
+check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+# Application and domain code should be fully typed.
+[[tool.mypy.overrides]]
+module = ["domain.*", "application.*"]
+disallow_untyped_defs = true

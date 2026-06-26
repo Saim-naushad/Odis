@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from domain.entities.asset import Asset
 from domain.entities.observation import Observation
@@ -6,37 +7,45 @@ from domain.entities.operational_goal import OperationalGoal
 from domain.value_objects.location import Location
 from domain.value_objects.measurement_type import MeasurementType
 
-DEFAULT_TIMESTAMP = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+DEFAULT_TIMESTAMP = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
 
-def build_measurement_type(**overrides) -> MeasurementType:
-    defaults = {"name": "temperature"}
+def build_measurement_type(**overrides: Any) -> MeasurementType:
+    defaults: dict[str, Any] = {"name": "temperature"}
     defaults.update(overrides)
-    return MeasurementType(**defaults)
+    return MeasurementType(name=defaults["name"])
 
 
-def build_asset(**overrides) -> Asset:
-    defaults = {
+def build_asset(**overrides: Any) -> Asset:
+    defaults: dict[str, Any] = {
         "id": "asset-1",
         "name": "Test Asset",
         "type": "equipment",
         "location": Location(identifier="site-1"),
     }
     defaults.update(overrides)
-    return Asset(**defaults)
+    return Asset(
+        id=defaults["id"],
+        name=defaults["name"],
+        type=defaults["type"],
+        location=defaults["location"],
+    )
 
 
-def build_goal(**overrides) -> OperationalGoal:
-    defaults = {
+def build_goal(**overrides: Any) -> OperationalGoal:
+    defaults: dict[str, Any] = {
         "id": "goal-1",
         "description": "Test operational goal",
     }
     defaults.update(overrides)
-    return OperationalGoal(**defaults)
+    return OperationalGoal(
+        id=defaults["id"],
+        description=defaults["description"],
+    )
 
 
-def build_observation(**overrides) -> Observation:
-    defaults = {
+def build_observation(**overrides: Any) -> Observation:
+    defaults: dict[str, Any] = {
         "id": "obs-1",
         "asset_id": "asset-1",
         "timestamp": DEFAULT_TIMESTAMP,
@@ -45,7 +54,14 @@ def build_observation(**overrides) -> Observation:
         "unit": "unit",
     }
     defaults.update(overrides)
-    return Observation(**defaults)
+    return Observation(
+        id=defaults["id"],
+        asset_id=defaults["asset_id"],
+        timestamp=defaults["timestamp"],
+        measurement_type=defaults["measurement_type"],
+        value=defaults["value"],
+        unit=defaults["unit"],
+    )
 
 
 def build_observation_sequence(

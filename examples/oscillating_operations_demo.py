@@ -1,17 +1,17 @@
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from application import (  # noqa: E402
+from application import (
     DecisionPlanner,
     OperationalSituationAssessor,
     TrendDetector,
     create_decision_context,
 )
-from domain.entities import Asset, Observation, OperationalGoal  # noqa: E402
-from domain.value_objects import Location, MeasurementType  # noqa: E402
+from domain.entities import Asset, Observation, OperationalGoal
+from domain.value_objects import Location, MeasurementType
 
 SEPARATOR = "-" * 60
 
@@ -42,7 +42,7 @@ def main() -> None:
     )
 
     flow_rate = MeasurementType(name="flow_rate")
-    base_time = datetime(2026, 5, 1, 10, 0, tzinfo=timezone.utc)
+    base_time = datetime(2026, 5, 1, 10, 0, tzinfo=UTC)
     readings = (100.0, 150.0, 80.0, 160.0, 70.0, 100.0)
 
     observations = tuple(
@@ -72,7 +72,10 @@ def main() -> None:
     print(f"Location: {asset.location.identifier}")
 
     print_stage("2. Incoming Observations")
-    ordered_observations = sorted(observations, key=lambda observation: observation.timestamp)
+    ordered_observations = sorted(
+        observations,
+        key=lambda observation: observation.timestamp,
+    )
     for observation in ordered_observations:
         print(
             f"{format_timestamp(observation.timestamp)}"

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from domain.entities.decision_context import DecisionContext
@@ -18,5 +18,5 @@ def create_decision_context(
         goal_id=goal.id,
         situation_id=situation.id,
         assessment=situation.assessment,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )

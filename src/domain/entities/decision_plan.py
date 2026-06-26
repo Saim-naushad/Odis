@@ -11,7 +11,8 @@ class DecisionPlan:
     Immutable after generation. The recommendation does not change once produced;
     a revised recommendation is a new plan.
 
-    Immutable fields: id, context_id, created_at, priority, recommendation, justification.
+    Immutable fields: id, context_id, created_at, priority,
+    recommendation, justification.
     Evolving fields: none.
 
     Owned relationships: none.
