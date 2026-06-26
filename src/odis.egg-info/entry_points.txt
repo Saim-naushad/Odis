@@ -1,0 +1,2 @@
+[console_scripts]
+odis = odis.cli:main

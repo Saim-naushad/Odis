@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Operational reasoning platform"
 requires-python = ">=3.11"
 
+[project.scripts]
+odis = "odis.cli:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",

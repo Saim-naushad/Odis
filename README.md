@@ -88,7 +88,26 @@ use cases are available from ``odis``. Internal modules such as ``application``,
 ``domain``, and ``infrastructure`` remain importable for development but are not
 the supported public surface.
 
-**Run the unified demo:**
+## Command-line interface
+
+The recommended way to explore ODIS after installation:
+
+```bash
+pip install -e ".[dev]"
+odis demo all
+```
+
+Individual walkthroughs:
+
+```bash
+odis demo heatwave
+odis demo stable
+odis demo oscillating
+```
+
+Run `odis --help` for available commands.
+
+You can also run demonstrations directly:
 
 ```bash
 python examples/run_demo.py
