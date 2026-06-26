@@ -1,7 +1,12 @@
 import pytest
 
+from application.event_publisher import InMemoryEventPublisher
 from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningSession
+from domain.events.decision_context_created import DecisionContextCreated
+from domain.events.decision_plan_generated import DecisionPlanGenerated
+from domain.events.observation_recorded import ObservationRecorded
+from domain.events.operational_situation_created import OperationalSituationCreated
 from domain.value_objects import Priority, TrendDirection, VariationLevel
 from infrastructure.repositories.decision_context_repository import (
     InMemoryDecisionContextRepository,
@@ -123,3 +128,81 @@ def test_previously_saved_observation_aborts_before_reasoning_completes() -> Non
     ).run(goal, fresh_observations)
 
     assert situation_repository.get(result.situation.id) is result.situation
+
+
+def test_reasoning_session_without_publisher_still_works() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+
+    result = ReasoningSession().run(goal, observations)
+
+    assert result.trend.direction == TrendDirection.INCREASING
+
+
+def test_reasoning_session_emits_events_in_pipeline_order() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0, 45.5, 50.0])
+    publisher = InMemoryEventPublisher()
+
+    result = ReasoningSession(event_publisher=publisher).run(goal, observations)
+
+    assert len(publisher.events) == len(observations) + 3
+    for index, observation in enumerate(observations):
+        event = publisher.events[index]
+        assert isinstance(event, ObservationRecorded)
+        assert event.observation_id == observation.id
+        assert event.recorded_at == observation.timestamp
+
+    situation_event = publisher.events[len(observations)]
+    assert isinstance(situation_event, OperationalSituationCreated)
+    assert situation_event.situation_id == result.situation.id
+
+    context_event = publisher.events[len(observations) + 1]
+    assert isinstance(context_event, DecisionContextCreated)
+    assert context_event.context_id == result.context.id
+    assert context_event.created_at == result.context.created_at
+
+    plan_event = publisher.events[len(observations) + 2]
+    assert isinstance(plan_event, DecisionPlanGenerated)
+    assert plan_event.plan_id == result.plan.id
+    assert plan_event.generated_at == result.plan.created_at
+
+
+def test_persistence_and_publishing_work_together() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    publisher = InMemoryEventPublisher()
+    observation_repository = InMemoryObservationRepository()
+    situation_repository = InMemorySituationRepository()
+    decision_context_repository = InMemoryDecisionContextRepository()
+    decision_plan_repository = InMemoryDecisionPlanRepository()
+
+    result = ReasoningSession(
+        observation_repository=observation_repository,
+        situation_repository=situation_repository,
+        decision_context_repository=decision_context_repository,
+        decision_plan_repository=decision_plan_repository,
+        event_publisher=publisher,
+    ).run(goal, observations)
+
+    assert len(publisher.events) == len(observations) + 3
+    assert observation_repository.get(observations[0].id) is observations[0]
+    assert decision_plan_repository.get(result.plan.id) is result.plan
+
+
+def test_persistence_failure_aborts_session_without_later_events() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    publisher = InMemoryEventPublisher()
+    observation_repository = InMemoryObservationRepository()
+    observation_repository.save(observations[0])
+
+    with pytest.raises(ValueError, match="already exists"):
+        ReasoningSession(
+            observation_repository=observation_repository,
+            event_publisher=publisher,
+        ).run(goal, observations)
+
+    assert len(publisher.events) == 1
+    assert isinstance(publisher.events[0], ObservationRecorded)
+    assert publisher.events[0].observation_id == observations[0].id
