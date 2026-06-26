@@ -43,9 +43,22 @@ Create a file named `first_odis.py` with the following content:
 ```python
 from datetime import UTC, datetime, timedelta
 
-from odis import MeasurementType, Observation, OperationalGoal, ReasoningSession
+from odis import (
+    Asset,
+    Location,
+    MeasurementType,
+    Observation,
+    OperationalGoal,
+    ReasoningSession,
+)
 
-asset_id = "pump-01"
+asset = Asset(
+    id="pump-01",
+    name="Pump P-07",
+    type="centrifugal_pump",
+    location=Location(identifier="cooling-loop-beta"),
+)
+
 goal = OperationalGoal(
     id="goal-1",
     description="Keep pump pressure within normal operating range",
@@ -58,7 +71,7 @@ readings = (68.0, 72.0, 76.0, 80.0, 84.0)
 observations = tuple(
     Observation(
         id=f"obs-{index}",
-        asset_id=asset_id,
+        asset_id=asset.id,
         timestamp=base_time + timedelta(hours=index),
         measurement_type=temperature,
         value=value,
@@ -80,7 +93,7 @@ Run it:
 python first_odis.py
 ```
 
-You should see an increasing-trend assessment and a high-priority investigation recommendation. The readings rise steadily from 68 to 84 °C, so ODIS treats this as operational stress on the asset you identified.
+You should see an increasing-trend assessment and a high-priority investigation recommendation. The readings rise steadily from 68 to 84 °C, so ODIS treats this as operational stress on the pump you defined.
 
 Everything in this example comes from the public `odis` package—no internal imports required.
 

@@ -77,13 +77,27 @@ pip install -e ".[dev]"
 After installation, import from the package root:
 
 ```python
-from odis import ReasoningSession, ReasoningResult, Observation, OperationalGoal
+from odis import (
+    Asset,
+    Location,
+    MeasurementType,
+    Observation,
+    OperationalGoal,
+    ReasoningSession,
+)
 
+asset = Asset(
+    id="pump-01",
+    name="Pump P-07",
+    type="centrifugal_pump",
+    location=Location(identifier="cooling-loop-beta"),
+)
 session = ReasoningSession()
 result = session.run(goal, observations)
 ```
 
-Domain entities, value objects, detectors, assessors, planners, and recording
+Exported domain entities, value objects (`Location`, `MeasurementType`, `Priority`,
+`TrendDirection`, `VariationLevel`), detectors, assessors, planners, and recording
 use cases are available from ``odis``. Internal modules such as ``application``,
 ``domain``, and ``infrastructure`` remain importable for development but are not
 the supported public surface.

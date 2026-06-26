@@ -23,6 +23,7 @@ from domain.entities import (
     Outcome,
 )
 from domain.value_objects import (
+    Location,
     MeasurementType,
     Priority,
     TrendDirection,
@@ -35,6 +36,7 @@ __all__ = [
     "DecisionContext",
     "DecisionPlan",
     "DecisionPlanner",
+    "Location",
     "MeasurementType",
     "Observation",
     "OperationalGoal",
