@@ -7,6 +7,7 @@ from application.reasoning_replay import ReplayResult
 from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningResult, ReasoningSession
 from application.record_action import record_action
+from application.record_outcome import record_outcome
 from application.trend_detector import TrendDetector
 from application.variation_detector import VariationDetector
 
@@ -24,4 +25,5 @@ __all__ = [
     "create_decision_context",
     "create_operational_situation",
     "record_action",
+    "record_outcome",
 ]
