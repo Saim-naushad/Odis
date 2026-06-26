@@ -2,6 +2,7 @@ from application import (
     DecisionPlanner,
     OperationalSituationAssessor,
     TrendDetector,
+    VariationDetector,
     create_decision_context,
 )
 from domain.value_objects import Priority, TrendDirection
@@ -27,7 +28,10 @@ def test_heatwave_scenario_produces_increasing_operational_response() -> None:
     )
 
     trend = TrendDetector().detect(observations)
-    situation = OperationalSituationAssessor().assess(goal, trend, observations)
+    variation = VariationDetector().detect(observations)
+    situation = OperationalSituationAssessor().assess(
+        goal, observations, trend, variation
+    )
     context = create_decision_context(goal, situation)
     plan = DecisionPlanner().plan(context)
 

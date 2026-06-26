@@ -5,44 +5,69 @@ from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
 from domain.entities.operational_situation import OperationalSituation
 from domain.value_objects.detected_trend import DetectedTrend
+from domain.value_objects.detected_variation import DetectedVariation
 from domain.value_objects.trend_direction import TrendDirection
+from domain.value_objects.variation_level import VariationLevel
 
 
-def _assessment_from_trend(trend: DetectedTrend) -> str:
-    match trend.direction:
-        case TrendDirection.INCREASING:
+# Assessment strings are consumed by the placeholder DecisionPlanner via substring
+# matching. Coordinate wording changes with the planner until structured
+# assessment types replace string-based planning.
+def _assessment_from_signals(
+    trend: DetectedTrend,
+    variation: DetectedVariation,
+) -> str:
+    match (trend.direction, variation.level):
+        case (TrendDirection.INCREASING, VariationLevel.LOW):
             return "Increasing operational stress detected"
-        case TrendDirection.DECREASING:
-            return "Operational conditions improving"
-        case TrendDirection.STABLE:
+        case (TrendDirection.INCREASING, VariationLevel.HIGH):
+            return "Rapidly increasing unstable operational conditions detected"
+        case (TrendDirection.STABLE, VariationLevel.LOW):
             return "Operational conditions stable"
+        case (TrendDirection.STABLE, VariationLevel.HIGH):
+            return "Highly unstable operating conditions detected"
+        case (TrendDirection.DECREASING, VariationLevel.LOW):
+            return "Operational conditions improving"
+        case (TrendDirection.DECREASING, VariationLevel.HIGH):
+            return "Operational conditions remain unstable despite improvement"
+        case _:
+            raise ValueError("unrecognized signal combination")
 
 
 class OperationalSituationAssessor:
     def assess(
         self,
         goal: OperationalGoal,
-        trend: DetectedTrend,
         observations: Sequence[Observation],
+        trend: DetectedTrend,
+        variation: DetectedVariation,
     ) -> OperationalSituation:
         if not observations:
             raise ValueError("at least one observation is required")
+
+        if trend.asset_id != variation.asset_id:
+            raise ValueError("trend and variation must refer to the same asset")
+        if trend.measurement_type != variation.measurement_type:
+            raise ValueError(
+                "trend and variation must have the same measurement type"
+            )
 
         ordered = sorted(observations, key=lambda observation: observation.timestamp)
 
         for observation in ordered:
             if observation.asset_id != trend.asset_id:
                 raise ValueError(
-                    "all observations must belong to the same asset as the trend"
+                    "all observations must belong to the same asset as the detectors"
                 )
             if observation.measurement_type != trend.measurement_type:
                 raise ValueError(
-                    "all observations must have the same measurement type as the trend"
+                    "all observations must have the same measurement type "
+                    "as the detectors"
                 )
 
         return OperationalSituation(
             id=str(uuid4()),
             goal_id=goal.id,
             observation_ids=tuple(observation.id for observation in ordered),
-            assessment=_assessment_from_trend(trend),
+            assessment=_assessment_from_signals(trend, variation),
         )
