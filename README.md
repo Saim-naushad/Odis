@@ -84,6 +84,15 @@ python examples/run_demo.py
 pytest
 ```
 
+**Run quality checks:**
+
+```bash
+ruff check .
+mypy src tests
+```
+
+These checks run automatically on every push and pull request via GitHub Actions.
+
 For a single suite:
 
 ```bash
