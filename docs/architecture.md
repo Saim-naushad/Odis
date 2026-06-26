@@ -18,6 +18,7 @@ flowchart TB
         assessors["Assessors\n(OperationalSituationAssessor)"]
         context["Context creation\n(create_decision_context)"]
         planners["Planners\n(DecisionPlanner)"]
+        reasoningRun["ReasoningRun\n(execution metadata)"]
     end
 
     subgraph domain["Domain layer"]
@@ -28,8 +29,11 @@ flowchart TB
     end
 
     subgraph future["Reserved"]
-        infrastructure["infrastructure/"]
         shared["shared/"]
+    end
+
+    subgraph infrastructure["Infrastructure layer"]
+        repositories["In-memory repositories"]
     end
 
     examples --> application
@@ -38,7 +42,7 @@ flowchart TB
     infrastructure -.-> domain
 ```
 
-The diagram reflects the current codebase. `infrastructure/` and `shared/` exist as placeholders for future persistence, telemetry adapters, and cross-cutting utilities.
+The diagram reflects the current codebase. `shared/` remains a placeholder for cross-cutting utilities.
 
 ## Repository structure
 
@@ -47,7 +51,7 @@ Odis/
 ├── src/
 │   ├── domain/           # Core model and contracts
 │   ├── application/      # Use cases and reasoning components
-│   ├── infrastructure/   # Reserved
+│   ├── infrastructure/   # Repository implementations and future adapters
 │   ├── shared/           # Reserved
 │   └── main.py           # Entry point placeholder
 ├── examples/             # Executable operational walkthroughs
@@ -59,7 +63,7 @@ Odis/
 |----------|---------|
 | `src/domain/` | Entities, value objects, events, and repository interfaces. The stable center of the system. |
 | `src/application/` | Components that coordinate domain objects to perform operational reasoning. |
-| `src/infrastructure/` | Future home for persistence, messaging, and external system adapters. |
+| `src/infrastructure/` | Append-only repository implementations and future adapters for persistence, messaging, and external systems. |
 | `src/shared/` | Future home for utilities shared across layers without polluting the domain. |
 | `examples/` | End-to-end demonstrations that wire application components together. |
 | `tests/` | Unit and integration specifications; builders reduce test setup noise. |
@@ -73,7 +77,7 @@ The domain layer defines **what operational reasoning means** in ODIS — not ho
 - **Entities** — immutable records with identity (`Asset`, `Observation`, `OperationalSituation`, `DecisionContext`, `DecisionPlan`, `Action`, `Outcome`, `OperationalGoal`)
 - **Value objects** — immutable types defined by their attributes (`MeasurementType`, `Priority`, `TrendDirection`, `DetectedTrend`, and others)
 - **Events** — contracts for facts that already happened (`ObservationRecorded`, `OperationalSituationCreated`, `DecisionContextCreated`, and others)
-- **Repository interfaces** — abstract persistence contracts without implementation
+- **Repository interfaces** — abstract persistence contracts without implementation (including `ReasoningRunRepository` for execution metadata)
 - **Structural invariants** — validation enforced in entity and value object constructors
 
 ### What the domain does not do
@@ -97,12 +101,16 @@ The application layer defines **how operational reasoning is performed** by orch
 | `create_decision_context` | Snapshots planner inputs as a `DecisionContext` |
 | `DecisionPlanner` | Produces a `DecisionPlan` from a context |
 | `create_operational_situation` | Lower-level situation construction without signal-based assessment |
+| `ReasoningSession` | Orchestrates the full pipeline from observations to outcome |
+| `ReasoningRun` | Application metadata identifying a single execution (id, started_at) |
+
+`ReasoningSession` optionally accepts repository interfaces. When configured, it persists domain records and the run itself as execution metadata before detectors execute. `ReasoningRun` is not a domain entity or event — it exists so executions have a durable identity for future replay and traceability.
 
 Application components may validate input coherence (e.g., observations must share an asset) but should not embed domain invariants that belong on entities.
 
 ### What the application layer does not do
 
-- Persist records (no repository implementations yet)
+- Require persistence (repositories are optional)
 - Ingest live telemetry
 - Dispatch domain events (event types exist; no bus is wired)
 
@@ -156,7 +164,7 @@ Collapsing these into a single object would simplify short-term code but erode t
 
 1. **Domain** imports nothing from other ODIS layers.
 2. **Application** imports domain only.
-3. **Infrastructure** (future) implements domain repository interfaces.
+3. **Infrastructure** implements domain repository interfaces (including in-memory stores for domain entities and reasoning runs).
 4. **Examples and tests** import application and domain; they are not imported by production layers.
 
 This keeps the core model stable as adapters and integrations are added.

@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+from unittest.mock import patch
+
 import pytest
 
 from application.event_publisher import InMemoryEventPublisher
@@ -16,6 +19,9 @@ from infrastructure.repositories.decision_plan_repository import (
 )
 from infrastructure.repositories.observation_repository import (
     InMemoryObservationRepository,
+)
+from infrastructure.repositories.reasoning_run_repository import (
+    InMemoryReasoningRunRepository,
 )
 from infrastructure.repositories.situation_repository import InMemorySituationRepository
 from tests.builders import build_goal, build_observation_sequence
@@ -221,3 +227,47 @@ def test_reasoning_session_records_the_full_operational_lifecycle() -> None:
     assert result.outcome.action_id == result.action.id
     assert result.action.id != result.plan.id
     assert result.outcome.id != result.action.id
+
+
+def test_reasoning_session_persists_the_run_when_configured() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    reasoning_run_repository = InMemoryReasoningRunRepository()
+
+    result = ReasoningSession(
+        reasoning_run_repository=reasoning_run_repository,
+    ).run(goal, observations)
+
+    assert reasoning_run_repository.get(result.run.id) is result.run
+
+
+def test_duplicate_run_id_propagates_failure() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    reasoning_run_repository = InMemoryReasoningRunRepository()
+    existing_run = ReasoningRun(
+        id="fixed-run-id",
+        started_at=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+    )
+    reasoning_run_repository.save(existing_run)
+
+    with patch(
+        "application.reasoning_session.uuid4",
+        return_value=existing_run.id,
+    ), pytest.raises(ValueError, match="already exists"):
+        ReasoningSession(
+            reasoning_run_repository=reasoning_run_repository,
+        ).run(goal, observations)
+
+
+def test_reasoning_session_without_run_repository_does_not_persist_run() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    observation_repository = InMemoryObservationRepository()
+
+    result = ReasoningSession(
+        observation_repository=observation_repository,
+    ).run(goal, observations)
+
+    assert result.run.id
+    assert observation_repository.get(observations[0].id) is observations[0]

@@ -26,6 +26,7 @@ from domain.events.operational_situation_created import OperationalSituationCrea
 from domain.repositories.decision_context_repository import DecisionContextRepository
 from domain.repositories.decision_plan_repository import DecisionPlanRepository
 from domain.repositories.observation_repository import ObservationRepository
+from domain.repositories.reasoning_run_repository import ReasoningRunRepository
 from domain.repositories.situation_repository import SituationRepository
 from domain.value_objects.detected_trend import DetectedTrend
 from domain.value_objects.detected_variation import DetectedVariation
@@ -50,12 +51,14 @@ class ReasoningSession:
         situation_repository: SituationRepository | None = None,
         decision_context_repository: DecisionContextRepository | None = None,
         decision_plan_repository: DecisionPlanRepository | None = None,
+        reasoning_run_repository: ReasoningRunRepository | None = None,
         event_publisher: EventPublisher | None = None,
     ) -> None:
         self._observation_repository = observation_repository
         self._situation_repository = situation_repository
         self._decision_context_repository = decision_context_repository
         self._decision_plan_repository = decision_plan_repository
+        self._reasoning_run_repository = reasoning_run_repository
         self._event_publisher = event_publisher
 
     def run(
@@ -67,6 +70,9 @@ class ReasoningSession:
             id=str(uuid4()),
             started_at=datetime.now(UTC),
         )
+
+        if self._reasoning_run_repository is not None:
+            self._reasoning_run_repository.save(run)
 
         for observation in observations:
             if self._event_publisher is not None:

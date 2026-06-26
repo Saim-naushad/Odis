@@ -26,6 +26,8 @@ flowchart TD
 
 The executable pipeline today runs from **Observation** through **DecisionPlan**. `Action` and `Outcome` exist as domain entities and complete the conceptual lifecycle, but no application component creates them yet.
 
+Each `ReasoningSession.run()` also creates a `ReasoningRun` — application metadata with a unique id and start timestamp. When a `ReasoningRunRepository` is configured, the run is saved immediately (before detectors execute) so the execution has a durable identity. Runs are not domain events; they are bookkeeping for traceability and future replay.
+
 ## Stage reference
 
 ### Observation
@@ -203,7 +205,7 @@ This extension requires no new entities — only new application components and 
 |-----------|-----------------|------------------|
 | New signal detector | `src/application/` | New value object for result type |
 | New planning strategy | `src/application/` | None (consumes existing `DecisionContext`) |
-| Persistence | `src/infrastructure/` | Implements existing repository interfaces |
+| Persistence | `src/infrastructure/` | Implements existing repository interfaces (domain entities and reasoning runs) |
 | Telemetry ingestion | `src/infrastructure/` | Produces domain `Observation` records |
 | Event dispatch | `src/infrastructure/` | Publishes existing domain event contracts |
 
