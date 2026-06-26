@@ -8,7 +8,7 @@ class OperationalSituation:
     Immutable after creation. An evolved interpretation—incorporating additional
     observations—is recorded as a new situation, not an in-place update.
 
-    Immutable fields: id, goal_id, observation_ids.
+    Immutable fields: id, goal_id, observation_ids, assessment.
     Evolving fields: none.
 
     Owned relationships: observation_ids (the interpreted view at creation).
@@ -18,6 +18,7 @@ class OperationalSituation:
     id: str
     goal_id: str
     observation_ids: tuple[str, ...]
+    assessment: str
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -28,3 +29,5 @@ class OperationalSituation:
             raise ValueError("observation_ids must not be empty")
         if len(self.observation_ids) != len(set(self.observation_ids)):
             raise ValueError("observation_ids must be unique")
+        if not self.assessment:
+            raise ValueError("assessment must not be empty")
