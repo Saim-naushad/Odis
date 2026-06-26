@@ -6,6 +6,7 @@ from application.operational_situation_assessor import OperationalSituationAsses
 from application.reasoning_replay import ReplayResult
 from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningResult, ReasoningSession
+from application.record_action import record_action
 from application.trend_detector import TrendDetector
 from application.variation_detector import VariationDetector
 
@@ -22,4 +23,5 @@ __all__ = [
     "VariationDetector",
     "create_decision_context",
     "create_operational_situation",
+    "record_action",
 ]
