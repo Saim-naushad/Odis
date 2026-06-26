@@ -3,11 +3,13 @@ from application.create_operational_situation import create_operational_situatio
 from application.decision_planner import DecisionPlanner
 from application.operational_situation_assessor import OperationalSituationAssessor
 from application.trend_detector import TrendDetector
+from application.variation_detector import VariationDetector
 
 __all__ = [
     "DecisionPlanner",
     "OperationalSituationAssessor",
     "TrendDetector",
+    "VariationDetector",
     "create_decision_context",
     "create_operational_situation",
 ]
