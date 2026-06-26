@@ -1,0 +1,28 @@
+# Mirrors CI quality gates (ruff, mypy) plus basic file hygiene.
+# Pytest is not included — run manually or rely on CI for test feedback.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '(^|/)(\.mypy_cache|\.ruff_cache|\.pytest_cache|.*\.egg-info)/'
+      - id: end-of-file-fixer
+        exclude: '(^|/)(\.mypy_cache|\.ruff_cache|\.pytest_cache|.*\.egg-info)/'
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      # Lint with auto-fix for safe corrections (no formatter).
+      - id: ruff
+        args: [--fix]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy src tests
+        language: system
+        types: [python]
+        pass_filenames: false
+        require_serial: true

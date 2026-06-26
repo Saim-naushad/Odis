@@ -26,9 +26,12 @@ For deeper context, see [docs/architecture.md](docs/architecture.md) and [docs/r
 git clone https://github.com/Saim-naushad/Odis.git
 cd Odis
 pip install -e ".[dev]"
+pre-commit install
 ```
 
-Run the quality checks before opening a pull request:
+`pre-commit install` registers git hooks that mirror CI lint and type checks locally. Hooks run automatically on `git commit`; run them manually with `pre-commit run --all-files`.
+
+Run the full quality checks before opening a pull request:
 
 ```bash
 ruff check .
@@ -36,7 +39,7 @@ mypy src tests
 pytest
 ```
 
-These same checks run automatically in CI on every push and pull request.
+CI runs the same lint, type, and test checks on every push and pull request. Pre-commit covers lint and type checks before commit; run `pytest` yourself before pushing.
 
 To explore the system interactively:
 
