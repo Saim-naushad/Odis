@@ -9,8 +9,10 @@ from application.event_publisher import DomainEvent
 from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningResult
 from domain.entities import Asset, Observation, OperationalGoal
+from domain.entities.action import Action
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
+from domain.entities.outcome import Outcome
 from domain.value_objects import Location, MeasurementType
 from domain.value_objects.detected_trend import DetectedTrend
 from domain.value_objects.detected_variation import DetectedVariation
@@ -61,6 +63,24 @@ def print_decision(plan: DecisionPlan, context: DecisionContext) -> None:
     print(f"Priority:       {plan.priority.name}")
     print(f"Recommendation: {plan.recommendation}")
     print(f"Justification:  {plan.justification}")
+    print()
+
+
+def print_action(action: Action) -> None:
+    print_stage("6. Action")
+    print("Action")
+    print("-------")
+    print(f"Action ID: {action.id}")
+    print(f"Plan ID:   {action.plan_id}")
+    print()
+
+
+def print_outcome(outcome: Outcome) -> None:
+    print_stage("7. Outcome")
+    print("Outcome")
+    print("--------")
+    print(f"Outcome ID: {outcome.id}")
+    print(f"Action ID:  {outcome.action_id}")
     print()
 
 
@@ -120,6 +140,8 @@ def main() -> tuple[ReasoningResult, tuple[Observation, ...], tuple[DomainEvent,
     print_signal_detection(result.trend, result.variation)
     print_assessment(result.situation.assessment)
     print_decision(result.plan, result.context)
+    print_action(result.action)
+    print_outcome(result.outcome)
 
     print(SEPARATOR)
     print("Engineering Observation:")

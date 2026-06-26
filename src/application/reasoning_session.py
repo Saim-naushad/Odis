@@ -8,13 +8,17 @@ from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
 from application.operational_situation_assessor import OperationalSituationAssessor
 from application.reasoning_run import ReasoningRun
+from application.record_action import record_action
+from application.record_outcome import record_outcome
 from application.trend_detector import TrendDetector
 from application.variation_detector import VariationDetector
+from domain.entities.action import Action
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
 from domain.entities.operational_situation import OperationalSituation
+from domain.entities.outcome import Outcome
 from domain.events.decision_context_created import DecisionContextCreated
 from domain.events.decision_plan_generated import DecisionPlanGenerated
 from domain.events.observation_recorded import ObservationRecorded
@@ -35,6 +39,8 @@ class ReasoningResult:
     situation: OperationalSituation
     context: DecisionContext
     plan: DecisionPlan
+    action: Action
+    outcome: Outcome
 
 
 class ReasoningSession:
@@ -113,6 +119,10 @@ class ReasoningSession:
         if self._decision_plan_repository is not None:
             self._decision_plan_repository.save(plan)
 
+        action = record_action(plan)
+        outcome = record_outcome(action)
+        # Action and outcome persistence will follow once repository contracts exist.
+
         return ReasoningResult(
             run=run,
             trend=trend,
@@ -120,4 +130,6 @@ class ReasoningSession:
             situation=situation,
             context=context,
             plan=plan,
+            action=action,
+            outcome=outcome,
         )

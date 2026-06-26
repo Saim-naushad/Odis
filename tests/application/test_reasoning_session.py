@@ -35,6 +35,8 @@ def test_reasoning_session_runs_the_operational_pipeline() -> None:
     assert result.plan.context_id == result.context.id
     assert result.plan.priority == Priority.HIGH
     assert result.plan.recommendation == "Investigate operational conditions"
+    assert result.action.plan_id == result.plan.id
+    assert result.outcome.action_id == result.action.id
     assert result.run.id
     assert result.run.started_at.tzinfo is not None
 
@@ -206,3 +208,16 @@ def test_persistence_failure_aborts_session_without_later_events() -> None:
     assert len(publisher.events) == 1
     assert isinstance(publisher.events[0], ObservationRecorded)
     assert publisher.events[0].observation_id == observations[0].id
+
+
+def test_reasoning_session_records_the_full_operational_lifecycle() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+
+    result = ReasoningSession().run(goal, observations)
+
+    assert result.plan.context_id == result.context.id
+    assert result.action.plan_id == result.plan.id
+    assert result.outcome.action_id == result.action.id
+    assert result.action.id != result.plan.id
+    assert result.outcome.id != result.action.id
