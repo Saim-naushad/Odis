@@ -4,14 +4,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from application import (
-    DecisionPlanner,
-    OperationalSituationAssessor,
-    TrendDetector,
-    VariationDetector,
-    create_decision_context,
-)
+from application import ReasoningSession
 from domain.entities import Asset, Observation, OperationalGoal
+from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.value_objects import Location, MeasurementType
 from domain.value_objects.detected_trend import DetectedTrend
@@ -48,8 +43,9 @@ def print_assessment(assessment: str) -> None:
     print(assessment)
 
 
-def print_decision(plan: DecisionPlan) -> None:
+def print_decision(plan: DecisionPlan, context: DecisionContext) -> None:
     print_stage("5. Decision")
+    print(f"Context:        {context.id}")
     print(f"Priority:       {plan.priority.name}")
     print(f"Recommendation: {plan.recommendation}")
     print(f"Justification:  {plan.justification}")
@@ -85,13 +81,7 @@ def main() -> None:
         for index, value in enumerate(readings)
     )
 
-    trend = TrendDetector().detect(observations)
-    variation = VariationDetector().detect(observations)
-    situation = OperationalSituationAssessor().assess(
-        goal, observations, trend, variation
-    )
-    context = create_decision_context(goal, situation)
-    plan = DecisionPlanner().plan(context)
+    result = ReasoningSession().run(goal, observations)
 
     print("ODIS Operational Walkthrough")
     print("Scenario: Oscillating flow rate with equal start and end values")
@@ -113,9 +103,9 @@ def main() -> None:
             f"   {observation.value} {observation.unit}"
         )
 
-    print_signal_detection(trend, variation)
-    print_assessment(situation.assessment)
-    print_decision(plan)
+    print_signal_detection(result.trend, result.variation)
+    print_assessment(result.situation.assessment)
+    print_decision(result.plan, result.context)
 
     print(SEPARATOR)
     print("Engineering Observation:")
