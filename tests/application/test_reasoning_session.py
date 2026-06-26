@@ -1,5 +1,6 @@
 import pytest
 
+from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningSession
 from domain.value_objects import Priority, TrendDirection, VariationLevel
 from infrastructure.repositories.decision_context_repository import (
@@ -29,6 +30,29 @@ def test_reasoning_session_runs_the_operational_pipeline() -> None:
     assert result.plan.context_id == result.context.id
     assert result.plan.priority == Priority.HIGH
     assert result.plan.recommendation == "Investigate operational conditions"
+    assert result.run.id
+    assert result.run.started_at.tzinfo is not None
+
+
+def test_each_call_creates_a_unique_run_id() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+
+    first_result = ReasoningSession().run(goal, observations)
+    second_result = ReasoningSession().run(goal, observations)
+
+    assert first_result.run.id != second_result.run.id
+
+
+def test_reasoning_result_preserves_the_run_for_the_execution() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+
+    result = ReasoningSession().run(goal, observations)
+
+    assert isinstance(result.run, ReasoningRun)
+    assert result.run.started_at <= result.context.created_at
+    assert result.run.started_at <= result.plan.created_at
 
 
 def test_reasoning_session_without_repositories_does_not_persist() -> None:

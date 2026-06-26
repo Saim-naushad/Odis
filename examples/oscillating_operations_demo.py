@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from application import ReasoningSession
+from application.reasoning_run import ReasoningRun
 from domain.entities import Asset, Observation, OperationalGoal
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
@@ -25,6 +26,15 @@ def print_stage(title: str) -> None:
 
 def format_timestamp(timestamp: datetime) -> str:
     return timestamp.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def print_reasoning_run(run: ReasoningRun) -> None:
+    print()
+    print("Reasoning Run")
+    print("-------------")
+    print(f"Run ID:  {run.id}")
+    print(f"Started: {format_timestamp(run.started_at)}")
+    print()
 
 
 def print_signal_detection(trend: DetectedTrend, variation: DetectedVariation) -> None:
@@ -103,6 +113,7 @@ def main() -> None:
             f"   {observation.value} {observation.unit}"
         )
 
+    print_reasoning_run(result.run)
     print_signal_detection(result.trend, result.variation)
     print_assessment(result.situation.assessment)
     print_decision(result.plan, result.context)

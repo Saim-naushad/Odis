@@ -1,9 +1,12 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from application.create_decision_context import create_decision_context
 from application.decision_planner import DecisionPlanner
 from application.operational_situation_assessor import OperationalSituationAssessor
+from application.reasoning_run import ReasoningRun
 from application.trend_detector import TrendDetector
 from application.variation_detector import VariationDetector
 from domain.entities.decision_context import DecisionContext
@@ -21,6 +24,7 @@ from domain.value_objects.detected_variation import DetectedVariation
 
 @dataclass(frozen=True)
 class ReasoningResult:
+    run: ReasoningRun
     trend: DetectedTrend
     variation: DetectedVariation
     situation: OperationalSituation
@@ -46,6 +50,11 @@ class ReasoningSession:
         goal: OperationalGoal,
         observations: Sequence[Observation],
     ) -> ReasoningResult:
+        run = ReasoningRun(
+            id=str(uuid4()),
+            started_at=datetime.now(UTC),
+        )
+
         if self._observation_repository is not None:
             for observation in observations:
                 self._observation_repository.save(observation)
@@ -70,6 +79,7 @@ class ReasoningSession:
             self._decision_plan_repository.save(plan)
 
         return ReasoningResult(
+            run=run,
             trend=trend,
             variation=variation,
             situation=situation,
