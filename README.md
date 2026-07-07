@@ -72,6 +72,12 @@ cd Odis
 pip install -e ".[dev]"
 ```
 
+## Versioning
+
+- **Current version**: `0.1.0`
+- **Changelog**: `CHANGELOG.md`
+- **Policy**: Future releases intend to follow Semantic Versioning (SemVer).
+
 ## Public API
 
 After installation, import from the package root:
