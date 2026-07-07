@@ -99,6 +99,7 @@ The application layer defines **how operational reasoning is performed** by orch
 | `TrendDetector` | Derives a `DetectedTrend` signal from an observation sequence |
 | `OperationalSituationAssessor` | Combines evidence, signal, and goal into an `OperationalSituation` |
 | `create_decision_context` | Snapshots planner inputs as a `DecisionContext` |
+| `OperationalContextBuilder` | Standardizes construction of `OperationalContext` |
 | `DecisionPlanner` | Produces a `DecisionPlan` from a context |
 | `create_operational_situation` | Lower-level situation construction without signal-based assessment |
 | `ObservationPipeline` | Thin orchestration entry point for observation acquisition and reasoning execution |
@@ -230,6 +231,10 @@ Expectation reasoning is now part of the reasoning pipeline: each `ReasoningSess
 `OperationalContext` is an immutable application-layer value object that describes the **operational situation** in which reasoning occurs — a human-readable `description` plus an optional `operating_mode` and `objective` (for example, "Steady-state operation under increasing load", `steady_state`, `maximize_power`).
 
 Context is distinct from **observations** (what was measured) and from **expectations** (what should hold in normal operation): it captures the situational frame in which both are interpreted. It contains no logic and is not consumed by the reasoning pipeline today; it will become an input to future expectation evaluation, so that whether evidence satisfies an expectation can depend on the operating situation.
+
+#### Operational Context Builder
+
+`OperationalContextBuilder` is responsible for constructing `OperationalContext` instances. Future implementations may derive context from evidence; the current builder is intentionally minimal and simply standardizes creation without inference, profile logic, or parsing.
 
 ### Runs vs. the run registry
 
