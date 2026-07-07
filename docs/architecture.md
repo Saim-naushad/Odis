@@ -113,6 +113,16 @@ Two complementary responsibilities keep execution metadata organized:
 - **`ReasoningRunRepository`** stores individual runs — the full metadata for a single execution, keyed by run id.
 - **`ReasoningRunRegistry`** catalogs all known executions. Each `ReasoningRunRegistryEntry` records only `run_id` and `started_at`, in insertion order. The registry is not a replay mechanism or a query engine; it simply records which executions exist so future historical browsing and replay have a stable starting point. When a registry is configured, `ReasoningSession` adds an entry immediately after creating (and optionally persisting) the run.
 
+### Registry, history, and replay
+
+These three concerns are intentionally separate:
+
+- **Registry** — the catalog of known executions (`run_id`, `started_at`), in insertion order.
+- **`ReasoningHistory`** — a read API over that catalog. It walks registry entries and loads the corresponding persisted run for each; it does not filter, search, paginate, or replay.
+- **Replay** — reconstruction of one execution from its persisted artifacts (observations, situation, context, plan, and related records).
+
+Keeping cataloging, listing, and reconstruction apart lets each evolve independently — for example, a future query layer can sit on top of history without entangling it with replay logic.
+
 Application components may validate input coherence (e.g., observations must share an asset) but should not embed domain invariants that belong on entities.
 
 ### What the application layer does not do
