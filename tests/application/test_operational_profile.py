@@ -6,7 +6,6 @@ import pytest
 
 from application.observation_group import ObservationGroup
 from application.operational_profile import (
-    DefaultOperationalProfile,
     OperationalProfile,
 )
 from application.relationship_analysis import RelationshipAnalyzer
@@ -39,7 +38,7 @@ def _build_temperature_pressure_group() -> ObservationGroup:
 
 
 def test_default_profile_exposes_default_relationship_policy() -> None:
-    profile = DefaultOperationalProfile()
+    profile = OperationalProfile.default()
 
     assert isinstance(profile, OperationalProfile)
     assert isinstance(profile.relationship_policy, DefaultRelationshipPolicy)
@@ -60,13 +59,13 @@ def test_default_profile_behavior_matches_implicit_defaults() -> None:
     group = _build_temperature_pressure_group()
 
     implicit = RelationshipAnalyzer().analyze(group)
-    explicit = RelationshipAnalyzer(profile=DefaultOperationalProfile()).analyze(group)
+    explicit = RelationshipAnalyzer(profile=OperationalProfile.default()).analyze(group)
 
     assert implicit == explicit
 
 
 def test_operational_profile_is_immutable() -> None:
-    profile = DefaultOperationalProfile()
+    profile = OperationalProfile.default()
 
     with pytest.raises(FrozenInstanceError):
         profile.relationship_policy = EmptyRelationshipPolicy()  # type: ignore[misc]

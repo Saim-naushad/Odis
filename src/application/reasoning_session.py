@@ -7,10 +7,7 @@ from application.create_decision_context import create_decision_context
 from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
 from application.observation_source import ObservationSource
-from application.operational_profile import (
-    DefaultOperationalProfile,
-    OperationalProfile,
-)
+from application.operational_profile import OperationalProfile
 from application.operational_situation_assessor import OperationalSituationAssessor
 from application.planning_context import PlanningContext
 from application.reasoning_run import ReasoningRun
@@ -75,7 +72,7 @@ class ReasoningSession:
         ) = None,
         event_publisher: EventPublisher | None = None,
     ) -> None:
-        self._profile = profile or DefaultOperationalProfile()
+        self._profile = profile or OperationalProfile.default()
         self._observation_repository = observation_repository
         self._situation_repository = situation_repository
         self._decision_context_repository = decision_context_repository

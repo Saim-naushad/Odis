@@ -12,7 +12,11 @@ from application.relationship_policy import (
 class OperationalProfile:
     relationship_policy: RelationshipPolicy
 
+    @classmethod
+    def default(cls) -> OperationalProfile:
+        return cls(relationship_policy=DefaultRelationshipPolicy())
 
-def DefaultOperationalProfile() -> OperationalProfile:
-    return OperationalProfile(relationship_policy=DefaultRelationshipPolicy())
+
+def default_operational_profile() -> OperationalProfile:
+    return OperationalProfile.default()
 

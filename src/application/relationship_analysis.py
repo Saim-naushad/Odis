@@ -9,10 +9,7 @@ from application.correlation_detector import (
     MeasurementCorrelation,
 )
 from application.observation_group import ObservationGroup
-from application.operational_profile import (
-    DefaultOperationalProfile,
-    OperationalProfile,
-)
+from application.operational_profile import OperationalProfile
 
 
 @dataclass(frozen=True)
@@ -29,7 +26,7 @@ class RelationshipAnalyzer:
         correlation_detector: CorrelationDetector | None = None,
         contradiction_detector: ContradictionDetector | None = None,
     ) -> None:
-        resolved_profile = profile or DefaultOperationalProfile()
+        resolved_profile = profile or OperationalProfile.default()
 
         self._correlation_detector = correlation_detector or CorrelationDetector(
             policy=resolved_profile.relationship_policy
