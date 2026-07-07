@@ -205,6 +205,14 @@ In this educational project, a contradiction is not a statement that a combinati
 
 `MeasurementIndex` is an application-layer helper that organizes an `ObservationGroup` into a lookup map from `MeasurementType` to the ordered observations of that type. This enables future detectors to efficiently access grouped temperature, pressure, vibration, flow, and other measurements **without changing the domain model** (`Observation` remains a simple immutable record).
 
+#### Expectation
+
+`Expectation` is an immutable application-layer value object that captures a **qualitative engineering statement** — for example, "Cooling tracks load" or "Fuel flow follows current demand". Each expectation has a human-readable `name` and a `description` that explains what should hold in normal operation.
+
+Expectations belong to **operational profiles**: they package domain-specific operational knowledge alongside relationship policies and future planning policies. They are intentionally inert today — the reasoning pipeline does not evaluate them, and no expectation policies exist in the current codebase.
+
+Future work will introduce expectation evaluation so that operational reasoning can check whether telemetry and assessments align with declared expectations. This will build on the same profile-based configuration model already used for cross-measurement relationships.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
