@@ -40,6 +40,8 @@ Use `ReplayResult.from_execution` to bundle in-memory session output immediately
 
 **Comparison** (`ReasoningComparator.compare`) analyzes differences between two reconstructed executions. Replay reconstructs a single execution; comparison replays both runs and reports whether observation count, assessment, plan priority, or recommendation changed. It does not score, rank, or explain differences.
 
+Escalation analysis is a read-side capability built on replay and comparison. It does not perform operational reasoning or alter historical records.
+
 ## Stage reference
 
 ### Observation
