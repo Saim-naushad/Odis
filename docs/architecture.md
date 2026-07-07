@@ -158,6 +158,14 @@ This is complementary to per-cycle telemetry reasoning:
 
 Observation groups prepare ODIS for future reasoning across multiple measurement types from the same operational asset. Current reasoning still executes over one measurement type at a time.
 
+### Operational Profile
+
+ODIS core remains **domain-agnostic**: the application layer defines reasoning mechanics and orchestration without embedding equipment-specific assumptions into detectors, assessors, or planners.
+
+An `OperationalProfile` is the application-layer abstraction that packages **domain-specific operational knowledge** and exposes it to the reasoning engine as a set of policies. Profiles are immutable and are passed at the application entry points (for example, `MonitoringSession`) so the same reasoning pipeline can be reused across domains by swapping profiles rather than rewriting core logic.
+
+The first capability exposed by profiles is the **relationship policy**: which cross-measurement relationships should be evaluated. Future planning policies and scenario policies may also belong to profiles as the system grows.
+
 #### Correlation detectors
 
 Correlation detectors reason across multiple measurement types by composing existing single-measurement detectors (for example, deriving a temperature trend and a pressure trend using `TrendDetector`, then comparing the results to emit a deterministic relationship).
