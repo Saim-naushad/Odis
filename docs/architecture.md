@@ -250,7 +250,15 @@ Operational states are **derived from reasoning**: they express what the engine 
 
 A `Hypothesis` represents a **candidate explanation** supported by evidence. Each hypothesis references an `OperationalState` and includes a concise, human-readable rationale explaining why the hypothesis currently exists.
 
-Multiple hypotheses may coexist at once: operational evidence can support more than one plausible explanation. Future hypothesis refinement will eliminate hypotheses that become inconsistent as additional evidence is gathered.
+Multiple hypotheses may coexist at once: operational evidence can support more than one plausible explanation.
+
+#### Hypothesis Refinement
+
+Hypothesis refinement eliminates **inconsistent** candidate explanations as additional evidence is considered. Given a set of candidate hypotheses and a predicate describing whether each remains consistent with available evidence, refinement returns only the surviving hypotheses.
+
+Refinement is deterministic: given the same hypotheses and the same evidence predicate, it always produces the same survivors, in the same ordering. This preserves explainability: each elimination is attributable to a specific inconsistency rule rather than a hidden scoring or ranking system.
+
+Refinement may leave **multiple** surviving hypotheses. It does not force a single diagnosis; it narrows the candidate set to those that remain consistent with what is currently known.
 
 #### Operational Context
 
