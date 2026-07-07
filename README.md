@@ -177,6 +177,11 @@ examples/             # Executable operational walkthroughs
 tests/                # Behavioral specifications and test builders
 ```
 
+### Architecture diagrams
+
+For version-controlled diagrams of the current implementation, see
+[`docs/architecture-diagrams.md`](docs/architecture-diagrams.md).
+
 ### Domain layer (`src/domain/`)
 
 The core model. Immutable entities (`Asset`, `Observation`, `OperationalSituation`, `DecisionContext`, `DecisionPlan`, and others), value objects (`MeasurementType`, `Priority`, `TrendDirection`), domain events, and repository interfaces. No dependency on application or infrastructure code.
