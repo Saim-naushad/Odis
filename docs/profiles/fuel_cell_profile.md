@@ -39,3 +39,17 @@ The fuel-cell profile differs in two ways:
 
 Importantly, this change is achieved by adding a new profile and policy — **no planner, detector, replay, analytics, or framework redesign is required**.
 
+## Expectation evaluation
+
+`FuelCellExpectationEvaluator` is the first profile-owned expectation evaluator. It decides which evidence satisfies an engineering expectation and delegates the standardized result to the generic `ExpectationEvaluator`.
+
+Current implementation:
+
+```
+relationship detected
+        ↓
+expectation considered satisfied
+```
+
+When a declared relationship is found, the profile passes `satisfied=True`; when it is missing, `satisfied=False`. Future implementations may evaluate richer engineering evidence — for example, trend alignment, stability bounds, or multi-signal coherence — while keeping the same delegation pattern.
+

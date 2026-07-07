@@ -215,9 +215,9 @@ Future work will introduce expectation evaluation so that operational reasoning 
 
 #### Expectation Evaluation
 
-`ExpectationEvaluator` is a standalone application-layer component that converts a deterministic boolean decision into a standardized `ExpectationEvaluation`. Expectations are evaluated **after** evidence exists: a caller supplies whether the observed behavior satisfies the expectation (`True`, `False`, or `None` when evidence is insufficient), and the evaluator returns one of three outcomes — **expected**, **unexpected**, or **indeterminate** — with a fixed explanation for each.
+Operational profiles are responsible for determining whether evidence satisfies an expectation. A profile inspects the available operational evidence — for example, whether a declared cross-measurement relationship was detected — and decides if that evidence meets the expectation. `ExpectationEvaluator` standardizes the result: it converts a deterministic boolean decision into a `ExpectationEvaluation` with one of three outcomes — **expected**, **unexpected**, or **indeterminate** — and a fixed explanation for each.
 
-No operational profile currently performs this evaluation. The reasoning pipeline does not invoke `ExpectationEvaluator` today. Future profile implementations will provide the evidence required for evaluation; the evaluator itself contains no heuristics, profile logic, domain knowledge, or relationship analysis.
+`FuelCellExpectationEvaluator` is the first profile-driven bridge: it maps relationship detection (`relationship_found`) to the generic evaluator (`satisfied=True` or `satisfied=False`) without heuristics, thresholds, or detector logic. The reasoning pipeline does not invoke expectation evaluation today; profiles own the evidence decision, and the generic evaluator owns evaluation semantics.
 
 ### Runs vs. the run registry
 
