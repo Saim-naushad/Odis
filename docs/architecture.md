@@ -145,6 +145,15 @@ This is intentionally distinct from other execution concepts:
 - **History** lists persisted executions across time (a read API over the run registry and repositories).
 - **Timeline** represents ordered monitoring cycles within a single monitoring session (newest/previous/count convenience, no persistence, no analytics).
 
+#### Timeline Trend Analysis
+
+`TimelineTrendAnalyzer` is an application-layer service that reasons over **completed operational decisions** across multiple reasoning cycles in a `MonitoringTimeline`. It derives a simple operational trajectory (improving, stable, worsening) by comparing priorities between the first and last cycle — intentionally ignoring intermediate cycles for now.
+
+This is complementary to per-cycle telemetry reasoning:
+
+- **`TrendDetector`** analyzes telemetry *within one reasoning cycle* (a single observation sequence).
+- **`TimelineTrendAnalyzer`** analyzes operational evolution *across multiple reasoning cycles* (multiple completed decisions over time).
+
 ### Observation groups
 
 Observation groups prepare ODIS for future reasoning across multiple measurement types from the same operational asset. Current reasoning still executes over one measurement type at a time.
