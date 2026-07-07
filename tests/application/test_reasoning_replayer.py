@@ -91,7 +91,7 @@ def test_replay_raises_when_index_does_not_exist() -> None:
     (
         result,
         _,
-        replayer,
+        _,
         reasoning_run_repository,
         _,
         observation_repository,
