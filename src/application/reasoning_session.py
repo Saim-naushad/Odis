@@ -7,7 +7,10 @@ from application.create_decision_context import create_decision_context
 from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
 from application.expectation_analysis import ExpectationAnalysis
+from application.observation_group import ObservationGroup
 from application.observation_source import ObservationSource
+from application.operational_context import OperationalContext
+from application.operational_context_builder import OperationalContextBuilder
 from application.operational_profile import OperationalProfile
 from application.operational_situation_assessor import OperationalSituationAssessor
 from application.planning_context import PlanningContext
@@ -23,6 +26,7 @@ from application.reasoning_run_registry import (
 from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.record_action import record_action
 from application.record_outcome import record_outcome
+from application.relationship_analysis import RelationshipAnalysis, RelationshipAnalyzer
 from application.trend_detector import TrendDetector
 from application.variation_detector import VariationDetector
 from domain.entities.action import Action
@@ -56,6 +60,7 @@ class ReasoningResult:
     action: Action
     outcome: Outcome
     trace: ReasoningTrace
+    operational_context: OperationalContext
     expectation_analysis: ExpectationAnalysis
 
 
@@ -118,8 +123,22 @@ class ReasoningSession:
 
         trend = TrendDetector().detect(observations)
         variation = VariationDetector().detect(observations)
+        observation_group = ObservationGroup(
+            asset_id=observations[0].asset_id,
+            observations=tuple(observations),
+        )
+        relationship_analysis = RelationshipAnalyzer(profile=self._profile).analyze(
+            observation_group
+        )
+        operational_context = OperationalContextBuilder().build(
+            description="Operational reasoning context",
+        )
         assessment_result = OperationalSituationAssessor().assess(
-            goal, observations, trend, variation
+            goal,
+            observations,
+            trend,
+            variation,
+            relationship_analysis=relationship_analysis,
         )
         situation = assessment_result.situation
 
@@ -145,7 +164,10 @@ class ReasoningSession:
         if self._decision_context_repository is not None:
             self._decision_context_repository.save(context)
 
-        expectation_analysis = ExpectationAnalysis(evaluations=())
+        expectation_analysis = self._evaluate_expectations(
+            operational_context,
+            relationship_analysis,
+        )
         structured = replace(
             assessment_result.structured,
             has_unexpected_expectations=expectation_analysis.has_unexpected,
@@ -230,8 +252,18 @@ class ReasoningSession:
             action=action,
             outcome=outcome,
             trace=trace,
+            operational_context=operational_context,
             expectation_analysis=expectation_analysis,
         )
+
+    def _evaluate_expectations(
+        self,
+        operational_context: OperationalContext,
+        relationship_analysis: RelationshipAnalysis,
+    ) -> ExpectationAnalysis:
+        _ = operational_context
+        _ = relationship_analysis
+        return ExpectationAnalysis(evaluations=())
 
     def run_from_source(
         self,

@@ -5,9 +5,11 @@ import pytest
 
 from application.event_publisher import InMemoryEventPublisher
 from application.expectation_analysis import ExpectationAnalysis
+from application.operational_context import OperationalContext
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import ReasoningRunIndex
 from application.reasoning_session import ReasoningSession
+from application.relationship_analysis import RelationshipAnalysis
 from domain.events.decision_context_created import DecisionContextCreated
 from domain.events.decision_plan_generated import DecisionPlanGenerated
 from domain.events.observation_recorded import ObservationRecorded
@@ -53,12 +55,53 @@ def test_reasoning_session_runs_the_operational_pipeline() -> None:
     assert result.outcome.action_id == result.action.id
     assert result.run.id
     assert result.run.started_at.tzinfo is not None
+    assert result.operational_context == OperationalContext(
+        description="Operational reasoning context",
+        operating_mode=None,
+        objective=None,
+    )
     assert isinstance(result.expectation_analysis, ExpectationAnalysis)
     assert result.expectation_analysis.expected_count == 0
     assert result.expectation_analysis.unexpected_count == 0
     assert result.expectation_analysis.indeterminate_count == 0
     assert result.expectation_analysis.has_unexpected is False
     assert result.expectation_analysis.has_indeterminate is False
+
+
+def test_reasoning_session_performs_relationship_analysis() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+
+    with patch(
+        "application.reasoning_session.RelationshipAnalyzer.analyze",
+    ) as analyze_mock:
+        analyze_mock.return_value = RelationshipAnalysis(
+            correlations=(),
+            contradictions=(),
+        )
+        ReasoningSession().run(goal, observations)
+
+    analyze_mock.assert_called_once()
+
+
+def test_expectation_evaluation_consumes_operational_context() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    session = ReasoningSession()
+
+    with patch.object(
+        session,
+        "_evaluate_expectations",
+        wraps=session._evaluate_expectations,
+    ) as evaluate_mock:
+        result = session.run(goal, observations)
+
+    evaluate_mock.assert_called_once()
+    operational_context, relationship_analysis = evaluate_mock.call_args.args
+    assert operational_context is result.operational_context
+    assert operational_context.description == "Operational reasoning context"
+    assert relationship_analysis.correlations == ()
+    assert relationship_analysis.contradictions == ()
 
 
 def test_each_call_creates_a_unique_run_id() -> None:

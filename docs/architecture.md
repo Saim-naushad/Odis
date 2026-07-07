@@ -188,6 +188,20 @@ In this educational project, a contradiction is not a statement that a combinati
 
 `OperationalSituationAssessor` can optionally consume a precomputed `RelationshipAnalysis` as an **enrichment layer** over its existing single-measurement trend/variation mapping. When provided, the assessor appends relationship-related language to the assessment text while leaving priority, planning, decision context construction, and replay behavior unchanged. When omitted, the assessor behaves exactly as before.
 
+`ReasoningSession` now performs relationship analysis on each run and passes the result to the assessor and expectation-evaluation stage.
+
+```mermaid
+flowchart TD
+    relationship["Relationship Analysis"]
+    operational["Operational Context"]
+    expectation["Expectation Evaluation"]
+    structured["Structured Assessment"]
+
+    relationship --> operational
+    operational --> expectation
+    expectation --> structured
+```
+
 #### Structured Assessment
 
 `OperationalSituation` remains the domain snapshot: an immutable record that captures **what the system believed** about the operational state at a point in time, including the human-readable `assessment` text consumed by today’s placeholder planner.
@@ -218,7 +232,7 @@ Future work will introduce expectation evaluation so that operational reasoning 
 
 Operational profiles are responsible for determining whether evidence satisfies an expectation. A profile inspects the available operational evidence — for example, whether a declared cross-measurement relationship was detected — and decides if that evidence meets the expectation. `ExpectationEvaluator` standardizes the result: it converts a deterministic boolean decision into a `ExpectationEvaluation` with one of three outcomes — **expected**, **unexpected**, or **indeterminate** — and a fixed explanation for each.
 
-`FuelCellExpectationEvaluator` is the first profile-driven bridge: it consumes `RelationshipAnalysis` — correlations and contradictions aggregated by `RelationshipAnalyzer` — and maps that evidence to the generic evaluator (`satisfied=True`, `satisfied=False`, or `satisfied=None`) without heuristics, thresholds, or detector logic. Expectation evaluation now consumes actual relationship evidence rather than an externally supplied boolean. The reasoning pipeline does not invoke expectation evaluation today; profiles own the evidence decision, and the generic evaluator owns evaluation semantics.
+`FuelCellExpectationEvaluator` is the first profile-driven bridge: it consumes `RelationshipAnalysis` — correlations and contradictions aggregated by `RelationshipAnalyzer` — and maps that evidence to the generic evaluator (`satisfied=True`, `satisfied=False`, or `satisfied=None`) without heuristics, thresholds, or detector logic. Expectation evaluation now consumes actual relationship evidence rather than an externally supplied boolean. `ReasoningSession` threads `OperationalContext` and `RelationshipAnalysis` into the expectation-evaluation stage; profiles own the evidence decision, and the generic evaluator owns evaluation semantics. The current pipeline still produces an empty `ExpectationAnalysis` until profile integration is enabled.
 
 #### Expectation Analysis
 
@@ -230,11 +244,11 @@ Expectation reasoning is now part of the reasoning pipeline: each `ReasoningSess
 
 `OperationalContext` is an immutable application-layer value object that describes the **operational situation** in which reasoning occurs — a human-readable `description` plus an optional `operating_mode` and `objective` (for example, "Steady-state operation under increasing load", `steady_state`, `maximize_power`).
 
-Context is distinct from **observations** (what was measured) and from **expectations** (what should hold in normal operation): it captures the situational frame in which both are interpreted. It contains no logic and is not consumed by the reasoning pipeline today; it will become an input to future expectation evaluation, so that whether evidence satisfies an expectation can depend on the operating situation.
+Context is distinct from **observations** (what was measured) and from **expectations** (what should hold in normal operation): it captures the situational frame in which both are interpreted. It contains no logic. `ReasoningSession` now creates an `OperationalContext` on each run via `OperationalContextBuilder` and threads it through the pipeline into expectation evaluation; context inference remains intentionally minimal.
 
 #### Operational Context Builder
 
-`OperationalContextBuilder` is responsible for constructing `OperationalContext` instances. Future implementations may derive context from evidence; the current builder is intentionally minimal and simply standardizes creation without inference, profile logic, or parsing.
+`OperationalContextBuilder` is responsible for constructing `OperationalContext` instances. `ReasoningSession` uses it to produce the operational context for each run. Future implementations may derive context from evidence; the current builder is intentionally minimal and simply standardizes creation without inference, profile logic, or parsing.
 
 ### Runs vs. the run registry
 
