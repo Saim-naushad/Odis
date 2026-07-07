@@ -91,12 +91,16 @@ def _clone_run_with_plan(
     base_plan = decision_plan_repository.get(index.plan_id)
     assert base_plan is not None
 
-    plan_overrides: dict[str, object] = {"id": str(uuid4())}
-    if priority is not None:
-        plan_overrides["priority"] = priority
-    if recommendation is not None:
-        plan_overrides["recommendation"] = recommendation
-    plan = replace(base_plan, **plan_overrides)
+    plan = replace(
+        base_plan,
+        id=str(uuid4()),
+        priority=priority if priority is not None else base_plan.priority,
+        recommendation=(
+            recommendation
+            if recommendation is not None
+            else base_plan.recommendation
+        ),
+    )
     decision_plan_repository.save(plan)
 
     run = ReasoningRun(id=str(uuid4()), started_at=datetime.now(UTC))
@@ -134,7 +138,11 @@ def test_compare_identical_runs() -> None:
 
 def test_compare_different_assessment() -> None:
     session, replayer, *_ = _build_session_stack()
-    left_run_id = _run_session(session, [32.0, 36.5, 41.0, 45.5, 50.0], id_prefix="left")
+    left_run_id = _run_session(
+        session,
+        [32.0, 36.5, 41.0, 45.5, 50.0],
+        id_prefix="left",
+    )
     right_run_id = _run_session(
         session,
         [50.0, 50.0, 50.0, 50.0, 50.0],
@@ -199,7 +207,11 @@ def test_compare_different_recommendation() -> None:
 
 def test_compare_different_observation_count() -> None:
     session, replayer, *_ = _build_session_stack()
-    left_run_id = _run_session(session, [32.0, 36.5, 41.0, 45.5, 50.0], id_prefix="left")
+    left_run_id = _run_session(
+        session,
+        [32.0, 36.5, 41.0, 45.5, 50.0],
+        id_prefix="left",
+    )
     right_run_id = _run_session(session, [32.0, 36.5, 41.0], id_prefix="right")
     comparator = ReasoningComparator(replayer)
 

@@ -119,6 +119,15 @@ odis demo stable
 odis demo oscillating
 ```
 
+Run reasoning from CSV:
+
+```bash
+odis demo csv
+```
+
+This is the first demonstration that loads **real observations from an ingestion adapter**
+(`CsvObservationSource`) rather than constructing observations in code.
+
 Run `odis --help` for available commands.
 
 You can also run demonstrations directly:

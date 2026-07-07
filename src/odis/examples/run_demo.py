@@ -15,6 +15,8 @@ def print_scenario_header(number: int, name: str) -> None:
 
 
 def print_replay_summary(replay: ReplayResult) -> None:
+    assert replay.trend is not None
+    assert replay.variation is not None
     print()
     print("Replay Summary")
     print("--------------")

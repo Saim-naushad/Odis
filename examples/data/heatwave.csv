@@ -1,0 +1,8 @@
+id,asset_id,measurement_type,value,unit,timestamp
+obs-0,transformer-t-12,temperature,32.0,celsius,2026-07-15T12:00:00+00:00
+obs-1,transformer-t-12,temperature,35.0,celsius,2026-07-15T13:00:00+00:00
+obs-2,transformer-t-12,temperature,38.0,celsius,2026-07-15T14:00:00+00:00
+obs-3,transformer-t-12,temperature,41.0,celsius,2026-07-15T15:00:00+00:00
+obs-4,transformer-t-12,temperature,44.0,celsius,2026-07-15T16:00:00+00:00
+obs-5,transformer-t-12,temperature,47.0,celsius,2026-07-15T17:00:00+00:00
+obs-6,transformer-t-12,temperature,50.0,celsius,2026-07-15T18:00:00+00:00

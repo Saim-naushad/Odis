@@ -36,6 +36,15 @@ odis demo stable
 odis demo oscillating
 ```
 
+Run reasoning from CSV:
+
+```bash
+odis demo csv
+```
+
+This is the first demonstration that loads observations from a real ingestion example
+(a CSV file) instead of constructing them synthetically in code.
+
 ## 4. Your first ODIS program
 
 Create a file named `first_odis.py` with the following content:
