@@ -101,12 +101,27 @@ The application layer defines **how operational reasoning is performed** by orch
 | `create_decision_context` | Snapshots planner inputs as a `DecisionContext` |
 | `DecisionPlanner` | Produces a `DecisionPlan` from a context |
 | `create_operational_situation` | Lower-level situation construction without signal-based assessment |
-| `ReasoningSession` | Orchestrates the full pipeline from observations to outcome |
+| `ObservationPipeline` | Thin orchestration entry point for observation acquisition and reasoning execution |
+| `ReasoningSession` | Core orchestration engine from observations to outcome |
 | `ReasoningRun` | Application metadata identifying a single execution (id, started_at) |
 
 `ReasoningSession` optionally accepts repository interfaces. When configured, it persists domain records and the run itself as execution metadata before detectors execute. `ReasoningRun` is not a domain entity or event — it exists so executions have a durable identity for future replay and traceability.
 
-`run()` is the core orchestration API: it accepts a goal and an observation sequence and executes the full pipeline. `run_from_source()` is a convenience entry point for external integrations — it reads observations from an `ObservationSource` and delegates to `run()`. Both methods execute the identical reasoning pipeline; `run_from_source()` adds no separate persistence, event, or detector logic.
+`run()` is the core orchestration API: it accepts a goal and an observation sequence and executes the full pipeline. External integrations should target `ObservationPipeline`, which reads observations from an `ObservationSource` and delegates to `ReasoningSession.run()`. `ReasoningSession.run_from_source()` remains available as a convenience wrapper with identical behavior.
+
+```mermaid
+flowchart TB
+    source["ObservationSource"]
+    pipeline["ObservationPipeline"]
+    session["ReasoningSession"]
+    result["ReasoningResult"]
+
+    source -->|"read()"| pipeline
+    pipeline -->|"run(goal, observations)"| session
+    session --> result
+```
+
+`ObservationPipeline` is intentionally thin today — it performs no validation, preprocessing, enrichment, telemetry, or logging. Those concerns have a stable hook point here without duplicating pipeline logic inside `ReasoningSession`.
 
 ### Runs vs. the run registry
 
@@ -133,7 +148,7 @@ Keeping cataloging, listing, and reconstruction apart lets each evolve independe
 
 ### Observation sources
 
-`ObservationSource` is the application-layer boundary where external telemetry enters ODIS. It defines a minimal `read()` contract that returns an immutable tuple of observations — no streaming, async, callbacks, or session coupling. The reasoning engine depends on this interface, not on how observations are collected.
+`ObservationSource` is the application-layer boundary where external telemetry enters ODIS. It defines a minimal `read()` contract that returns an immutable tuple of observations — no streaming, async, callbacks, or session coupling. Integrations implement this interface in infrastructure; `ObservationPipeline` is the preferred application entry point that consumes it and hands observations to `ReasoningSession`.
 
 `StaticObservationSource` holds a fixed sequence copied at construction and returns the same tuple on every `read()`. Use it in tests and demos.
 
