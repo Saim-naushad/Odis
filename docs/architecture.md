@@ -127,6 +127,10 @@ flowchart TB
 
 Observation groups prepare ODIS for future reasoning across multiple measurement types from the same operational asset. Current reasoning still executes over one measurement type at a time.
 
+#### Measurement Index
+
+`MeasurementIndex` is an application-layer helper that organizes an `ObservationGroup` into a lookup map from `MeasurementType` to the ordered observations of that type. This enables future detectors to efficiently access grouped temperature, pressure, vibration, flow, and other measurements **without changing the domain model** (`Observation` remains a simple immutable record).
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
