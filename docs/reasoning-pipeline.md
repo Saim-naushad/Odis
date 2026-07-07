@@ -38,6 +38,8 @@ At the end of a successful run, the session can persist a `ReasoningRunIndex` â€
 
 Use `ReplayResult.from_execution` to bundle in-memory session output immediately after a run. Use `ReasoningReplayer` when the artifacts already exist in storage and you need a read-only view of what happened.
 
+**Comparison** (`ReasoningComparator.compare`) analyzes differences between two reconstructed executions. Replay reconstructs a single execution; comparison replays both runs and reports whether observation count, assessment, plan priority, or recommendation changed. It does not score, rank, or explain differences.
+
 ## Stage reference
 
 ### Observation
