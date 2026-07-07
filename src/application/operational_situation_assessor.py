@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from uuid import uuid4
 
+from application.relationship_analysis import RelationshipAnalysis
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
 from domain.entities.operational_situation import OperationalSituation
@@ -41,6 +42,7 @@ class OperationalSituationAssessor:
         observations: Sequence[Observation],
         trend: DetectedTrend,
         variation: DetectedVariation,
+        relationship_analysis: RelationshipAnalysis | None = None,
     ) -> OperationalSituation:
         if not observations:
             raise ValueError("at least one observation is required")
@@ -65,9 +67,20 @@ class OperationalSituationAssessor:
                     "as the detectors"
                 )
 
+        assessment = _assessment_from_signals(trend, variation)
+        if relationship_analysis is not None:
+            if relationship_analysis.contradictions:
+                assessment = (
+                    f"{assessment}\n\nCross-measurement inconsistencies detected."
+                )
+            elif relationship_analysis.correlations:
+                assessment = (
+                    f"{assessment}\n\nCross-measurement relationships detected."
+                )
+
         return OperationalSituation(
             id=str(uuid4()),
             goal_id=goal.id,
             observation_ids=tuple(observation.id for observation in ordered),
-            assessment=_assessment_from_signals(trend, variation),
+            assessment=assessment,
         )
