@@ -24,6 +24,9 @@ from infrastructure.repositories.observation_repository import (
 from infrastructure.repositories.reasoning_run_index_repository import (
     InMemoryReasoningRunIndexRepository,
 )
+from infrastructure.repositories.reasoning_run_registry_repository import (
+    InMemoryReasoningRunRegistryRepository,
+)
 from infrastructure.repositories.reasoning_run_repository import (
     InMemoryReasoningRunRepository,
 )
@@ -331,3 +334,67 @@ def test_reasoning_session_without_index_repository_is_unchanged() -> None:
     result = ReasoningSession().run(goal, observations)
 
     assert result.situation.assessment == "Increasing operational stress detected"
+
+
+def test_reasoning_session_registers_the_run_when_configured() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    reasoning_run_registry_repository = InMemoryReasoningRunRegistryRepository()
+
+    result = ReasoningSession(
+        reasoning_run_registry_repository=reasoning_run_registry_repository,
+    ).run(goal, observations)
+
+    entries = reasoning_run_registry_repository.list()
+
+    assert len(entries) == 1
+    assert entries[0].run_id == result.run.id
+    assert entries[0].started_at == result.run.started_at
+
+
+def test_reasoning_session_registers_runs_in_execution_order() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    reasoning_run_registry_repository = InMemoryReasoningRunRegistryRepository()
+    session = ReasoningSession(
+        reasoning_run_registry_repository=reasoning_run_registry_repository,
+    )
+
+    first_result = session.run(goal, observations)
+    second_result = session.run(goal, observations)
+
+    entries = reasoning_run_registry_repository.list()
+
+    assert tuple(entry.run_id for entry in entries) == (
+        first_result.run.id,
+        second_result.run.id,
+    )
+
+
+def test_duplicate_registry_run_id_propagates_failure() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    reasoning_run_registry_repository = InMemoryReasoningRunRegistryRepository()
+
+    with patch(
+        "application.reasoning_session.uuid4",
+        return_value="fixed-run-id",
+    ):
+        ReasoningSession(
+            reasoning_run_registry_repository=reasoning_run_registry_repository,
+        ).run(goal, observations)
+
+        with pytest.raises(ValueError, match="already registered"):
+            ReasoningSession(
+                reasoning_run_registry_repository=reasoning_run_registry_repository,
+            ).run(goal, observations)
+
+
+def test_reasoning_session_without_registry_is_unchanged() -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([32.0, 36.5, 41.0])
+
+    result = ReasoningSession().run(goal, observations)
+
+    assert result.situation.assessment == "Increasing operational stress detected"
+    assert result.run.id

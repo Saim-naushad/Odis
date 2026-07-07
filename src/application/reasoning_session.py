@@ -12,6 +12,10 @@ from application.reasoning_run_index import (
     ReasoningRunIndex,
     ReasoningRunIndexRepository,
 )
+from application.reasoning_run_registry import (
+    ReasoningRunRegistryEntry,
+    ReasoningRunRegistryRepository,
+)
 from application.record_action import record_action
 from application.record_outcome import record_outcome
 from application.trend_detector import TrendDetector
@@ -57,6 +61,9 @@ class ReasoningSession:
         decision_plan_repository: DecisionPlanRepository | None = None,
         reasoning_run_repository: ReasoningRunRepository | None = None,
         reasoning_run_index_repository: ReasoningRunIndexRepository | None = None,
+        reasoning_run_registry_repository: (
+            ReasoningRunRegistryRepository | None
+        ) = None,
         event_publisher: EventPublisher | None = None,
     ) -> None:
         self._observation_repository = observation_repository
@@ -65,6 +72,7 @@ class ReasoningSession:
         self._decision_plan_repository = decision_plan_repository
         self._reasoning_run_repository = reasoning_run_repository
         self._reasoning_run_index_repository = reasoning_run_index_repository
+        self._reasoning_run_registry_repository = reasoning_run_registry_repository
         self._event_publisher = event_publisher
 
     def run(
@@ -79,6 +87,14 @@ class ReasoningSession:
 
         if self._reasoning_run_repository is not None:
             self._reasoning_run_repository.save(run)
+
+        if self._reasoning_run_registry_repository is not None:
+            self._reasoning_run_registry_repository.add(
+                ReasoningRunRegistryEntry(
+                    run_id=run.id,
+                    started_at=run.started_at,
+                )
+            )
 
         for observation in observations:
             if self._event_publisher is not None:

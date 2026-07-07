@@ -106,6 +106,13 @@ The application layer defines **how operational reasoning is performed** by orch
 
 `ReasoningSession` optionally accepts repository interfaces. When configured, it persists domain records and the run itself as execution metadata before detectors execute. `ReasoningRun` is not a domain entity or event — it exists so executions have a durable identity for future replay and traceability.
 
+### Runs vs. the run registry
+
+Two complementary responsibilities keep execution metadata organized:
+
+- **`ReasoningRunRepository`** stores individual runs — the full metadata for a single execution, keyed by run id.
+- **`ReasoningRunRegistry`** catalogs all known executions. Each `ReasoningRunRegistryEntry` records only `run_id` and `started_at`, in insertion order. The registry is not a replay mechanism or a query engine; it simply records which executions exist so future historical browsing and replay have a stable starting point. When a registry is configured, `ReasoningSession` adds an entry immediately after creating (and optionally persisting) the run.
+
 Application components may validate input coherence (e.g., observations must share an asset) but should not embed domain invariants that belong on entities.
 
 ### What the application layer does not do
