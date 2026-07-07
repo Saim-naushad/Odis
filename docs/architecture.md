@@ -270,6 +270,14 @@ Context is distinct from **observations** (what was measured) and from **expecta
 
 `OperationalContextBuilder` is responsible for constructing `OperationalContext` instances. `ReasoningSession` uses it to produce the operational context for each run. Future implementations may derive context from evidence; the current builder is intentionally minimal and simply standardizes creation without inference, profile logic, or parsing.
 
+#### Operational Scenario
+
+`OperationalScenario` is an immutable application-layer value object that represents the **operating phase** of an asset — for example, startup, shutdown, steady-state, idle, or load-following. Each scenario has a human-readable `name` and a `description` that explains what phase is in effect.
+
+Scenarios provide context for **expectation selection**: the same telemetry may be interpreted differently depending on whether the asset is starting up, following load, or holding steady. Scenarios belong to **operational profiles** rather than the framework; profiles define the phases relevant to their domain rather than relying on a fixed catalog.
+
+Future expectation policies will evaluate behavior relative to scenarios so that declared expectations apply to the operating phase in which observations are interpreted.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
