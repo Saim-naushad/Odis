@@ -8,6 +8,7 @@ from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
 from application.observation_source import ObservationSource
 from application.operational_situation_assessor import OperationalSituationAssessor
+from application.planning_context import PlanningContext
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import (
     ReasoningRunIndex,
@@ -139,7 +140,8 @@ class ReasoningSession:
         if self._decision_context_repository is not None:
             self._decision_context_repository.save(context)
 
-        plan = DecisionPlanner().plan(context)
+        planning_context = PlanningContext.from_assessment(assessment_result.structured)
+        plan = DecisionPlanner().plan(context, planning_context=planning_context)
 
         if self._event_publisher is not None:
             self._event_publisher.publish(

@@ -152,6 +152,14 @@ In this educational project, a contradiction is not a statement that a combinati
 
 `StructuredAssessment` is an application-layer abstraction that provides a **machine-readable representation of the same evidence** already available during assessment (trend direction, variation level, and whether cross-measurement correlations or contradictions were detected). It adds no new reasoning, priorities, or recommendations, and it does not change the assessment text. This structured form exists to support future planners and analytics without rewriting the domain model.
 
+#### Planning Context
+
+`StructuredAssessment` describes operational reasoning: detector outputs and relationship facts that explain **what was observed** and **how it was assessed**.
+
+`PlanningContext` is derived from `StructuredAssessment` and exposes only **planning-relevant facts** needed at the boundary between operational reasoning and decision planning (for example, whether any cross-measurement relationships or contradictions exist). It intentionally contains no priorities, recommendations, investigation flags, policy, or additional reasoning.
+
+`DecisionPlanner` consumes an optional `PlanningContext`, but it currently **ignores it completely**. This is a dependency injection point: future planning policies can evolve behind `PlanningContext` without coupling the planner directly to detector outputs or changing operational assessment behavior.
+
 #### Measurement Index
 
 `MeasurementIndex` is an application-layer helper that organizes an `ObservationGroup` into a lookup map from `MeasurementType` to the ordered observations of that type. This enables future detectors to efficiently access grouped temperature, pressure, vibration, flow, and other measurements **without changing the domain model** (`Observation` remains a simple immutable record).

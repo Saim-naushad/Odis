@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from application.planning_context import PlanningContext
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.value_objects.priority import Priority
@@ -40,7 +41,12 @@ def _planning_outcome(
 
 
 class DecisionPlanner:
-    def plan(self, context: DecisionContext) -> DecisionPlan:
+    def plan(
+        self,
+        context: DecisionContext,
+        planning_context: PlanningContext | None = None,
+    ) -> DecisionPlan:
+        _ = planning_context
         priority, recommendation, justification = _planning_outcome(context.assessment)
 
         return DecisionPlan(
