@@ -36,3 +36,11 @@ def test_unknown_demo_name_produces_helpful_error(
     assert exc_info.value.code != 0
     captured = capsys.readouterr()
     assert "invalid choice" in captured.err.lower()
+
+
+def test_fuel_cell_demo_executes_successfully(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["demo", "fuel-cell"]) == 0
+    captured = capsys.readouterr()
+    assert "FuelCellOperationalProfile" in captured.out

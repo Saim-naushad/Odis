@@ -52,6 +52,15 @@ ODIS currently supports:
 - **Oscillating scenario** — demonstrates a known limitation where significant mid-sequence variation is classified as stable when first and last values match
 - **Deterministic explainable recommendations** — every plan includes an explicit justification string; no AI or machine learning is involved
 
+## Domain Profiles
+
+ODIS ships with multiple **operational profiles**:
+
+- **Default educational profile** — the baseline profile used in most examples.
+- **Fuel cell profile** — a representative profile that demonstrates how to add domain-specific operational knowledge through configuration.
+
+Profiles are **extension points**: they package domain-specific policies (for example, which cross-measurement relationships are worth evaluating) without changing detectors, planners, or the core reasoning pipeline.
+
 Run the unified demonstration to see all three scenarios:
 
 ```bash
@@ -123,6 +132,7 @@ Individual walkthroughs:
 odis demo heatwave
 odis demo stable
 odis demo oscillating
+odis demo fuel-cell
 ```
 
 Run reasoning from CSV:

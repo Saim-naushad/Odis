@@ -3,12 +3,13 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 
-DEMO_SCENARIOS = ("heatwave", "stable", "oscillating", "csv", "all")
+DEMO_SCENARIOS = ("heatwave", "stable", "oscillating", "csv", "fuel-cell", "all")
 
 
 def dispatch_demo(scenario: str) -> None:
     from odis.examples import (
         csv_demo,
+        fuel_cell_demo,
         heatwave_demo,
         oscillating_operations_demo,
         run_demo,
@@ -20,6 +21,7 @@ def dispatch_demo(scenario: str) -> None:
         "stable": stable_operations_demo.main,
         "oscillating": oscillating_operations_demo.main,
         "csv": csv_demo.main,
+        "fuel-cell": fuel_cell_demo.main,
         "all": run_demo.main,
     }
     runners[scenario]()
@@ -36,6 +38,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "  demo stable        Stable operations walkthrough\n"
             "  demo oscillating   Oscillating flow-rate walkthrough\n"
             "  demo csv           Run reasoning from a real CSV file\n"
+            "  demo fuel-cell     Fuel cell profile walkthrough\n"
             "  demo all           Run all scenarios with replay summaries"
         ),
     )

@@ -34,6 +34,7 @@ Other demos:
 odis demo heatwave
 odis demo stable
 odis demo oscillating
+odis demo fuel-cell
 ```
 
 Run reasoning from CSV:
@@ -44,6 +45,15 @@ odis demo csv
 
 This is the first demonstration that loads observations from a real ingestion example
 (a CSV file) instead of constructing them synthetically in code.
+
+## Domain Profiles
+
+ODIS includes multiple **operational profiles**:
+
+- **Default educational profile** — the baseline profile used in most examples.
+- **Fuel cell profile** — a representative profile that shows how to extend ODIS with domain-specific operational knowledge.
+
+Profiles are **extension points** for domain-specific operational knowledge, packaged as configuration and policies rather than changes to the core pipeline.
 
 ## 4. Your first ODIS program
 
