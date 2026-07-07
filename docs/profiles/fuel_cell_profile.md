@@ -43,13 +43,21 @@ Importantly, this change is achieved by adding a new profile and policy — **no
 
 `FuelCellExpectationEvaluator` is the first profile-owned expectation evaluator. It decides which evidence satisfies an engineering expectation and delegates the standardized result to the generic `ExpectationEvaluator`.
 
-Current implementation:
+Current implementation consumes `RelationshipAnalysis` — the aggregated output of correlation and contradiction detectors — rather than an externally supplied boolean:
 
 ```
-relationship detected
+RelationshipAnalysis
         ↓
-expectation considered satisfied
+profile maps evidence to satisfied / not satisfied / indeterminate
+        ↓
+ExpectationEvaluator produces standardized result
 ```
 
-When a declared relationship is found, the profile passes `satisfied=True`; when it is missing, `satisfied=False`. Future implementations may evaluate richer engineering evidence — for example, trend alignment, stability bounds, or multi-signal coherence — while keeping the same delegation pattern.
+This first version is intentionally generic:
+
+- **expected** when at least one correlation is present
+- **unexpected** when no correlations exist and at least one contradiction is present
+- **indeterminate** otherwise
+
+It does not inspect measurement names, observation values, or profile-specific heuristics. Future profile implementations will become more selective — for example, matching correlations to specific declared expectations, evaluating trend alignment, or checking multi-signal coherence — while keeping the same delegation pattern.
 

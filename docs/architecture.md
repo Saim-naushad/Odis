@@ -217,7 +217,7 @@ Future work will introduce expectation evaluation so that operational reasoning 
 
 Operational profiles are responsible for determining whether evidence satisfies an expectation. A profile inspects the available operational evidence — for example, whether a declared cross-measurement relationship was detected — and decides if that evidence meets the expectation. `ExpectationEvaluator` standardizes the result: it converts a deterministic boolean decision into a `ExpectationEvaluation` with one of three outcomes — **expected**, **unexpected**, or **indeterminate** — and a fixed explanation for each.
 
-`FuelCellExpectationEvaluator` is the first profile-driven bridge: it maps relationship detection (`relationship_found`) to the generic evaluator (`satisfied=True` or `satisfied=False`) without heuristics, thresholds, or detector logic. The reasoning pipeline does not invoke expectation evaluation today; profiles own the evidence decision, and the generic evaluator owns evaluation semantics.
+`FuelCellExpectationEvaluator` is the first profile-driven bridge: it consumes `RelationshipAnalysis` — correlations and contradictions aggregated by `RelationshipAnalyzer` — and maps that evidence to the generic evaluator (`satisfied=True`, `satisfied=False`, or `satisfied=None`) without heuristics, thresholds, or detector logic. Expectation evaluation now consumes actual relationship evidence rather than an externally supplied boolean. The reasoning pipeline does not invoke expectation evaluation today; profiles own the evidence decision, and the generic evaluator owns evaluation semantics.
 
 #### Expectation Analysis
 
