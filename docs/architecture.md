@@ -225,6 +225,12 @@ Operational profiles are responsible for determining whether evidence satisfies 
 
 Expectation reasoning is now part of the reasoning pipeline: each `ReasoningSession` run attaches an `ExpectationAnalysis` to `ReasoningResult`, and the corresponding flags flow into `StructuredAssessment`. Operational profiles may contribute evaluations in future; the current implementation initializes an empty analysis until profile integration is enabled. This object carries no profile knowledge, detector logic, or evaluator logic.
 
+#### Operational Context
+
+`OperationalContext` is an immutable application-layer value object that describes the **operational situation** in which reasoning occurs — a human-readable `description` plus an optional `operating_mode` and `objective` (for example, "Steady-state operation under increasing load", `steady_state`, `maximize_power`).
+
+Context is distinct from **observations** (what was measured) and from **expectations** (what should hold in normal operation): it captures the situational frame in which both are interpreted. It contains no logic and is not consumed by the reasoning pipeline today; it will become an input to future expectation evaluation, so that whether evidence satisfies an expectation can depend on the operating situation.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
