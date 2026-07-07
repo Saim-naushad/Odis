@@ -213,6 +213,12 @@ Expectations belong to **operational profiles**: they package domain-specific op
 
 Future work will introduce expectation evaluation so that operational reasoning can check whether telemetry and assessments align with declared expectations. This will build on the same profile-based configuration model already used for cross-measurement relationships.
 
+#### Expectation Evaluation
+
+`ExpectationEvaluator` is a standalone application-layer component that converts a deterministic boolean decision into a standardized `ExpectationEvaluation`. Expectations are evaluated **after** evidence exists: a caller supplies whether the observed behavior satisfies the expectation (`True`, `False`, or `None` when evidence is insufficient), and the evaluator returns one of three outcomes — **expected**, **unexpected**, or **indeterminate** — with a fixed explanation for each.
+
+No operational profile currently performs this evaluation. The reasoning pipeline does not invoke `ExpectationEvaluator` today. Future profile implementations will provide the evidence required for evaluation; the evaluator itself contains no heuristics, profile logic, domain knowledge, or relationship analysis.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
