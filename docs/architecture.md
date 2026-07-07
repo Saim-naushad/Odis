@@ -135,7 +135,9 @@ Keeping cataloging, listing, and reconstruction apart lets each evolve independe
 
 `ObservationSource` is the application-layer boundary where external telemetry enters ODIS. It defines a minimal `read()` contract that returns an immutable tuple of observations — no streaming, async, callbacks, or session coupling. The reasoning engine depends on this interface, not on how observations are collected.
 
-`StaticObservationSource` in infrastructure is the reference implementation: it holds a fixed sequence copied at construction and returns the same tuple on every `read()`. Use it in tests, demos, and as a template for future adapters (files, APIs, message buses).
+`StaticObservationSource` holds a fixed sequence copied at construction and returns the same tuple on every `read()`. Use it in tests and demos.
+
+`CsvObservationSource` is the first concrete integration adapter: it reads observations from a CSV file on each `read()` call and demonstrates how infrastructure implements `ObservationSource` for external telemetry (files today; MQTT, Kafka, OPC UA, and similar sources later).
 
 Application components may validate input coherence (e.g., observations must share an asset) but should not embed domain invariants that belong on entities.
 
