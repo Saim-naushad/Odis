@@ -42,6 +42,8 @@ Use `ReplayResult.from_execution` to bundle in-memory session output immediately
 
 Escalation analysis is a read-side capability built on replay and comparison. It does not perform operational reasoning or alter historical records.
 
+Stability analysis examines how operational assessment evolves between consecutive reasoning runs. It replays both runs and checks whether assessment text indicates conditions became more stable, less stable, or unchanged — using a simple substring rule on *"unstable"*. This is separate from escalation analysis, which tracks plan priority changes only.
+
 Recurrence analysis identifies whether operational situations have appeared previously using deterministic matching over reconstructed executions.
 
 ## Stage reference
