@@ -246,6 +246,12 @@ Expectation reasoning is now part of the reasoning pipeline: each `ReasoningSess
 
 Operational states are **derived from reasoning**: they express what the engine believes may be happening, not raw telemetry. They are distinct from **observations** (what was measured) and from **expectations** (what should hold in normal operation). In future, operational states will become input to hypothesis refinement; they are not wired into the pipeline today.
 
+#### Hypothesis
+
+A `Hypothesis` represents a **candidate explanation** supported by evidence. Each hypothesis references an `OperationalState` and includes a concise, human-readable rationale explaining why the hypothesis currently exists.
+
+Multiple hypotheses may coexist at once: operational evidence can support more than one plausible explanation. Future hypothesis refinement will eliminate hypotheses that become inconsistent as additional evidence is gathered.
+
 #### Operational Context
 
 `OperationalContext` is an immutable application-layer value object that describes the **operational situation** in which reasoning occurs — a human-readable `description` plus an optional `operating_mode` and `objective` (for example, "Steady-state operation under increasing load", `steady_state`, `maximize_power`).
