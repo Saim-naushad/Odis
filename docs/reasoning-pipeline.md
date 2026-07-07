@@ -24,7 +24,7 @@ flowchart TD
     action --> outcome
 ```
 
-The executable pipeline today runs from **Observation** through **DecisionPlan**. `Action` and `Outcome` exist as domain entities and complete the conceptual lifecycle, but no application component creates them yet.
+The executable pipeline today runs from **Observation** through **Outcome**. `Action` and `Outcome` records are created by application components during a run, completing the conceptual lifecycle, but they are not yet wired to external execution systems or closed-loop learning.
 
 Each `ReasoningSession.run()` also creates a `ReasoningRun` — application metadata with a unique id and start timestamp. When a `ReasoningRunRepository` is configured, the run is saved immediately (before detectors execute) so the execution has a durable identity. Runs are not domain events; they are bookkeeping for traceability and future replay.
 

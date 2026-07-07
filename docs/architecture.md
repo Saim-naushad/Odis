@@ -33,7 +33,7 @@ flowchart TB
     end
 
     subgraph infrastructure["Infrastructure layer"]
-        repositories["In-memory repositories"]
+        repositories["In-memory repositories\nand adapters"]
     end
 
     examples --> application
@@ -63,7 +63,7 @@ Odis/
 |----------|---------|
 | `src/domain/` | Entities, value objects, events, and repository interfaces. The stable center of the system. |
 | `src/application/` | Components that coordinate domain objects to perform operational reasoning. |
-| `src/infrastructure/` | Append-only repository implementations, observation source adapters, and future integrations for persistence, messaging, and external systems. |
+| `src/infrastructure/` | In-memory repository implementations, observation source adapters, and future integrations for persistence, messaging, and external systems. |
 | `src/shared/` | Future home for utilities shared across layers without polluting the domain. |
 | `examples/` | End-to-end demonstrations that wire application components together. |
 | `tests/` | Unit and integration specifications; builders reduce test setup noise. |

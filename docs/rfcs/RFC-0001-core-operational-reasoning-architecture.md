@@ -160,13 +160,13 @@ Outcome         (domain entity; not yet in executable pipeline)
 
 **DecisionPlan** — Decision. Produced by `DecisionPlanner`. Contains `priority`, `recommendation`, `justification`, and `context_id`. Placeholder planning rules map assessment text to deterministic outputs.
 
-**Action** — Record of what was done in response to a plan. Entity defined; no application component creates actions yet.
+**Action** — Record of what was done in response to a plan. Created by application components; persisted alongside other pipeline artifacts when repositories are configured.
 
-**Outcome** — Measured consequence of an action. Entity defined; closed-loop reasoning is future work.
+**Outcome** — Measured consequence of an action. Created by application components; closed-loop learning based on outcomes remains future work.
 
 ### Executable scope today
 
-The runnable pipeline spans **Observation** through **DecisionPlan**. Demos and integration tests exercise this path. `Action` and `Outcome` complete the conceptual lifecycle but are deferred.
+The runnable pipeline spans **Observation** through **Outcome**. Demos and integration tests exercise this path. Closed-loop reasoning that feeds outcomes back into future decisions is deferred.
 
 ---
 

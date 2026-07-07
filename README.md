@@ -202,17 +202,17 @@ Behavioral specifications for components and the full pipeline. Reusable builder
 
 ODIS is early-stage. Be aware of the following:
 
-- **Single-signal reasoning** — only trend detection is implemented. Variability, instability, and anomaly patterns are not yet modeled as separate signals.
+- **Limited multi-signal reasoning** — trend and variation detection are implemented; additional signal types (e.g., anomaly patterns, rate-of-change) are not yet modeled as separate signals.
 - **Placeholder planning rules** — the `DecisionPlanner` uses generic substring matching on assessment text. These are scaffolding, not production policy.
-- **No persistence** — repository interfaces exist, but no storage implementation is wired. All demos and tests run in memory.
-- **No real telemetry ingestion** — observations are constructed synthetically. There is no connector to SCADA, IoT platforms, or time-series databases.
-- **No actions or outcomes loop** — `Action` and `Outcome` entities exist in the domain model but are not yet part of the executable pipeline.
+- **In-memory persistence only** — repositories are implemented as in-memory stores. There is no durable database, message bus, or external storage adapter.
+- **Limited telemetry ingestion** — a CSV observation source is available, but there are no connectors to SCADA, IoT platforms, or time-series databases.
+- **No real-world actions or feedback loop** — `Action` and `Outcome` records are created in the executable pipeline, but they are not yet wired to external execution systems or closed-loop learning.
 
 ## Roadmap
 
 Planned direction (not committed deliverables):
 
-- **Multi-signal reasoning** — additional detectors (e.g., variability, rate-of-change) composed alongside trend analysis
+- **Richer multi-signal reasoning** — additional detectors (e.g., anomaly and rate-of-change signals) composed alongside existing trend and variation analysis
 - **Richer operational assessments** — assessments informed by multiple signals and operational goals
 - **Historical replay** — reconstruct decision chains from append-only records
 - **Production integrations** — persistence, telemetry ingestion, and industry-specific planning strategies behind stable interfaces
