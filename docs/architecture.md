@@ -131,6 +131,15 @@ Observation groups prepare ODIS for future reasoning across multiple measurement
 
 Correlation detectors reason across multiple measurement types by composing existing single-measurement detectors (for example, deriving a temperature trend and a pressure trend using `TrendDetector`, then comparing the results to emit a deterministic relationship).
 
+#### Contradiction detectors
+
+Contradiction detectors also compose single-measurement signals (for example, temperature and pressure trends), but they serve a different purpose:
+
+- **Correlation** describes an observed relationship between measurements.
+- **Contradiction** flags predefined combinations that appear operationally inconsistent and deserve additional review in context.
+
+In this educational project, a contradiction is not a statement that a combination is physically impossible or universally bad — it is simply a deterministic rule that highlights an investigation candidate.
+
 #### Measurement Index
 
 `MeasurementIndex` is an application-layer helper that organizes an `ObservationGroup` into a lookup map from `MeasurementType` to the ordered observations of that type. This enables future detectors to efficiently access grouped temperature, pressure, vibration, flow, and other measurements **without changing the domain model** (`Observation` remains a simple immutable record).
