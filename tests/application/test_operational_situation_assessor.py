@@ -1,3 +1,5 @@
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from application.contradiction_detector import OperationalContradiction
@@ -77,11 +79,15 @@ def test_assessment_mapping(
         level=level,
     )
 
-    situation = assessor.assess(goal, observations, trend, variation)
+    result = assessor.assess(goal, observations, trend, variation)
 
-    assert situation.assessment == expected_assessment
-    assert situation.goal_id == goal.id
-    assert situation.observation_ids == ("obs-0", "obs-1")
+    assert result.situation.assessment == expected_assessment
+    assert result.situation.goal_id == goal.id
+    assert result.situation.observation_ids == ("obs-0", "obs-1")
+    assert result.structured.trend_direction == direction
+    assert result.structured.variation_level == level
+    assert result.structured.has_correlations is False
+    assert result.structured.has_contradictions is False
 
 
 def test_mismatched_detector_asset_ids_are_rejected(
@@ -223,7 +229,7 @@ def test_relationship_correlations_enrich_assessment_text(
         contradictions=(),
     )
 
-    situation = assessor.assess(
+    result = assessor.assess(
         goal,
         observations,
         trend,
@@ -231,9 +237,11 @@ def test_relationship_correlations_enrich_assessment_text(
         relationship_analysis=relationship_analysis,
     )
 
-    assert situation.assessment == (
+    assert result.situation.assessment == (
         "Operational conditions stable\n\nCross-measurement relationships detected."
     )
+    assert result.structured.has_correlations is True
+    assert result.structured.has_contradictions is False
 
 
 def test_relationship_contradictions_enrich_assessment_text(
@@ -259,7 +267,7 @@ def test_relationship_contradictions_enrich_assessment_text(
         ),
     )
 
-    situation = assessor.assess(
+    result = assessor.assess(
         goal,
         observations,
         trend,
@@ -267,9 +275,11 @@ def test_relationship_contradictions_enrich_assessment_text(
         relationship_analysis=relationship_analysis,
     )
 
-    assert situation.assessment == (
+    assert result.situation.assessment == (
         "Operational conditions stable\n\nCross-measurement inconsistencies detected."
     )
+    assert result.structured.has_correlations is False
+    assert result.structured.has_contradictions is True
 
 
 def test_relationship_contradictions_take_precedence_over_correlations(
@@ -301,7 +311,7 @@ def test_relationship_contradictions_take_precedence_over_correlations(
         ),
     )
 
-    situation = assessor.assess(
+    result = assessor.assess(
         goal,
         observations,
         trend,
@@ -309,10 +319,14 @@ def test_relationship_contradictions_take_precedence_over_correlations(
         relationship_analysis=relationship_analysis,
     )
 
-    assert situation.assessment.endswith("Cross-measurement inconsistencies detected.")
-    assert (
-        "Cross-measurement relationships detected." not in situation.assessment
+    assert result.situation.assessment.endswith(
+        "Cross-measurement inconsistencies detected."
     )
+    assert (
+        "Cross-measurement relationships detected." not in result.situation.assessment
+    )
+    assert result.structured.has_correlations is True
+    assert result.structured.has_contradictions is True
 
 
 def test_validation_is_unchanged_when_relationship_analysis_is_provided(
@@ -343,3 +357,29 @@ def test_validation_is_unchanged_when_relationship_analysis_is_provided(
             variation,
             relationship_analysis=relationship_analysis,
         )
+
+
+def test_assessment_result_is_immutable(
+    assessor: OperationalSituationAssessor,
+) -> None:
+    goal = build_goal()
+    observations = build_observation_sequence([10, 20])
+    measurement_type = observations[0].measurement_type
+    trend = DetectedTrend(
+        direction=TrendDirection.STABLE,
+        asset_id="asset-1",
+        measurement_type=measurement_type,
+    )
+    variation = DetectedVariation(
+        asset_id="asset-1",
+        measurement_type=measurement_type,
+        level=VariationLevel.LOW,
+    )
+
+    result = assessor.assess(goal, observations, trend, variation)
+
+    with pytest.raises(FrozenInstanceError):
+        result.structured.has_correlations = True  # type: ignore[misc]
+
+    with pytest.raises(FrozenInstanceError):
+        result.situation = result.situation  # type: ignore[misc]

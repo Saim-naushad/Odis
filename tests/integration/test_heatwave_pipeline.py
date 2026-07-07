@@ -29,9 +29,10 @@ def test_heatwave_scenario_produces_increasing_operational_response() -> None:
 
     trend = TrendDetector().detect(observations)
     variation = VariationDetector().detect(observations)
-    situation = OperationalSituationAssessor().assess(
+    result = OperationalSituationAssessor().assess(
         goal, observations, trend, variation
     )
+    situation = result.situation
     context = create_decision_context(goal, situation)
     plan = DecisionPlanner().plan(context)
 

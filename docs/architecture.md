@@ -146,6 +146,12 @@ In this educational project, a contradiction is not a statement that a combinati
 
 `OperationalSituationAssessor` can optionally consume a precomputed `RelationshipAnalysis` as an **enrichment layer** over its existing single-measurement trend/variation mapping. When provided, the assessor appends relationship-related language to the assessment text while leaving priority, planning, decision context construction, and replay behavior unchanged. When omitted, the assessor behaves exactly as before.
 
+#### Structured Assessment
+
+`OperationalSituation` remains the domain snapshot: an immutable record that captures **what the system believed** about the operational state at a point in time, including the human-readable `assessment` text consumed by today’s placeholder planner.
+
+`StructuredAssessment` is an application-layer abstraction that provides a **machine-readable representation of the same evidence** already available during assessment (trend direction, variation level, and whether cross-measurement correlations or contradictions were detected). It adds no new reasoning, priorities, or recommendations, and it does not change the assessment text. This structured form exists to support future planners and analytics without rewriting the domain model.
+
 #### Measurement Index
 
 `MeasurementIndex` is an application-layer helper that organizes an `ObservationGroup` into a lookup map from `MeasurementType` to the ordered observations of that type. This enables future detectors to efficiently access grouped temperature, pressure, vibration, flow, and other measurements **without changing the domain model** (`Observation` remains a simple immutable record).

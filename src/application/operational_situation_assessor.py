@@ -1,7 +1,9 @@
 from collections.abc import Sequence
+from dataclasses import dataclass
 from uuid import uuid4
 
 from application.relationship_analysis import RelationshipAnalysis
+from application.structured_assessment import StructuredAssessment
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
 from domain.entities.operational_situation import OperationalSituation
@@ -35,6 +37,12 @@ def _assessment_from_signals(
             raise ValueError("unrecognized signal combination")
 
 
+@dataclass(frozen=True)
+class AssessmentResult:
+    situation: OperationalSituation
+    structured: StructuredAssessment
+
+
 class OperationalSituationAssessor:
     def assess(
         self,
@@ -43,7 +51,7 @@ class OperationalSituationAssessor:
         trend: DetectedTrend,
         variation: DetectedVariation,
         relationship_analysis: RelationshipAnalysis | None = None,
-    ) -> OperationalSituation:
+    ) -> AssessmentResult:
         if not observations:
             raise ValueError("at least one observation is required")
 
@@ -78,9 +86,18 @@ class OperationalSituationAssessor:
                     f"{assessment}\n\nCross-measurement relationships detected."
                 )
 
-        return OperationalSituation(
+        situation = OperationalSituation(
             id=str(uuid4()),
             goal_id=goal.id,
             observation_ids=tuple(observation.id for observation in ordered),
             assessment=assessment,
+        )
+        structured = StructuredAssessment.from_reasoning(
+            trend,
+            variation,
+            relationship_analysis=relationship_analysis,
+        )
+        return AssessmentResult(
+            situation=situation,
+            structured=structured,
         )

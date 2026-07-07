@@ -112,9 +112,10 @@ class ReasoningSession:
 
         trend = TrendDetector().detect(observations)
         variation = VariationDetector().detect(observations)
-        situation = OperationalSituationAssessor().assess(
+        assessment_result = OperationalSituationAssessor().assess(
             goal, observations, trend, variation
         )
+        situation = assessment_result.situation
 
         if self._event_publisher is not None:
             self._event_publisher.publish(
