@@ -123,6 +123,18 @@ flowchart TB
 
 `ObservationPipeline` is intentionally thin today — it performs no validation, preprocessing, enrichment, telemetry, or logging. Those concerns have a stable hook point here without duplicating pipeline logic inside `ReasoningSession`.
 
+### Monitoring Session
+
+`ReasoningSession` performs **one** full reasoning cycle over a single observation snapshot: observations in, result out.
+
+`MonitoringSession` is an application-layer coordinator that performs **multiple** reasoning cycles over multiple snapshots, in order, by repeatedly invoking the existing `ObservationPipeline` — without polling, sleeping, scheduling, async, or background work.
+
+Conceptually:
+
+Snapshot 1 → Reason → Snapshot 2 → Reason → Snapshot 3 → Reason
+
+This abstraction is the foundation for future continuous/streaming integrations: those systems can focus on how snapshots arrive over time while reusing the same per-snapshot reasoning pipeline unchanged.
+
 ### Observation groups
 
 Observation groups prepare ODIS for future reasoning across multiple measurement types from the same operational asset. Current reasoning still executes over one measurement type at a time.
