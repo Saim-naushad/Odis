@@ -123,6 +123,10 @@ flowchart TB
 
 `ObservationPipeline` is intentionally thin today — it performs no validation, preprocessing, enrichment, telemetry, or logging. Those concerns have a stable hook point here without duplicating pipeline logic inside `ReasoningSession`.
 
+### Observation groups
+
+Observation groups prepare ODIS for future reasoning across multiple measurement types from the same operational asset. Current reasoning still executes over one measurement type at a time.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
