@@ -127,6 +127,8 @@ Keeping cataloging, listing, and reconstruction apart lets each evolve independe
 
 `OperationalSummaryService` is a read-side composition service for operators. It assembles a single `OperationalSummary` for a run by replaying persisted artifacts and delegating to existing analytics — recurrence, escalation, and stability analysis. It does not perform new reasoning, persist data, or duplicate replay or analysis logic; it orchestrates `ReasoningReplayer`, `ReasoningHistory`, and the analyzer services into one operator-friendly view.
 
+`AttentionQueue` is the first operator-oriented prioritization service built on operational summary. It ranks reasoning runs by a transparent, deterministic attention score derived from priority, recurrence, and escalation — reusing `OperationalSummaryService` and `ReasoningHistory` without duplicating replay or analytics logic.
+
 Application components may validate input coherence (e.g., observations must share an asset) but should not embed domain invariants that belong on entities.
 
 ### What the application layer does not do
