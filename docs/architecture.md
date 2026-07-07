@@ -219,6 +219,12 @@ Operational profiles are responsible for determining whether evidence satisfies 
 
 `FuelCellExpectationEvaluator` is the first profile-driven bridge: it maps relationship detection (`relationship_found`) to the generic evaluator (`satisfied=True` or `satisfied=False`) without heuristics, thresholds, or detector logic. The reasoning pipeline does not invoke expectation evaluation today; profiles own the evidence decision, and the generic evaluator owns evaluation semantics.
 
+#### Expectation Analysis
+
+`ExpectationAnalysis` aggregates individual `ExpectationEvaluation` results into a single immutable snapshot of expectation reasoning. It exposes deterministic counts and flags — how many expectations were expected, unexpected, or indeterminate — derived purely from the evaluation tuple.
+
+This object is consumed by future assessment components; it carries no profile knowledge, detector logic, or evaluator logic. The reasoning pipeline does not produce or consume `ExpectationAnalysis` today.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
