@@ -1,8 +1,11 @@
 from dataclasses import dataclass
 
 from application.observation_group import ObservationGroup
+from application.relationship_policy import (
+    DefaultRelationshipPolicy,
+    RelationshipPolicy,
+)
 from application.trend_detector import TrendDetector
-from domain.value_objects.measurement_type import MeasurementType
 from domain.value_objects.trend_direction import TrendDirection
 
 
@@ -12,33 +15,45 @@ class OperationalContradiction:
 
 
 class ContradictionDetector:
-    def __init__(self, *, trend_detector: TrendDetector | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        trend_detector: TrendDetector | None = None,
+        policy: RelationshipPolicy | None = None,
+    ) -> None:
         self._trend_detector = trend_detector or TrendDetector()
+        self._policy = policy or DefaultRelationshipPolicy()
 
     def detect(self, group: ObservationGroup) -> tuple[OperationalContradiction, ...]:
-        temperature = MeasurementType(name="temperature")
-        pressure = MeasurementType(name="pressure")
+        contradictions: list[OperationalContradiction] = []
 
-        temperature_observations = group.measurements.get(temperature)
-        pressure_observations = group.measurements.get(pressure)
+        for rule in self._policy.contradiction_rules():
+            measurement_a = rule.measurement_a
+            measurement_b = rule.measurement_b
 
-        if len(temperature_observations) < 2 or len(pressure_observations) < 2:
-            return ()
+            observations_a = group.measurements.get(measurement_a)
+            observations_b = group.measurements.get(measurement_b)
 
-        temperature_trend = self._trend_detector.detect(temperature_observations)
-        pressure_trend = self._trend_detector.detect(pressure_observations)
+            if len(observations_a) < 2 or len(observations_b) < 2:
+                continue
 
-        if (
-            temperature_trend.direction == TrendDirection.INCREASING
-            and pressure_trend.direction == TrendDirection.INCREASING
-        ):
-            return (
-                OperationalContradiction(
-                    description=(
-                        "Temperature and pressure are increasing simultaneously."
+            trend_a = self._trend_detector.detect(observations_a)
+            trend_b = self._trend_detector.detect(observations_b)
+
+            if (
+                trend_a.direction == TrendDirection.INCREASING
+                and trend_b.direction == TrendDirection.INCREASING
+            ):
+                a_label = measurement_a.name.replace("_", " ").capitalize()
+                b_label = measurement_b.name.replace("_", " ").lower()
+                description = (
+                    f"{a_label} and {b_label} are increasing simultaneously."
+                )
+                contradictions.append(
+                    OperationalContradiction(
+                        description=description
                     )
-                ),
-            )
+                )
 
-        return ()
+        return tuple(contradictions)
 

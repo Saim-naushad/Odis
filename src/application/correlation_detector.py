@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 
 from application.observation_group import ObservationGroup
+from application.relationship_policy import (
+    DefaultRelationshipPolicy,
+    RelationshipPolicy,
+)
 from application.trend_detector import TrendDetector
 from domain.value_objects.measurement_type import MeasurementType
 from domain.value_objects.trend_direction import TrendDirection
@@ -14,33 +18,44 @@ class MeasurementCorrelation:
 
 
 class CorrelationDetector:
-    def __init__(self, *, trend_detector: TrendDetector | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        trend_detector: TrendDetector | None = None,
+        policy: RelationshipPolicy | None = None,
+    ) -> None:
         self._trend_detector = trend_detector or TrendDetector()
+        self._policy = policy or DefaultRelationshipPolicy()
 
     def detect(self, group: ObservationGroup) -> tuple[MeasurementCorrelation, ...]:
-        temperature = MeasurementType(name="temperature")
-        pressure = MeasurementType(name="pressure")
+        correlations: list[MeasurementCorrelation] = []
 
-        temperature_observations = group.measurements.get(temperature)
-        pressure_observations = group.measurements.get(pressure)
+        for rule in self._policy.correlation_rules():
+            measurement_a = rule.measurement_a
+            measurement_b = rule.measurement_b
 
-        if len(temperature_observations) < 2 or len(pressure_observations) < 2:
-            return ()
+            observations_a = group.measurements.get(measurement_a)
+            observations_b = group.measurements.get(measurement_b)
 
-        temperature_trend = self._trend_detector.detect(temperature_observations)
-        pressure_trend = self._trend_detector.detect(pressure_observations)
+            if len(observations_a) < 2 or len(observations_b) < 2:
+                continue
 
-        if (
-            temperature_trend.direction == TrendDirection.INCREASING
-            and pressure_trend.direction == TrendDirection.DECREASING
-        ):
-            return (
-                MeasurementCorrelation(
-                    measurement_a=temperature,
-                    measurement_b=pressure,
-                    relationship="Temperature increasing while pressure decreasing",
-                ),
-            )
+            trend_a = self._trend_detector.detect(observations_a)
+            trend_b = self._trend_detector.detect(observations_b)
 
-        return ()
+            if (
+                trend_a.direction == TrendDirection.INCREASING
+                and trend_b.direction == TrendDirection.DECREASING
+            ):
+                a_label = measurement_a.name.replace("_", " ").capitalize()
+                b_label = measurement_b.name.replace("_", " ").lower()
+                correlations.append(
+                    MeasurementCorrelation(
+                        measurement_a=measurement_a,
+                        measurement_b=measurement_b,
+                        relationship=f"{a_label} increasing while {b_label} decreasing",
+                    )
+                )
+
+        return tuple(correlations)
 

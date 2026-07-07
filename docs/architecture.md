@@ -131,6 +131,8 @@ Observation groups prepare ODIS for future reasoning across multiple measurement
 
 Correlation detectors reason across multiple measurement types by composing existing single-measurement detectors (for example, deriving a temperature trend and a pressure trend using `TrendDetector`, then comparing the results to emit a deterministic relationship).
 
+Relationship policies define **which measurement relationships are evaluated** (for example, which measurement pairs should be checked for correlation or contradiction). Detectors define **how those relationships are evaluated** (for example, comparing trend directions and emitting a deterministic description). This keeps domain-specific operational knowledge configurable without embedding equipment-specific assumptions directly into detector logic.
+
 #### Contradiction detectors
 
 Contradiction detectors also compose single-measurement signals (for example, temperature and pressure trends), but they serve a different purpose:
