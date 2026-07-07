@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from application.monitoring_timeline import MonitoringTimeline
 from application.observation_pipeline import ObservationPipeline
 from application.observation_source import ObservationSource
 from application.reasoning_session import ReasoningResult, ReasoningSession
@@ -8,7 +9,11 @@ from domain.entities.operational_goal import OperationalGoal
 
 @dataclass(frozen=True)
 class MonitoringResult:
-    runs: tuple[ReasoningResult, ...]
+    timeline: MonitoringTimeline
+
+    @property
+    def runs(self) -> tuple[ReasoningResult, ...]:
+        return self.timeline.runs
 
 
 class MonitoringSession:
@@ -23,7 +28,7 @@ class MonitoringSession:
         goal: OperationalGoal,
         sources: tuple[ObservationSource, ...],
     ) -> MonitoringResult:
-        runs: list[ReasoningResult] = []
+        timeline = MonitoringTimeline()
         for source in sources:
-            runs.append(self._pipeline.process(goal, source))
-        return MonitoringResult(runs=tuple(runs))
+            timeline = timeline.append(self._pipeline.process(goal, source))
+        return MonitoringResult(timeline=timeline)

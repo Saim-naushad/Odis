@@ -135,6 +135,16 @@ Snapshot 1 → Reason → Snapshot 2 → Reason → Snapshot 3 → Reason
 
 This abstraction is the foundation for future continuous/streaming integrations: those systems can focus on how snapshots arrive over time while reusing the same per-snapshot reasoning pipeline unchanged.
 
+#### Timeline vs. history vs. replay
+
+Monitoring introduces an **ordered sequence of runs** produced within one `MonitoringSession`. These runs are represented by an immutable `MonitoringTimeline`.
+
+This is intentionally distinct from other execution concepts:
+
+- **Replay** reconstructs one reasoning execution from persisted artifacts.
+- **History** lists persisted executions across time (a read API over the run registry and repositories).
+- **Timeline** represents ordered monitoring cycles within a single monitoring session (newest/previous/count convenience, no persistence, no analytics).
+
 ### Observation groups
 
 Observation groups prepare ODIS for future reasoning across multiple measurement types from the same operational asset. Current reasoning still executes over one measurement type at a time.

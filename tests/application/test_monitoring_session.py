@@ -5,6 +5,7 @@ from dataclasses import FrozenInstanceError, dataclass, field
 import pytest
 
 from application.monitoring_session import MonitoringResult, MonitoringSession
+from application.monitoring_timeline import MonitoringTimeline
 from application.observation_pipeline import ObservationPipeline
 from application.observation_source import ObservationSource
 from application.reasoning_session import ReasoningResult, ReasoningSession
@@ -48,7 +49,8 @@ def test_process_zero_sources() -> None:
 
     result = session.process(goal, ())
 
-    assert result == MonitoringResult(runs=())
+    assert result == MonitoringResult(timeline=MonitoringTimeline(runs=()))
+    assert result.runs == ()
 
 
 def test_process_one_source() -> None:
@@ -60,6 +62,7 @@ def test_process_one_source() -> None:
 
     result = session.process(goal, (source,))
 
+    assert result.timeline.count() == 1
     assert len(result.runs) == 1
     assert source.read_count == 1
 
@@ -80,6 +83,7 @@ def test_process_multiple_sources_preserves_order_and_calls_pipeline_once() -> N
 
     result = session.process(goal, sources)
 
+    assert result.timeline.runs == (expected_first, expected_second)
     assert result.runs == (expected_first, expected_second)
     assert len(fake_pipeline.calls) == 2
     assert fake_pipeline.calls[0][1] is sources[0]
@@ -89,10 +93,10 @@ def test_process_multiple_sources_preserves_order_and_calls_pipeline_once() -> N
 def test_monitoring_result_is_immutable() -> None:
     observations = tuple(build_observation_sequence([1.0, 2.0]))
     single_run = ReasoningSession().run(build_goal(), observations)
-    result = MonitoringResult(runs=(single_run,))
+    result = MonitoringResult(timeline=MonitoringTimeline(runs=(single_run,)))
 
     with pytest.raises(FrozenInstanceError):
-        result.runs = ()  # type: ignore[misc]
+        result.timeline = MonitoringTimeline()  # type: ignore[misc]
 
     with pytest.raises(TypeError):
-        result.runs[0] = single_run  # type: ignore[index]
+        result.timeline.runs[0] = single_run  # type: ignore[index]
