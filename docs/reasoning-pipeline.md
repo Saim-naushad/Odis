@@ -28,7 +28,15 @@ The executable pipeline today runs from **Observation** through **DecisionPlan**
 
 Each `ReasoningSession.run()` also creates a `ReasoningRun` — application metadata with a unique id and start timestamp. When a `ReasoningRunRepository` is configured, the run is saved immediately (before detectors execute) so the execution has a durable identity. Runs are not domain events; they are bookkeeping for traceability and future replay.
 
-At the end of a successful run, the session can persist a `ReasoningRunIndex` — an immutable snapshot that correlates the run id with every artifact id produced during that execution (observations, situation, context, plan, action, and outcome). This index is application metadata stored separately from domain entities, so a future replay component can resolve which artifacts belong to a run without recomputing the pipeline or adding run ids to domain records.
+At the end of a successful run, the session can persist a `ReasoningRunIndex` — an immutable snapshot that correlates the run id with every artifact id produced during that execution (observations, situation, context, plan, action, and outcome). This index is application metadata stored separately from domain entities, so a replay component can resolve which artifacts belong to a run without recomputing the pipeline or adding run ids to domain records.
+
+## Reasoning vs. replay
+
+**Reasoning** (`ReasoningSession.run`) executes the pipeline: detectors derive signals, the assessor forms a situation, the planner produces a recommendation, and configured repositories persist each artifact as it is created. Events may be published along the way. This path creates new records.
+
+**Replay** (`ReasoningReplayer.replay`) reconstructs a completed run from persisted records only. It loads the `ReasoningRun`, resolves artifact ids through `ReasoningRunIndex`, and fetches observations, situation, context, and plan from their repositories. It does not invoke detectors, assessors, or planners; it does not publish events or write to storage. Signals (`DetectedTrend`, `DetectedVariation`) are not persisted today, so replay omits them rather than recomputing.
+
+Use `ReplayResult.from_execution` to bundle in-memory session output immediately after a run. Use `ReasoningReplayer` when the artifacts already exist in storage and you need a read-only view of what happened.
 
 ## Stage reference
 
