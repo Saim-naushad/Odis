@@ -6,6 +6,7 @@ from uuid import uuid4
 from application.create_decision_context import create_decision_context
 from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
+from application.observation_source import ObservationSource
 from application.operational_situation_assessor import OperationalSituationAssessor
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import (
@@ -176,3 +177,10 @@ class ReasoningSession:
             action=action,
             outcome=outcome,
         )
+
+    def run_from_source(
+        self,
+        goal: OperationalGoal,
+        source: ObservationSource,
+    ) -> ReasoningResult:
+        return self.run(goal, source.read())

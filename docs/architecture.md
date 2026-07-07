@@ -106,6 +106,8 @@ The application layer defines **how operational reasoning is performed** by orch
 
 `ReasoningSession` optionally accepts repository interfaces. When configured, it persists domain records and the run itself as execution metadata before detectors execute. `ReasoningRun` is not a domain entity or event — it exists so executions have a durable identity for future replay and traceability.
 
+`run()` is the core orchestration API: it accepts a goal and an observation sequence and executes the full pipeline. `run_from_source()` is a convenience entry point for external integrations — it reads observations from an `ObservationSource` and delegates to `run()`. Both methods execute the identical reasoning pipeline; `run_from_source()` adds no separate persistence, event, or detector logic.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
