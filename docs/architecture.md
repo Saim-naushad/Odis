@@ -140,6 +140,10 @@ Contradiction detectors also compose single-measurement signals (for example, te
 
 In this educational project, a contradiction is not a statement that a combination is physically impossible or universally bad — it is simply a deterministic rule that highlights an investigation candidate.
 
+#### Relationship Analysis
+
+`RelationshipAnalyzer` is an application-layer façade that aggregates multiple cross-measurement detectors into a single immutable `RelationshipAnalysis` result. It composes the existing `CorrelationDetector` and `ContradictionDetector` without duplicating their logic or interpreting their outputs, giving future operational assessment a single abstraction for cross-measurement reasoning rather than depending on individual detector types.
+
 #### Measurement Index
 
 `MeasurementIndex` is an application-layer helper that organizes an `ObservationGroup` into a lookup map from `MeasurementType` to the ordered observations of that type. This enables future detectors to efficiently access grouped temperature, pressure, vibration, flow, and other measurements **without changing the domain model** (`Observation` remains a simple immutable record).
