@@ -21,6 +21,8 @@ def _assessment(
         variation_level=VariationLevel.LOW,
         has_correlations=has_correlations,
         has_contradictions=has_contradictions,
+        has_unexpected_expectations=False,
+        has_indeterminate_expectations=False,
     )
 
 

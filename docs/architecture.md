@@ -191,7 +191,7 @@ In this educational project, a contradiction is not a statement that a combinati
 
 `OperationalSituation` remains the domain snapshot: an immutable record that captures **what the system believed** about the operational state at a point in time, including the human-readable `assessment` text consumed by today’s placeholder planner.
 
-`StructuredAssessment` is an application-layer abstraction that provides a **machine-readable representation of the same evidence** already available during assessment (trend direction, variation level, and whether cross-measurement correlations or contradictions were detected). It adds no new reasoning, priorities, or recommendations, and it does not change the assessment text. This structured form exists to support future planners and analytics without rewriting the domain model.
+`StructuredAssessment` is an application-layer abstraction that provides a **machine-readable representation of the same evidence** already available during assessment (trend direction, variation level, whether cross-measurement correlations or contradictions were detected, and whether any expectations were unexpected or indeterminate). It adds no new reasoning, priorities, or recommendations, and it does not change the assessment text. This structured form exists to support future planners and analytics without rewriting the domain model.
 
 #### Planning Context
 
@@ -223,7 +223,7 @@ Operational profiles are responsible for determining whether evidence satisfies 
 
 `ExpectationAnalysis` aggregates individual `ExpectationEvaluation` results into a single immutable snapshot of expectation reasoning. It exposes deterministic counts and flags — how many expectations were expected, unexpected, or indeterminate — derived purely from the evaluation tuple.
 
-This object is consumed by future assessment components; it carries no profile knowledge, detector logic, or evaluator logic. The reasoning pipeline does not produce or consume `ExpectationAnalysis` today.
+Expectation reasoning is now part of the reasoning pipeline: each `ReasoningSession` run attaches an `ExpectationAnalysis` to `ReasoningResult`, and the corresponding flags flow into `StructuredAssessment`. Operational profiles may contribute evaluations in future; the current implementation initializes an empty analysis until profile integration is enabled. This object carries no profile knowledge, detector logic, or evaluator logic.
 
 ### Runs vs. the run registry
 

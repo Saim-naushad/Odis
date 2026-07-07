@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from application.event_publisher import InMemoryEventPublisher
+from application.expectation_analysis import ExpectationAnalysis
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import ReasoningRunIndex
 from application.reasoning_session import ReasoningSession
@@ -52,6 +53,12 @@ def test_reasoning_session_runs_the_operational_pipeline() -> None:
     assert result.outcome.action_id == result.action.id
     assert result.run.id
     assert result.run.started_at.tzinfo is not None
+    assert isinstance(result.expectation_analysis, ExpectationAnalysis)
+    assert result.expectation_analysis.expected_count == 0
+    assert result.expectation_analysis.unexpected_count == 0
+    assert result.expectation_analysis.indeterminate_count == 0
+    assert result.expectation_analysis.has_unexpected is False
+    assert result.expectation_analysis.has_indeterminate is False
 
 
 def test_each_call_creates_a_unique_run_id() -> None:

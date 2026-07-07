@@ -1,11 +1,12 @@
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from application.create_decision_context import create_decision_context
 from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
+from application.expectation_analysis import ExpectationAnalysis
 from application.observation_source import ObservationSource
 from application.operational_profile import OperationalProfile
 from application.operational_situation_assessor import OperationalSituationAssessor
@@ -55,6 +56,7 @@ class ReasoningResult:
     action: Action
     outcome: Outcome
     trace: ReasoningTrace
+    expectation_analysis: ExpectationAnalysis
 
 
 class ReasoningSession:
@@ -143,7 +145,13 @@ class ReasoningSession:
         if self._decision_context_repository is not None:
             self._decision_context_repository.save(context)
 
-        planning_context = PlanningContext.from_assessment(assessment_result.structured)
+        expectation_analysis = ExpectationAnalysis(evaluations=())
+        structured = replace(
+            assessment_result.structured,
+            has_unexpected_expectations=expectation_analysis.has_unexpected,
+            has_indeterminate_expectations=expectation_analysis.has_indeterminate,
+        )
+        planning_context = PlanningContext.from_assessment(structured)
         plan = DecisionPlanner().plan(context, planning_context=planning_context)
 
         if self._event_publisher is not None:
@@ -222,6 +230,7 @@ class ReasoningSession:
             action=action,
             outcome=outcome,
             trace=trace,
+            expectation_analysis=expectation_analysis,
         )
 
     def run_from_source(
