@@ -146,6 +146,12 @@ Keeping cataloging, listing, and reconstruction apart lets each evolve independe
 
 `AttentionQueue` is the first operator-oriented prioritization service built on operational summary. It ranks reasoning runs by a transparent, deterministic attention score derived from priority, recurrence, and escalation — reusing `OperationalSummaryService` and `ReasoningHistory` without duplicating replay or analytics logic.
 
+### Reasoning trace
+
+`ReasoningTrace` is a **presentation artifact** attached to each `ReasoningResult`. It is an ordered, immutable list of `TraceStep` records — a name and a one-sentence description — that explains how a reasoning session progressed through its stages (observations loaded, trend and variation detected, situation assessed, context created, plan produced, action and outcome recorded).
+
+The trace exists for demos, debugging, and future visualization. It is deterministic and presentation-friendly, and is intentionally distinct from other concerns: it does not duplicate domain **events**, it does not replace **replay** (reconstruction from persisted artifacts), and it carries no timestamps, ids, or mutable state. It is simply a structured explanation of the reasoning flow, not a log or an event stream.
+
 ### Observation sources
 
 `ObservationSource` is the application-layer boundary where external telemetry enters ODIS. It defines a minimal `read()` contract that returns an immutable tuple of observations — no streaming, async, callbacks, or session coupling. Integrations implement this interface in infrastructure; `ObservationPipeline` is the preferred application entry point that consumes it and hands observations to `ReasoningSession`.

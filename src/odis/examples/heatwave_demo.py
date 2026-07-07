@@ -4,6 +4,7 @@ from application import InMemoryEventPublisher, ReasoningSession
 from application.event_publisher import DomainEvent
 from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningResult
+from application.reasoning_trace import ReasoningTrace
 from domain.entities import Asset, Observation, OperationalGoal
 from domain.entities.action import Action
 from domain.entities.decision_context import DecisionContext
@@ -80,6 +81,13 @@ def print_outcome(outcome: Outcome) -> None:
     print()
 
 
+def print_trace(trace: ReasoningTrace) -> None:
+    print_stage("8. Reasoning Trace")
+    for step in trace.steps:
+        print(f"\u2713 {step.name}")
+    print()
+
+
 def main() -> tuple[ReasoningResult, tuple[Observation, ...], tuple[DomainEvent, ...]]:
     asset = Asset(
         id="transformer-t-12",
@@ -138,6 +146,7 @@ def main() -> tuple[ReasoningResult, tuple[Observation, ...], tuple[DomainEvent,
     print_decision(result.plan, result.context)
     print_action(result.action)
     print_outcome(result.outcome)
+    print_trace(result.trace)
 
     return result, observations, publisher.events
 

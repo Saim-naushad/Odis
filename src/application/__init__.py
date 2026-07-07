@@ -6,6 +6,7 @@ from application.operational_situation_assessor import OperationalSituationAsses
 from application.reasoning_replay import ReplayResult
 from application.reasoning_run import ReasoningRun
 from application.reasoning_session import ReasoningResult, ReasoningSession
+from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.record_action import record_action
 from application.record_outcome import record_outcome
 from application.trend_detector import TrendDetector
@@ -19,7 +20,9 @@ __all__ = [
     "ReasoningResult",
     "ReasoningRun",
     "ReasoningSession",
+    "ReasoningTrace",
     "ReplayResult",
+    "TraceStep",
     "TrendDetector",
     "VariationDetector",
     "create_decision_context",

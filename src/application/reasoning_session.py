@@ -17,6 +17,7 @@ from application.reasoning_run_registry import (
     ReasoningRunRegistryEntry,
     ReasoningRunRegistryRepository,
 )
+from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.record_action import record_action
 from application.record_outcome import record_outcome
 from application.trend_detector import TrendDetector
@@ -51,6 +52,7 @@ class ReasoningResult:
     plan: DecisionPlan
     action: Action
     outcome: Outcome
+    trace: ReasoningTrace
 
 
 class ReasoningSession:
@@ -167,6 +169,43 @@ class ReasoningSession:
                 )
             )
 
+        trace = ReasoningTrace(
+            steps=(
+                TraceStep(
+                    name="Observations Loaded",
+                    description="Incoming observations were received for reasoning.",
+                ),
+                TraceStep(
+                    name="Trend Detected",
+                    description="A directional trend was derived from the readings.",
+                ),
+                TraceStep(
+                    name="Variation Detected",
+                    description="The variability of the observations was measured.",
+                ),
+                TraceStep(
+                    name="Situation Assessed",
+                    description="Signals and goal were combined into a situation.",
+                ),
+                TraceStep(
+                    name="Decision Context Created",
+                    description="A decision context snapshotted the planner inputs.",
+                ),
+                TraceStep(
+                    name="Decision Planned",
+                    description="A decision plan was produced from the context.",
+                ),
+                TraceStep(
+                    name="Action Recorded",
+                    description="An action was recorded from the decision plan.",
+                ),
+                TraceStep(
+                    name="Outcome Recorded",
+                    description="An outcome was recorded from the action.",
+                ),
+            )
+        )
+
         return ReasoningResult(
             run=run,
             trend=trend,
@@ -176,6 +215,7 @@ class ReasoningSession:
             plan=plan,
             action=action,
             outcome=outcome,
+            trace=trace,
         )
 
     def run_from_source(
