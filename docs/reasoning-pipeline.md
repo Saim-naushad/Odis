@@ -42,6 +42,8 @@ Use `ReplayResult.from_execution` to bundle in-memory session output immediately
 
 Escalation analysis is a read-side capability built on replay and comparison. It does not perform operational reasoning or alter historical records.
 
+Recurrence analysis identifies whether operational situations have appeared previously using deterministic matching over reconstructed executions.
+
 ## Stage reference
 
 ### Observation
