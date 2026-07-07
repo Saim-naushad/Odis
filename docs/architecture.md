@@ -240,6 +240,12 @@ Operational profiles are responsible for determining whether evidence satisfies 
 
 Expectation reasoning is now part of the reasoning pipeline: each `ReasoningSession` run attaches an `ExpectationAnalysis` to `ReasoningResult`, and the corresponding flags flow into `StructuredAssessment`. Operational profiles may contribute evaluations in future; the current implementation initializes an empty analysis until profile integration is enabled. This object carries no profile knowledge, detector logic, or evaluator logic.
 
+#### Operational State
+
+`OperationalState` is an immutable application-layer value object that represents a **candidate operational condition** identified by the reasoning engine — for example, "Normal Operation", "Possible Flooding", or "Thermal Stress". Each state has a human-readable `name` and a `description` that explains what condition is being considered.
+
+Operational states are **derived from reasoning**: they express what the engine believes may be happening, not raw telemetry. They are distinct from **observations** (what was measured) and from **expectations** (what should hold in normal operation). In future, operational states will become input to hypothesis refinement; they are not wired into the pipeline today.
+
 #### Operational Context
 
 `OperationalContext` is an immutable application-layer value object that describes the **operational situation** in which reasoning occurs — a human-readable `description` plus an optional `operating_mode` and `objective` (for example, "Steady-state operation under increasing load", `steady_state`, `maximize_power`).
