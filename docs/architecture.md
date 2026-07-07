@@ -63,7 +63,7 @@ Odis/
 |----------|---------|
 | `src/domain/` | Entities, value objects, events, and repository interfaces. The stable center of the system. |
 | `src/application/` | Components that coordinate domain objects to perform operational reasoning. |
-| `src/infrastructure/` | Append-only repository implementations and future adapters for persistence, messaging, and external systems. |
+| `src/infrastructure/` | Append-only repository implementations, observation source adapters, and future integrations for persistence, messaging, and external systems. |
 | `src/shared/` | Future home for utilities shared across layers without polluting the domain. |
 | `examples/` | End-to-end demonstrations that wire application components together. |
 | `tests/` | Unit and integration specifications; builders reduce test setup noise. |
@@ -128,6 +128,12 @@ Keeping cataloging, listing, and reconstruction apart lets each evolve independe
 `OperationalSummaryService` is a read-side composition service for operators. It assembles a single `OperationalSummary` for a run by replaying persisted artifacts and delegating to existing analytics — recurrence, escalation, and stability analysis. It does not perform new reasoning, persist data, or duplicate replay or analysis logic; it orchestrates `ReasoningReplayer`, `ReasoningHistory`, and the analyzer services into one operator-friendly view.
 
 `AttentionQueue` is the first operator-oriented prioritization service built on operational summary. It ranks reasoning runs by a transparent, deterministic attention score derived from priority, recurrence, and escalation — reusing `OperationalSummaryService` and `ReasoningHistory` without duplicating replay or analytics logic.
+
+### Observation sources
+
+`ObservationSource` is the application-layer boundary where external telemetry enters ODIS. It defines a minimal `read()` contract that returns an immutable tuple of observations — no streaming, async, callbacks, or session coupling. The reasoning engine depends on this interface, not on how observations are collected.
+
+`StaticObservationSource` in infrastructure is the reference implementation: it holds a fixed sequence copied at construction and returns the same tuple on every `read()`. Use it in tests, demos, and as a template for future adapters (files, APIs, message buses).
 
 Application components may validate input coherence (e.g., observations must share an asset) but should not embed domain invariants that belong on entities.
 
