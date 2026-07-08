@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import uuid4
 
+from application.expectation_analysis import ExpectationAnalysis
 from application.relationship_analysis import RelationshipAnalysis
 from application.structured_assessment import StructuredAssessment
 from domain.entities.observation import Observation
@@ -51,6 +52,7 @@ class OperationalSituationAssessor:
         trend: DetectedTrend,
         variation: DetectedVariation,
         relationship_analysis: RelationshipAnalysis | None = None,
+        expectation_analysis: ExpectationAnalysis | None = None,
     ) -> AssessmentResult:
         if not observations:
             raise ValueError("at least one observation is required")
@@ -96,6 +98,7 @@ class OperationalSituationAssessor:
             trend,
             variation,
             relationship_analysis=relationship_analysis,
+            expectation_analysis=expectation_analysis,
         )
         return AssessmentResult(
             situation=situation,

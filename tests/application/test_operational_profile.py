@@ -5,6 +5,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from application.observation_group import ObservationGroup
+from application.operational_context import OperationalContext
 from application.operational_profile import (
     OperationalProfile,
 )
@@ -62,6 +63,25 @@ def test_default_profile_behavior_matches_implicit_defaults() -> None:
     explicit = RelationshipAnalyzer(profile=OperationalProfile.default()).analyze(group)
 
     assert implicit == explicit
+
+
+def test_default_profile_returns_empty_expectation_analysis() -> None:
+    profile = OperationalProfile.default()
+    operational_context = OperationalContext(
+        description="test",
+        operating_mode=None,
+        objective=None,
+    )
+    relationship_analysis = RelationshipAnalyzer().analyze(
+        _build_temperature_pressure_group()
+    )
+
+    analysis = profile.evaluate_expectations(
+        operational_context,
+        relationship_analysis,
+    )
+
+    assert analysis.evaluations == ()
 
 
 def test_operational_profile_is_immutable() -> None:

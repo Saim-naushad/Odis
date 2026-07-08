@@ -24,7 +24,7 @@ flowchart TD
     action --> outcome
 ```
 
-The executable pipeline today runs from **Observation** through **Outcome**. `Action` and `Outcome` records are created by application components during a run, completing the conceptual lifecycle, but they are not yet wired to external execution systems or closed-loop learning.
+The executable pipeline today runs from **Observation** through **Outcome**. `Action` and `Outcome` records are created by `record_action` and `record_outcome` during each `ReasoningSession.run()`, completing the conceptual lifecycle. They are not yet wired to external execution systems or closed-loop learning.
 
 Each `ReasoningSession.run()` also creates a `ReasoningRun` — application metadata with a unique id and start timestamp. When a `ReasoningRunRepository` is configured, the run is saved immediately (before detectors execute) so the execution has a durable identity. Runs are not domain events; they are bookkeeping for traceability and future replay.
 
@@ -80,6 +80,21 @@ The current `TrendDetector` compares the first and last values after timestamp o
 
 ---
 
+### DetectedVariation
+
+**Represents:** A deterministic signal describing how much individual readings spread within a homogeneous observation sequence.
+
+**Why it exists:** Trend direction alone cannot distinguish steady drift from oscillation. Variation complements trend by classifying spread as low or high against a generic threshold.
+
+**What it does not do:**
+
+- Assess operational significance (that is the assessor's role)
+- Replace trend detection
+
+`VariationDetector` uses a simple max-min spread threshold. It runs alongside `TrendDetector` on every `ReasoningSession.run()`.
+
+---
+
 ### OperationalSituation
 
 **Represents:** The system's assessment of operational conditions at a point in time — an interpretation derived from evidence and signal.
@@ -130,8 +145,8 @@ The current `TrendDetector` compares the first and last values after timestamp o
 
 **What it does not do:**
 
-- Exist in the executable pipeline yet (domain entity only)
 - Automatically follow from a plan (execution is external to ODIS today)
+- Feed back into planning automatically (closed-loop reasoning is future work)
 
 ---
 
@@ -143,8 +158,21 @@ The current `TrendDetector` compares the first and last values after timestamp o
 
 **What it does not do:**
 
-- Exist in the executable pipeline yet (domain entity only)
 - Feed back into planning automatically (closed-loop reasoning is future work)
+
+## Cross-measurement and expectation stages
+
+Beyond the core evidence-to-decision chain, `ReasoningSession` also executes:
+
+| Stage | Application component | Role |
+|-------|----------------------|------|
+| Relationship analysis | `RelationshipAnalyzer` | Aggregates correlation and contradiction detectors into `RelationshipAnalysis` |
+| Operational context | `OperationalContextBuilder` | Establishes the situational frame for reasoning |
+| Expectation evaluation | `OperationalProfile.evaluate_expectations()` | Compares profile-defined expectations against evidence |
+| Structured assessment | `StructuredAssessment` | Machine-readable summary of signals, relationships, and expectation flags |
+| Planning context | `PlanningContext` | Planning-relevant facts derived from structured assessment |
+
+When observations include multiple measurement types, single-measurement detectors use the primary measurement type; relationship analysis uses the full observation group. See [Architecture](architecture.md) for the complete stage order.
 
 ## Executable vs. conceptual stages
 
@@ -152,11 +180,12 @@ The current `TrendDetector` compares the first and last values after timestamp o
 |-------|---------------|----------------------|----------------------|
 | Observation | Yes | — (constructed directly) | Yes |
 | DetectedTrend | Yes (`DetectedTrend`) | `TrendDetector` | Yes |
+| DetectedVariation | Yes (`DetectedVariation`) | `VariationDetector` | Yes |
 | OperationalSituation | Yes | `OperationalSituationAssessor` | Yes |
 | DecisionContext | Yes | `create_decision_context` | Yes |
 | DecisionPlan | Yes | `DecisionPlanner` | Yes |
-| Action | Yes | Not implemented | No |
-| Outcome | Yes | Not implemented | No |
+| Action | Yes | `record_action` | Yes |
+| Outcome | Yes | `record_outcome` | Yes |
 
 ## Evidence, signal, assessment, decision
 
@@ -192,20 +221,20 @@ This is not a bug in the architecture. It is a boundary of the current signal de
 
 ### Adding new signal detectors
 
-Future detectors should follow the same pattern as `TrendDetector`:
+New detectors should follow the same pattern as `TrendDetector`:
 
 1. Accept a sequence of observations (with appropriate homogeneity constraints)
 2. Return a dedicated result type (e.g., `DetectedVariation`)
 3. Remain in the application layer as replaceable components
 
-A hypothetical `VariationDetector` might classify sequences by spread or oscillation amplitude without modifying `TrendDetector` or domain entities. An assessor could then consume **multiple signals** when forming an operational situation:
+`VariationDetector` already demonstrates this pattern. The assessor consumes **both** trend and variation signals when forming an operational situation:
 
 ```mermaid
 flowchart TD
     obs["Observations"]
     trend["TrendDetector"]
-    variation["VariationDetector\n(future)"]
-    assessor["OperationalSituationAssessor\n(future: multi-signal)"]
+    variation["VariationDetector"]
+    assessor["OperationalSituationAssessor"]
     situation["OperationalSituation"]
 
     obs --> trend
@@ -215,7 +244,7 @@ flowchart TD
     assessor --> situation
 ```
 
-This extension requires no new entities — only new application components and assessor logic that combines multiple signal inputs. The append-only, immutable model remains intact.
+Additional signal detectors can join this pattern without new domain entities — only new application components and assessor logic that combines multiple signal inputs. The append-only, immutable model remains intact.
 
 ### Other extension points
 

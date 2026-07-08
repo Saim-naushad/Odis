@@ -96,19 +96,45 @@ The application layer defines **how operational reasoning is performed** by orch
 
 | Component | Role |
 |-----------|------|
-| `TrendDetector` | Derives a `DetectedTrend` signal from an observation sequence |
-| `OperationalSituationAssessor` | Combines evidence, signal, and goal into an `OperationalSituation` |
-| `create_decision_context` | Snapshots planner inputs as a `DecisionContext` |
+| `TrendDetector` | Derives a `DetectedTrend` signal from a homogeneous observation sequence |
+| `VariationDetector` | Derives a `DetectedVariation` signal from a homogeneous observation sequence |
+| `ObservationGroup` | Groups observations from one asset; builds a `MeasurementIndex` |
+| `MeasurementIndex` | Lookup from `MeasurementType` to ordered observations within a group |
+| `CorrelationDetector` | Detects cross-measurement correlations via composed trend detectors |
+| `ContradictionDetector` | Flags predefined cross-measurement inconsistency candidates |
+| `RelationshipAnalyzer` | Façade aggregating correlation and contradiction detectors into `RelationshipAnalysis` |
 | `OperationalContextBuilder` | Standardizes construction of `OperationalContext` |
+| `OperationalSituationAssessor` | Combines evidence, signals, relationships, and expectations into an `OperationalSituation` and `StructuredAssessment` |
+| `create_decision_context` | Snapshots planner inputs as a `DecisionContext` |
 | `DecisionPlanner` | Produces a `DecisionPlan` from a context |
+| `PlanningContext` | Planning-relevant facts derived from `StructuredAssessment` |
+| `ExpectationEvaluator` | Converts profile evidence decisions into `ExpectationEvaluation` outcomes |
+| `ExpectationAnalysis` | Aggregates expectation evaluations for a run |
+| `OperationalProfile` | Packages domain-specific policies and expectation evaluation |
 | `create_operational_situation` | Lower-level situation construction without signal-based assessment |
 | `ObservationPipeline` | Thin orchestration entry point for observation acquisition and reasoning execution |
+| `MonitoringSession` | Coordinates multiple reasoning cycles over ordered observation snapshots |
+| `MonitoringTimeline` | Immutable ordered sequence of `ReasoningResult` values from one monitoring session |
+| `TimelineTrendAnalyzer` | Derives operational trajectory across completed monitoring cycles |
 | `ReasoningSession` | Core orchestration engine from observations to outcome |
 | `ReasoningRun` | Application metadata identifying a single execution (id, started_at) |
 
 `ReasoningSession` optionally accepts repository interfaces. When configured, it persists domain records and the run itself as execution metadata before detectors execute. `ReasoningRun` is not a domain entity or event — it exists so executions have a durable identity for future replay and traceability.
 
 `run()` is the core orchestration API: it accepts a goal and an observation sequence and executes the full pipeline. External integrations should target `ObservationPipeline`, which reads observations from an `ObservationSource` and delegates to `ReasoningSession.run()`. `ReasoningSession.run_from_source()` remains available as a convenience wrapper with identical behavior.
+
+Each `ReasoningSession.run()` executes the following stages in order:
+
+1. Persist run metadata (when repositories are configured)
+2. Record observations
+3. Derive single-measurement signals (`TrendDetector`, `VariationDetector`) from the **primary measurement type** in the observation set
+4. Build an `ObservationGroup` from all observations and run `RelationshipAnalyzer`
+5. Build `OperationalContext` via `OperationalContextBuilder`
+6. Evaluate expectations through the configured `OperationalProfile`
+7. Assess the situation via `OperationalSituationAssessor`, producing `OperationalSituation`, `StructuredAssessment`, and `PlanningContext`
+8. Create `DecisionContext`, plan via `DecisionPlanner`, and record `Action` and `Outcome`
+
+When observations include multiple measurement types, single-measurement detectors use the first measurement type encountered; relationship analysis uses the full group. This lets profiles evaluate cross-measurement evidence without requiring every detector to accept heterogeneous sequences today.
 
 ```mermaid
 flowchart TB
@@ -157,7 +183,9 @@ This is complementary to per-cycle telemetry reasoning:
 
 ### Observation groups
 
-Observation groups prepare ODIS for future reasoning across multiple measurement types from the same operational asset. Current reasoning still executes over one measurement type at a time.
+`ObservationGroup` groups observations from a single asset and builds a `MeasurementIndex` for cross-measurement reasoning. `ReasoningSession` always constructs a group from the full observation set passed to `run()`.
+
+Single-measurement detectors (`TrendDetector`, `VariationDetector`, and the assessor's primary signal path) operate on observations of the **primary measurement type** — the type of the first observation in the sequence. Relationship detectors operate on the full group, enabling profile-defined cross-measurement analysis when multiple types are present.
 
 ### Operational Profile
 
@@ -192,15 +220,23 @@ In this educational project, a contradiction is not a statement that a combinati
 
 ```mermaid
 flowchart TD
+    signals["Single-measurement signals\n(trend, variation)"]
     relationship["Relationship Analysis"]
     operational["Operational Context"]
     expectation["Expectation Evaluation"]
-    structured["Structured Assessment"]
+    structured["Structured Assessment\n+ Situation Assessment"]
+    planning["Planning Context"]
+    decision["Decision Planning"]
 
+    signals --> relationship
     relationship --> operational
     operational --> expectation
     expectation --> structured
+    structured --> planning
+    planning --> decision
 ```
+
+Relationship analysis and operational context are independent inputs to expectation evaluation. `OperationalSituationAssessor` consumes signals, relationship facts, and expectation results together when building `StructuredAssessment` and the domain `OperationalSituation`.
 
 #### Structured Assessment
 
@@ -224,21 +260,21 @@ flowchart TD
 
 `Expectation` is an immutable application-layer value object that captures a **qualitative engineering statement** — for example, "Cooling tracks load" or "Fuel flow follows current demand". Each expectation has a human-readable `name` and a `description` that explains what should hold in normal operation.
 
-Expectations belong to **operational profiles**: they package domain-specific operational knowledge alongside relationship policies and future planning policies. They are intentionally inert today — the reasoning pipeline does not evaluate them, and no expectation policies exist in the current codebase.
+Expectations belong to **operational profiles**: profiles package domain-specific operational knowledge alongside relationship policies. The default profile evaluates no expectations; domain profiles such as `FuelCellOperationalProfile` may supply representative expectations and evaluation logic.
 
-Future work will introduce expectation evaluation so that operational reasoning can check whether telemetry and assessments align with declared expectations. This will build on the same profile-based configuration model already used for cross-measurement relationships.
+`ExpectationPolicy` and `OperationalScenario` define how expectations are selected by operating phase. They are value objects today and are not yet used to drive profile evaluation — scenario-based selection is deferred to the industrial platform phase.
 
 #### Expectation Evaluation
 
-Operational profiles are responsible for determining whether evidence satisfies an expectation. A profile inspects the available operational evidence — for example, whether a declared cross-measurement relationship was detected — and decides if that evidence meets the expectation. `ExpectationEvaluator` standardizes the result: it converts a deterministic boolean decision into a `ExpectationEvaluation` with one of three outcomes — **expected**, **unexpected**, or **indeterminate** — and a fixed explanation for each.
+Operational profiles determine whether evidence satisfies an expectation. A profile inspects available operational evidence — for example, whether declared cross-measurement relationships were detected — and decides if that evidence meets the expectation. `ExpectationEvaluator` standardizes the result: it converts a deterministic boolean decision into an `ExpectationEvaluation` with one of three outcomes — **expected**, **unexpected**, or **indeterminate** — and a fixed explanation for each.
 
-`FuelCellExpectationEvaluator` is the first profile-driven bridge: it consumes `RelationshipAnalysis` — correlations and contradictions aggregated by `RelationshipAnalyzer` — and maps that evidence to the generic evaluator (`satisfied=True`, `satisfied=False`, or `satisfied=None`) without heuristics, thresholds, or detector logic. Expectation evaluation now consumes actual relationship evidence rather than an externally supplied boolean. `ReasoningSession` threads `OperationalContext` and `RelationshipAnalysis` into the expectation-evaluation stage; profiles own the evidence decision, and the generic evaluator owns evaluation semantics. The current pipeline still produces an empty `ExpectationAnalysis` until profile integration is enabled.
+`FuelCellExpectationEvaluator` is the first profile-driven bridge: it consumes `RelationshipAnalysis` and maps that evidence to the generic evaluator (`satisfied=True`, `satisfied=False`, or `satisfied=None`) without heuristics, thresholds, or detector logic. `ReasoningSession` delegates expectation evaluation to `OperationalProfile.evaluate_expectations()`, threading `OperationalContext` and `RelationshipAnalysis` into the profile. The default profile returns an empty `ExpectationAnalysis`; `FuelCellOperationalProfile` demonstrates representative evaluation.
 
 #### Expectation Analysis
 
 `ExpectationAnalysis` aggregates individual `ExpectationEvaluation` results into a single immutable snapshot of expectation reasoning. It exposes deterministic counts and flags — how many expectations were expected, unexpected, or indeterminate — derived purely from the evaluation tuple.
 
-Expectation reasoning is now part of the reasoning pipeline: each `ReasoningSession` run attaches an `ExpectationAnalysis` to `ReasoningResult`, and the corresponding flags flow into `StructuredAssessment`. Operational profiles may contribute evaluations in future; the current implementation initializes an empty analysis until profile integration is enabled. This object carries no profile knowledge, detector logic, or evaluator logic.
+Expectation reasoning is part of the reasoning pipeline: each `ReasoningSession` run attaches an `ExpectationAnalysis` to `ReasoningResult`, and the corresponding flags flow into `StructuredAssessment` before `PlanningContext` is derived. The default profile contributes no evaluations; domain profiles may. This object carries no profile knowledge, detector logic, or evaluator logic.
 
 #### Operational State
 
@@ -282,7 +318,7 @@ Future expectation policies will evaluate behavior relative to scenarios so that
 
 `ExpectationPolicy` is an immutable application-layer value object that maps an `OperationalScenario` to the `Expectation` values relevant under that scenario. It belongs to **operational profiles**, which define which expectations apply in each operating phase.
 
-The policy does not evaluate expectations, detect scenarios, or participate in the reasoning pipeline today. Future pipeline integration will use it to select the applicable expectations before evaluation.
+The policy does not evaluate expectations, detect scenarios, or participate in profile evaluation today. Future platform integration will use it to select applicable expectations before evaluation.
 
 ### Runs vs. the run registry
 
@@ -329,7 +365,7 @@ Application components may validate input coherence (e.g., observations must sha
 - Ingest live telemetry
 - Dispatch domain events (event types exist; no bus is wired)
 
-Each component is replaceable. A future `VariationDetector` can sit beside `TrendDetector` without changing entity definitions.
+Each component is replaceable. `VariationDetector` sits beside `TrendDetector` without changing entity definitions. `TimelineTrendAnalyzer` is a standalone consumer of `MonitoringTimeline` — monitoring sessions build timelines but do not analyze them automatically.
 
 ## Examples
 

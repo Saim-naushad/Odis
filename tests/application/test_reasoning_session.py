@@ -6,6 +6,8 @@ import pytest
 from application.event_publisher import InMemoryEventPublisher
 from application.expectation_analysis import ExpectationAnalysis
 from application.operational_context import OperationalContext
+from application.planning_context import PlanningContext
+from application.profiles.fuel_cell_profile import FuelCellOperationalProfile
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import ReasoningRunIndex
 from application.reasoning_session import ReasoningSession
@@ -15,6 +17,7 @@ from domain.events.decision_plan_generated import DecisionPlanGenerated
 from domain.events.observation_recorded import ObservationRecorded
 from domain.events.operational_situation_created import OperationalSituationCreated
 from domain.value_objects import Priority, TrendDirection, VariationLevel
+from domain.value_objects.measurement_type import MeasurementType
 from infrastructure.repositories.decision_context_repository import (
     InMemoryDecisionContextRepository,
 )
@@ -34,7 +37,7 @@ from infrastructure.repositories.reasoning_run_repository import (
     InMemoryReasoningRunRepository,
 )
 from infrastructure.repositories.situation_repository import InMemorySituationRepository
-from tests.builders import build_goal, build_observation_sequence
+from tests.builders import build_goal, build_observation, build_observation_sequence
 
 
 def test_reasoning_session_runs_the_operational_pipeline() -> None:
@@ -66,6 +69,34 @@ def test_reasoning_session_runs_the_operational_pipeline() -> None:
     assert result.expectation_analysis.indeterminate_count == 0
     assert result.expectation_analysis.has_unexpected is False
     assert result.expectation_analysis.has_indeterminate is False
+    assert result.structured_assessment.trend_direction == result.trend.direction
+    assert result.structured_assessment.variation_level == result.variation.level
+    assert result.planning_context == PlanningContext.from_assessment(
+        result.structured_assessment
+    )
+
+
+def test_reasoning_session_evaluates_fuel_cell_profile_expectations() -> None:
+    profile = FuelCellOperationalProfile.default()
+    goal = build_goal()
+    temperature = MeasurementType(name="stack_temperature")
+    observations = (
+        *build_observation_sequence([62.0, 64.0, 66.0], measurement_type=temperature),
+        *(
+            build_observation(
+                value=value,
+                measurement_type=MeasurementType(name="stack_pressure"),
+                id=f"pressure-{index}",
+            )
+            for index, value in enumerate([155.0, 153.0, 151.0])
+        ),
+    )
+
+    result = ReasoningSession(profile=profile).run(goal, observations)
+
+    assert result.structured_assessment.has_correlations is True
+    assert result.expectation_analysis.expected_count == 1
+    assert result.structured_assessment.has_unexpected_expectations is False
 
 
 def test_reasoning_session_performs_relationship_analysis() -> None:

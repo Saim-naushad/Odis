@@ -6,7 +6,6 @@ from application.observation_pipeline import ObservationPipeline
 from application.planning_context import PlanningContext
 from application.profiles.fuel_cell_profile import FuelCellOperationalProfile
 from application.reasoning_session import ReasoningResult, ReasoningSession
-from application.relationship_analysis import RelationshipAnalyzer
 from application.structured_assessment import StructuredAssessment
 from domain.entities import Asset, Observation, OperationalGoal
 from domain.entities.action import Action
@@ -150,23 +149,8 @@ def main() -> tuple[ReasoningResult, tuple[Observation, ...]]:
         ),
     )
 
-    reasoning_observations = tuple(
-        observation
-        for observation in observations
-        if observation.measurement_type == stack_temperature
-    )
-
     pipeline = ObservationPipeline(session=ReasoningSession(profile=profile))
-    result = pipeline.process(goal, StaticObservationSource(reasoning_observations))
-
-    group = pipeline.group(tuple(observations))
-    relationship_analysis = RelationshipAnalyzer(profile=profile).analyze(group)
-    structured = StructuredAssessment.from_reasoning(
-        result.trend,
-        result.variation,
-        relationship_analysis=relationship_analysis,
-    )
-    planning_context = PlanningContext.from_assessment(structured)
+    result = pipeline.process(goal, StaticObservationSource(observations))
 
     print("ODIS Operational Walkthrough")
     print("Scenario: Fuel cell profile demonstration")
@@ -174,8 +158,8 @@ def main() -> tuple[ReasoningResult, tuple[Observation, ...]]:
 
     _print_profile_name(profile)
     _print_observations(tuple(observations))
-    _print_structured_assessment(structured)
-    _print_planning_context(planning_context)
+    _print_structured_assessment(result.structured_assessment)
+    _print_planning_context(result.planning_context)
     _print_decision(result.plan, result.context)
     _print_action(result.action)
     _print_outcome(result.outcome)
@@ -185,4 +169,3 @@ def main() -> tuple[ReasoningResult, tuple[Observation, ...]]:
 
 if __name__ == "__main__":
     main()
-

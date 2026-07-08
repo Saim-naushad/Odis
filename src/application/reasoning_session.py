@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -27,6 +27,7 @@ from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.record_action import record_action
 from application.record_outcome import record_outcome
 from application.relationship_analysis import RelationshipAnalysis, RelationshipAnalyzer
+from application.structured_assessment import StructuredAssessment
 from application.trend_detector import TrendDetector
 from application.variation_detector import VariationDetector
 from domain.entities.action import Action
@@ -62,6 +63,19 @@ class ReasoningResult:
     trace: ReasoningTrace
     operational_context: OperationalContext
     expectation_analysis: ExpectationAnalysis
+    structured_assessment: StructuredAssessment
+    planning_context: PlanningContext
+
+
+def _primary_measurement_observations(
+    observations: Sequence[Observation],
+) -> tuple[Observation, ...]:
+    measurement_type = observations[0].measurement_type
+    return tuple(
+        observation
+        for observation in observations
+        if observation.measurement_type == measurement_type
+    )
 
 
 class ReasoningSession:
@@ -121,8 +135,12 @@ class ReasoningSession:
             if self._observation_repository is not None:
                 self._observation_repository.save(observation)
 
-        trend = TrendDetector().detect(observations)
-        variation = VariationDetector().detect(observations)
+        if len(observations) < 2:
+            TrendDetector().detect(observations)
+
+        primary_observations = _primary_measurement_observations(observations)
+        trend = TrendDetector().detect(primary_observations)
+        variation = VariationDetector().detect(primary_observations)
         observation_group = ObservationGroup(
             asset_id=observations[0].asset_id,
             observations=tuple(observations),
@@ -133,14 +151,21 @@ class ReasoningSession:
         operational_context = OperationalContextBuilder().build(
             description="Operational reasoning context",
         )
+        expectation_analysis = self._evaluate_expectations(
+            operational_context,
+            relationship_analysis,
+        )
         assessment_result = OperationalSituationAssessor().assess(
             goal,
-            observations,
+            primary_observations,
             trend,
             variation,
             relationship_analysis=relationship_analysis,
+            expectation_analysis=expectation_analysis,
         )
         situation = assessment_result.situation
+        structured_assessment = assessment_result.structured
+        planning_context = PlanningContext.from_assessment(structured_assessment)
 
         if self._event_publisher is not None:
             self._event_publisher.publish(
@@ -164,16 +189,6 @@ class ReasoningSession:
         if self._decision_context_repository is not None:
             self._decision_context_repository.save(context)
 
-        expectation_analysis = self._evaluate_expectations(
-            operational_context,
-            relationship_analysis,
-        )
-        structured = replace(
-            assessment_result.structured,
-            has_unexpected_expectations=expectation_analysis.has_unexpected,
-            has_indeterminate_expectations=expectation_analysis.has_indeterminate,
-        )
-        planning_context = PlanningContext.from_assessment(structured)
         plan = DecisionPlanner().plan(context, planning_context=planning_context)
 
         if self._event_publisher is not None:
@@ -220,6 +235,21 @@ class ReasoningSession:
                     description="The variability of the observations was measured.",
                 ),
                 TraceStep(
+                    name="Relationship Analysis",
+                    description=(
+                        "Cross-measurement correlations and contradictions "
+                        "were evaluated."
+                    ),
+                ),
+                TraceStep(
+                    name="Operational Context Built",
+                    description="The situational frame for reasoning was established.",
+                ),
+                TraceStep(
+                    name="Expectations Evaluated",
+                    description="Declared expectations were compared against evidence.",
+                ),
+                TraceStep(
                     name="Situation Assessed",
                     description="Signals and goal were combined into a situation.",
                 ),
@@ -254,6 +284,8 @@ class ReasoningSession:
             trace=trace,
             operational_context=operational_context,
             expectation_analysis=expectation_analysis,
+            structured_assessment=structured_assessment,
+            planning_context=planning_context,
         )
 
     def _evaluate_expectations(
@@ -261,9 +293,10 @@ class ReasoningSession:
         operational_context: OperationalContext,
         relationship_analysis: RelationshipAnalysis,
     ) -> ExpectationAnalysis:
-        _ = operational_context
-        _ = relationship_analysis
-        return ExpectationAnalysis(evaluations=())
+        return self._profile.evaluate_expectations(
+            operational_context,
+            relationship_analysis,
+        )
 
     def run_from_source(
         self,

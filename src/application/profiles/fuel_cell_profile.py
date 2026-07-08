@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from application.expectation import Expectation
+from application.expectation_analysis import ExpectationAnalysis
+from application.fuel_cell_expectation_evaluator import FuelCellExpectationEvaluator
+from application.operational_context import OperationalContext
 from application.operational_profile import OperationalProfile
+from application.relationship_analysis import RelationshipAnalysis
 from application.relationship_policy import RelationshipPolicy, RelationshipRule
 from domain.value_objects.measurement_type import MeasurementType
 
@@ -51,4 +56,23 @@ class FuelCellOperationalProfile(OperationalProfile):
     @classmethod
     def default(cls) -> FuelCellOperationalProfile:
         return cls(relationship_policy=FuelCellRelationshipPolicy())
+
+    def evaluate_expectations(
+        self,
+        operational_context: OperationalContext,
+        relationship_analysis: RelationshipAnalysis,
+    ) -> ExpectationAnalysis:
+        _ = operational_context
+        expectation = Expectation(
+            name="Coupled subsystem response",
+            description=(
+                "Under changing load, correlated measurement trends indicate "
+                "coherent fuel-cell subsystem response."
+            ),
+        )
+        evaluation = FuelCellExpectationEvaluator().evaluate_relationship(
+            expectation,
+            relationship_analysis,
+        )
+        return ExpectationAnalysis(evaluations=(evaluation,))
 
