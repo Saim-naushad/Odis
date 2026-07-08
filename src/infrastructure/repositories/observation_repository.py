@@ -1,3 +1,5 @@
+import builtins
+
 from domain.entities.observation import Observation
 from domain.repositories.observation_repository import ObservationRepository
 
@@ -15,4 +17,14 @@ class InMemoryObservationRepository(ObservationRepository):
         self._storage[observation.id] = observation
 
     def list(self) -> list[Observation]:
-        return list(self._storage.values())
+        return sorted(
+            self._storage.values(),
+            key=lambda observation: (observation.timestamp, observation.id),
+        )
+
+    def list_by_asset(self, asset_id: str) -> builtins.list[Observation]:
+        return [
+            observation
+            for observation in self.list()
+            if observation.asset_id == asset_id
+        ]

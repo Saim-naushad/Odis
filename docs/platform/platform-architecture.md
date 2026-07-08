@@ -121,7 +121,7 @@ The platform connects industrial equipment, ingestion pipelines, backend service
   TELEMETRY PATH (data plane)                REASONING PATH (intelligence plane)
   ───────────────────────────                ───────────────────────────────────
 
-  Equipment ──▶ Ingestion ──▶ API ──▶ DB     DB ──▶ Reasoning ──▶ Assessment ──▶ DB
+  Equipment ──▶ Ingestion ──▶ API ──▶ DB     API ──▶ Reasoning ──▶ Assessment ──▶ DB
                                                                     │
                                                                     ▼
                                                               Dashboard
@@ -383,7 +383,7 @@ Observations are the first entity persisted by the platform. They are the eviden
 
 Mapping is explicit and isolated in `backend/app/infrastructure/database/mappers/observation.py`. ORM models never leave the infrastructure layer — repository methods accept and return domain `Observation` entities.
 
-The initial Alembic migration (`b8265a976460`) creates the `observations` table only. Future entities will receive their own migrations.
+The initial Alembic migration (`b8265a976460`) creates the `observations` table. The migration `c4f1a8d29e10` adds reasoning artifact tables (`reasoning_runs`, `operational_situations`, `decision_contexts`, `decision_plans`, `reasoning_run_indexes`, `structured_assessments`, `reasoning_traces`).
 
 ### Repository responsibilities
 
@@ -392,12 +392,13 @@ The initial Alembic migration (`b8265a976460`) creates the `observations` table 
 | `save(observation)` | Insert a new observation; reject duplicate IDs |
 | `get(id)` | Return the domain observation or `None` |
 | `list()` | Return all persisted observations as domain objects |
+| `list_by_asset(asset_id)` | Return observations for one asset ordered by `timestamp`, then `id` |
 
 The reasoning engine depends only on the domain `ObservationRepository` interface. It can run with `InMemoryObservationRepository` in tests or `SqlAlchemyObservationRepository` in production — no changes to reasoning logic are required.
 
 ### Observation API
 
-The first production API vertical slice exposes observation persistence over HTTP. It completes the path from API clients through application services and repositories to PostgreSQL (or SQLite in tests), without invoking the reasoning engine.
+The first production API vertical slice exposes observation persistence over HTTP. It completes the path from API clients through application services and repositories to PostgreSQL (or SQLite in tests), and automatically executes reasoning when sufficient asset evidence is available.
 
 #### Endpoints
 
@@ -448,7 +449,67 @@ The HTTP layer exposes dedicated Pydantic schemas (`ObservationCreate`, `Observa
 
 Validation failures return `422 Unprocessable Entity`. Duplicate identifiers return `409 Conflict`. Missing observations return `404 Not Found`.
 
-Reasoning is intentionally out of scope for this slice. Ingestion services and dashboards can persist and query evidence through these endpoints; reasoning orchestration will be added in a later API capability.
+### Automatic reasoning lifecycle
+
+When an observation is accepted through `POST /observations`, the platform executes a **synchronous reasoning cycle** inside the same request lifecycle. Clients do not need to know reasoning is occurring — the API contract is unchanged.
+
+```
+POST /observations
+    │
+    ▼
+ObservationService.create()
+    │  persist observation
+    ▼
+Load asset observations (list_by_asset)
+    │
+    ▼
+ReasoningSession.run()  (when sufficient evidence exists)
+    │  produce OperationalSituation, StructuredAssessment,
+    │  PlanningContext, DecisionContext, DecisionPlan, ReasoningTrace
+    ▼
+Persist reasoning artifacts
+    │
+    ▼
+Return 201 with observation payload
+```
+
+Reasoning runs only when an asset has at least two observations of the primary measurement type (the earliest observation's measurement type). A single observation is persisted without triggering reasoning — trend and variation detection require a minimum evidence window.
+
+Orchestration lives in `ObservationService`. The API router remains thin: it validates input, delegates to the application service, and maps HTTP status codes. No background workers, message queues, or asynchronous orchestration are introduced in this slice.
+
+The platform wires `ReasoningSession` with the fuel cell operational profile (`FuelCellOperationalProfile`) and a default operational goal. The reasoning engine itself remains independent of SQLAlchemy, FastAPI, and database concerns.
+
+### Reasoning persistence
+
+Reasoning artifacts are persisted through the same repository pattern as observations. Domain and application models are reused without duplication; infrastructure mappers translate between ORM rows and immutable models.
+
+| Artifact | Layer | Table | Repository |
+|----------|-------|-------|------------|
+| `ReasoningRun` | application | `reasoning_runs` | `SqlAlchemyReasoningRunRepository` |
+| `OperationalSituation` | domain | `operational_situations` | `SqlAlchemySituationRepository` |
+| `DecisionContext` | domain | `decision_contexts` | `SqlAlchemyDecisionContextRepository` |
+| `DecisionPlan` | domain | `decision_plans` | `SqlAlchemyDecisionPlanRepository` |
+| `ReasoningRunIndex` | application | `reasoning_run_indexes` | `SqlAlchemyReasoningRunIndexRepository` |
+| `StructuredAssessment` | application | `structured_assessments` | `SqlAlchemyStructuredAssessmentRepository` |
+| `ReasoningTrace` | application | `reasoning_traces` | `SqlAlchemyReasoningTraceRepository` |
+
+`StructuredAssessment` and `ReasoningTrace` are keyed by `run_id` (foreign key to `reasoning_runs`). `ReasoningRunIndex` links each run to the observation, situation, context, plan, action, and outcome identifiers produced during the session.
+
+`ReasoningSession` persists domain artifacts (situation, context, plan, run, index) when repository implementations are injected. `ObservationService` persists application-layer artifacts (`StructuredAssessment`, `ReasoningTrace`) after the session completes. Observations are persisted by the service before reasoning begins; the session does not re-save observations that are already stored.
+
+The Alembic migration `c4f1a8d29e10` creates all reasoning artifact tables. Observations remain in the `observations` table from the initial migration.
+
+### Orchestration responsibilities
+
+| Layer | Responsibility |
+|-------|----------------|
+| **API router** | Validate HTTP payloads, call `ObservationService`, map errors to status codes |
+| **ObservationService** | Persist observation, gather asset evidence, invoke `ReasoningSession`, persist `StructuredAssessment` and `ReasoningTrace` |
+| **ReasoningSession** | Execute deterministic reasoning pipeline; persist domain artifacts when repositories are wired |
+| **Repositories** | Map domain/application models ↔ ORM; append-only inserts |
+| **Reasoning engine** | No knowledge of HTTP, SQLAlchemy, or FastAPI |
+
+Dependency injection constructs a request-scoped `ReasoningSession` with all SQLAlchemy repository implementations, then injects it into `ObservationService` alongside the structured assessment and reasoning trace repositories.
 
 ### Configuration
 

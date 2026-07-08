@@ -1,5 +1,7 @@
 """SQLAlchemy-backed observation repository."""
 
+import builtins
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -39,6 +41,18 @@ class SqlAlchemyObservationRepository(SqlAlchemyRepository, ObservationRepositor
         statement = select(ObservationModel).order_by(
             ObservationModel.timestamp,
             ObservationModel.id,
+        )
+        models = self._session.scalars(statement).all()
+        return [observation_to_domain(model) for model in models]
+
+    def list_by_asset(self, asset_id: str) -> builtins.list[Observation]:
+        statement = (
+            select(ObservationModel)
+            .where(ObservationModel.asset_id == asset_id)
+            .order_by(
+                ObservationModel.timestamp,
+                ObservationModel.id,
+            )
         )
         models = self._session.scalars(statement).all()
         return [observation_to_domain(model) for model in models]

@@ -1,3 +1,4 @@
+import builtins
 from abc import ABC, abstractmethod
 
 from domain.entities.observation import Observation
@@ -14,4 +15,8 @@ class ObservationRepository(ABC):
 
     @abstractmethod
     def list(self) -> list[Observation]:
+        pass
+
+    @abstractmethod
+    def list_by_asset(self, asset_id: str) -> builtins.list[Observation]:
         pass

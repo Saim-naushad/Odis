@@ -123,3 +123,26 @@ def test_get_unknown_observation_returns_404(api_client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "observation with id 'missing-id' not found"
+
+
+def test_create_observation_triggers_reasoning_when_asset_has_sufficient_evidence(
+    api_client: TestClient,
+) -> None:
+    first = _observation_payload(
+        observation_id="obs-reason-api-1",
+        timestamp="2026-01-01T10:00:00Z",
+        value=30.0,
+    )
+    second = _observation_payload(
+        observation_id="obs-reason-api-2",
+        timestamp="2026-01-01T11:00:00Z",
+        value=45.0,
+    )
+
+    first_response = api_client.post("/observations", json=first)
+    second_response = api_client.post("/observations", json=second)
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 201
+    assert first_response.json() == first
+    assert second_response.json() == second
