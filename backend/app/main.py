@@ -11,7 +11,11 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
-from backend.app.api.routers import health_router, platform_router
+from backend.app.api.routers import (
+    health_router,
+    observations_router,
+    platform_router,
+)
 from backend.app.infrastructure.config.settings import Settings, get_settings
 from backend.app.infrastructure.database.session import (
     create_db_engine,
@@ -79,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(platform_router)
     app.include_router(health_router)
+    app.include_router(observations_router)
 
     return app
 

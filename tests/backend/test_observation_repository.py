@@ -3,6 +3,8 @@
 from collections.abc import Generator
 
 import pytest
+from sqlalchemy.orm import Session
+
 from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.database import models as _models  # noqa: F401
 from backend.app.infrastructure.database.base import Base
@@ -18,8 +20,6 @@ from backend.app.infrastructure.database.session import (
 from backend.app.infrastructure.repositories.observation_repository import (
     SqlAlchemyObservationRepository,
 )
-from sqlalchemy.orm import Session
-
 from domain.entities.observation import Observation
 from tests.builders import DEFAULT_TIMESTAMP, build_observation
 

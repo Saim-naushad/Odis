@@ -395,6 +395,61 @@ The initial Alembic migration (`b8265a976460`) creates the `observations` table 
 
 The reasoning engine depends only on the domain `ObservationRepository` interface. It can run with `InMemoryObservationRepository` in tests or `SqlAlchemyObservationRepository` in production — no changes to reasoning logic are required.
 
+### Observation API
+
+The first production API vertical slice exposes observation persistence over HTTP. It completes the path from API clients through application services and repositories to PostgreSQL (or SQLite in tests), without invoking the reasoning engine.
+
+#### Endpoints
+
+| Method | Path | Status | Behavior |
+|--------|------|--------|----------|
+| `POST` | `/observations` | `201 Created` | Validate payload, persist observation, return serialized record |
+| `GET` | `/observations` | `200 OK` | Return all observations ordered by `timestamp`, then `id` |
+| `GET` | `/observations/{id}` | `200 OK` / `404 Not Found` | Return one observation or a not-found error |
+
+OpenAPI metadata (summaries, response models, and examples) is generated from the Pydantic schemas and route declarations.
+
+#### Request flow
+
+```
+HTTP client
+    │
+    ▼
+FastAPI router (backend/app/api/routers/observations.py)
+    │  validates request / maps HTTP status codes
+    ▼
+ObservationService (backend/app/application/observation_service.py)
+    │  coordinates use case; works with domain entities
+    ▼
+ObservationRepository (domain interface)
+    │
+    ▼
+SqlAlchemyObservationRepository (backend/app/infrastructure/repositories/)
+    │  maps domain ↔ ORM
+    ▼
+PostgreSQL
+```
+
+Routers never call repositories directly. Dependency injection wires each request-scoped SQLAlchemy session into a repository implementation, then into an application service:
+
+```
+Depends(get_db_session)
+    → Depends(get_observation_repository)
+        → Depends(get_observation_service)
+```
+
+#### API boundary
+
+The HTTP layer exposes dedicated Pydantic schemas (`ObservationCreate`, `ObservationResponse`) in `backend/app/api/schemas/observation.py`. SQLAlchemy models and domain entities do not cross this boundary:
+
+- **Inbound:** `ObservationCreate` validates the JSON payload and translates it into a domain `Observation`.
+- **Outbound:** `ObservationResponse.from_domain()` serializes persisted observations for clients.
+- **Measurement type:** the value object is flattened to a string field (`measurement_type`) at the API edge.
+
+Validation failures return `422 Unprocessable Entity`. Duplicate identifiers return `409 Conflict`. Missing observations return `404 Not Found`.
+
+Reasoning is intentionally out of scope for this slice. Ingestion services and dashboards can persist and query evidence through these endpoints; reasoning orchestration will be added in a later API capability.
+
 ### Configuration
 
 Database connectivity is configured through Pydantic Settings. Set `DATABASE_URL` to a PostgreSQL connection string in production (e.g. `postgresql+psycopg://user:pass@host/db`). When unset, the API starts without a database connection; persistence features activate once `DATABASE_URL` is provided.

@@ -36,5 +36,9 @@ class SqlAlchemyObservationRepository(SqlAlchemyRepository, ObservationRepositor
             ) from None
 
     def list(self) -> list[Observation]:
-        models = self._session.scalars(select(ObservationModel)).all()
+        statement = select(ObservationModel).order_by(
+            ObservationModel.timestamp,
+            ObservationModel.id,
+        )
+        models = self._session.scalars(statement).all()
         return [observation_to_domain(model) for model in models]
