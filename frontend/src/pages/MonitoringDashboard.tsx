@@ -18,10 +18,12 @@ export function MonitoringDashboard() {
               assets={state.assets}
               selectedAssetId={state.selectedAssetId}
               onSelectAsset={state.setSelectedAssetId}
+              selectedRunId={state.selectedRunId}
               latest={state.latestForAsset}
               history={state.history}
               loading={state.assetsLoading || state.latestLoading}
-              error={state.assetsError ?? state.latestError}
+              error={state.assetsError ?? state.latestError ?? state.historyError}
+              onRetry={state.retryAssetList}
             />
           </div>
           <div className="flex flex-col">
@@ -38,6 +40,7 @@ export function MonitoringDashboard() {
                 state.runDetailsError ??
                 state.historyError
               }
+              onRetry={state.retryAssetDetails}
             />
           </div>
           <div className="flex flex-col gap-4">
@@ -45,6 +48,7 @@ export function MonitoringDashboard() {
               trace={state.runDetails?.reasoning_trace}
               loading={state.runDetailsLoading}
               error={state.runDetailsError}
+              onRetry={state.retryReasoningTrace}
             />
             <RunHistory
               history={state.history}
@@ -52,6 +56,7 @@ export function MonitoringDashboard() {
               onSelectRun={state.setSelectedRunId}
               loading={state.historyLoading}
               error={state.historyError}
+              onRetry={state.retryRunHistory}
             />
           </div>
         </section>

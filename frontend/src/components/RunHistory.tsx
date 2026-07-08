@@ -6,6 +6,7 @@ interface RunHistoryProps {
   onSelectRun: (runId: string) => void
   loading: boolean
   error?: string
+  onRetry?: () => void | Promise<void>
 }
 
 export function RunHistory({
@@ -14,6 +15,7 @@ export function RunHistory({
   onSelectRun,
   loading,
   error,
+  onRetry,
 }: RunHistoryProps) {
   const sorted = [...history].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
@@ -25,14 +27,26 @@ export function RunHistory({
         <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
           History
         </h2>
-        {loading && (
+        {loading && !error && (
           <span className="text-[10px] uppercase tracking-wide text-slate-500">
             Refreshing…
           </span>
         )}
       </div>
       {error && (
-        <p className="mt-2 text-xs text-amber-400">{error}</p>
+        <div className="mt-2 flex items-start justify-between gap-2">
+          <p className="text-xs text-amber-400">{error}</p>
+          {onRetry && (
+            <button
+              type="button"
+              className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 transition-colors hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => void onRetry()}
+              disabled={loading}
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
       <div className="mt-3 flex-1 overflow-y-auto rounded border border-slate-800 bg-slate-950/60">
         {sorted.length > 0 ? (
@@ -76,10 +90,16 @@ export function RunHistory({
               )
             })}
           </ul>
+        ) : !error && loading ? (
+          <div className="flex h-full items-center justify-center px-3 py-6">
+            <p className="text-xs text-slate-500">Loading history…</p>
+          </div>
         ) : (
-          <p className="px-3 py-2 text-xs text-slate-500">
-            No reasoning runs recorded for this asset yet.
-          </p>
+          !error && (
+            <p className="px-3 py-2 text-xs text-slate-500">
+              No reasoning runs recorded for this asset yet.
+            </p>
+          )
         )}
       </div>
     </section>

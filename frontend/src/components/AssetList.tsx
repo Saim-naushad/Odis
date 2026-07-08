@@ -8,20 +8,24 @@ interface AssetListProps {
   assets: MonitoringAssetResponse[]
   selectedAssetId?: string
   onSelectAsset: (assetId: string) => void
+  selectedRunId?: string
   latest?: MonitoringAssetLatestResponse
   history: MonitoringAssetHistoryItemResponse[]
   loading: boolean
   error?: string
+  onRetry?: () => void | Promise<void>
 }
 
 export function AssetList({
   assets,
   selectedAssetId,
   onSelectAsset,
+  selectedRunId,
   latest,
   history,
   loading,
   error,
+  onRetry,
 }: AssetListProps) {
   return (
     <section className="flex h-full flex-col gap-3">
@@ -36,15 +40,42 @@ export function AssetList({
         )}
       </div>
       {error && (
-        <p className="text-xs text-amber-400">{error}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-xs text-amber-400">{error}</p>
+          {onRetry && (
+            <button
+              type="button"
+              className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 transition-colors hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => void onRetry()}
+              disabled={loading}
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
       <div className="grid gap-3">
         {assets.map((asset) => {
           const isSelected = asset.id === selectedAssetId
           const latestForAsset =
             latest && latest.asset_id === asset.id ? latest : undefined
+          const selectedRunForAsset =
+            isSelected && selectedRunId
+              ? history.find(
+                  (item) => item.asset_id === asset.id && item.run_id === selectedRunId,
+                )
+              : undefined
+
+          const selectedRunLatestForAsset =
+            isSelected && selectedRunId && latestForAsset?.run_id === selectedRunId
+              ? latestForAsset
+              : undefined
+
           const lastEntry =
-            history.find((item) => item.asset_id === asset.id) ?? latestForAsset
+            selectedRunForAsset ??
+            selectedRunLatestForAsset ??
+            history.find((item) => item.asset_id === asset.id) ??
+            latestForAsset
 
           return (
             <button

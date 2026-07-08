@@ -8,6 +8,7 @@ interface AssetDetailsProps {
   runDetails?: MonitoringRunDetailsResponse
   loading: boolean
   error?: string
+  onRetry?: () => void | Promise<void>
 }
 
 export function AssetDetails({
@@ -15,6 +16,7 @@ export function AssetDetails({
   runDetails,
   loading,
   error,
+  onRetry,
 }: AssetDetailsProps) {
   if (!latest && !loading && !error) {
     return (
@@ -35,15 +37,28 @@ export function AssetDetails({
         <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
           Selected asset
         </h2>
-        {loading && (
+        {loading && !error && (
           <span className="text-[10px] uppercase tracking-wide text-slate-500">
             Refreshing…
           </span>
         )}
       </div>
       {error && (
-        <p className="mt-2 text-xs text-amber-400">{error}</p>
+        <div className="mt-2 flex items-start justify-between gap-2">
+          <p className="text-xs text-amber-400">{error}</p>
+          {onRetry && (
+            <button
+              type="button"
+              className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 transition-colors hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => void onRetry()}
+              disabled={loading}
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
+
       {latest && (
         <div className="mt-3 space-y-3 text-xs">
           <div className="flex flex-wrap items-center gap-3">
@@ -51,10 +66,12 @@ export function AssetDetails({
               {latest.asset_id}
             </span>
             <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px]">
-              Run {latest.run_id}
+              Run {runDetails?.run_id ?? latest.run_id}
             </span>
             <span className="text-[10px] text-slate-400">
-              {new Date(latest.timestamp).toLocaleString()}
+              {new Date(
+                runDetails?.started_at ?? latest.timestamp,
+              ).toLocaleString()}
             </span>
           </div>
 
@@ -86,11 +103,15 @@ export function AssetDetails({
                   </p>
                 )}
               </div>
-            ) : (
+            ) : loading ? (
+              <p className="mt-1 text-[11px] text-slate-500">
+                Loading observation data…
+              </p>
+            ) : !error ? (
               <p className="mt-1 text-[11px] text-slate-500">
                 No observation data available.
               </p>
-            )}
+            ) : null}
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
@@ -98,48 +119,62 @@ export function AssetDetails({
               <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 Structured assessment
               </h3>
-              {runDetails?.structured_assessment ? (
-                <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
-                  <dt className="text-slate-500">Trend</dt>
-                  <dd className="text-slate-100">
-                    {runDetails.structured_assessment.trend_direction}
-                  </dd>
-                  <dt className="text-slate-500">Variation</dt>
-                  <dd className="text-slate-100">
-                    {runDetails.structured_assessment.variation_level}
-                  </dd>
-                  <dt className="text-slate-500">Correlations</dt>
-                  <dd className="text-slate-100">
-                    {runDetails.structured_assessment.has_correlations
-                      ? 'Present'
-                      : 'None'}
-                  </dd>
-                  <dt className="text-slate-500">Contradictions</dt>
-                  <dd className="text-slate-100">
-                    {runDetails.structured_assessment.has_contradictions
-                      ? 'Present'
-                      : 'None'}
-                  </dd>
-                  <dt className="text-slate-500">Unexpected expectations</dt>
-                  <dd className="text-slate-100">
-                    {runDetails.structured_assessment
-                      .has_unexpected_expectations
-                      ? 'Present'
-                      : 'None'}
-                  </dd>
-                  <dt className="text-slate-500">Indeterminate expectations</dt>
-                  <dd className="text-slate-100">
-                    {runDetails.structured_assessment
-                      .has_indeterminate_expectations
-                      ? 'Present'
-                      : 'None'}
-                  </dd>
-                </dl>
-              ) : (
+              {runDetails ? (
+                runDetails.structured_assessment ? (
+                  <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                    <dt className="text-slate-500">Trend</dt>
+                    <dd className="text-slate-100">
+                      {runDetails.structured_assessment.trend_direction}
+                    </dd>
+                    <dt className="text-slate-500">Variation</dt>
+                    <dd className="text-slate-100">
+                      {runDetails.structured_assessment.variation_level}
+                    </dd>
+                    <dt className="text-slate-500">Correlations</dt>
+                    <dd className="text-slate-100">
+                      {runDetails.structured_assessment.has_correlations
+                        ? 'Present'
+                        : 'None'}
+                    </dd>
+                    <dt className="text-slate-500">Contradictions</dt>
+                    <dd className="text-slate-100">
+                      {runDetails.structured_assessment.has_contradictions
+                        ? 'Present'
+                        : 'None'}
+                    </dd>
+                    <dt className="text-slate-500">
+                      Unexpected expectations
+                    </dt>
+                    <dd className="text-slate-100">
+                      {runDetails.structured_assessment
+                        .has_unexpected_expectations
+                        ? 'Present'
+                        : 'None'}
+                    </dd>
+                    <dt className="text-slate-500">
+                      Indeterminate expectations
+                    </dt>
+                    <dd className="text-slate-100">
+                      {runDetails.structured_assessment
+                        .has_indeterminate_expectations
+                        ? 'Present'
+                        : 'None'}
+                    </dd>
+                  </dl>
+                ) : (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    No structured assessment available for this run.
+                  </p>
+                )
+              ) : loading ? (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Loading structured assessment…
+                </p>
+              ) : !error ? (
                 <p className="mt-1 text-[11px] text-slate-500">
                   No structured assessment available for this run.
                 </p>
-              )}
+              ) : null}
             </div>
 
             <div>
@@ -158,13 +193,23 @@ export function AssetDetails({
                     Justification: {runDetails.decision_plan.justification}
                   </p>
                 </div>
-              ) : (
+              ) : loading ? (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Loading decision plan…
+                </p>
+              ) : !error ? (
                 <p className="mt-1 text-[11px] text-slate-500">
                   No decision plan details available.
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
+        </div>
+      )}
+
+      {!latest && !error && loading && (
+        <div className="mt-3 flex-1 flex items-center justify-center text-xs text-slate-500">
+          Loading asset details…
         </div>
       )}
     </section>

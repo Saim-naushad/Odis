@@ -81,6 +81,40 @@ cd Odis
 pip install -e ".[dev]"
 ```
 
+## Local development (Monitoring Dashboard MVP)
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d
+```
+
+Set `DATABASE_URL` (copy `.env.example` to `.env`, or export it in your shell):
+
+```bash
+export DATABASE_URL=postgresql+psycopg://odis:odis@localhost:5432/odis
+```
+
+Run migrations:
+
+```bash
+alembic upgrade head
+```
+
+Start backend:
+
+```bash
+python -m uvicorn backend.app.main:app --reload
+```
+
+Start frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
 ## Versioning
 
 - **Current version**: `0.1.0`
