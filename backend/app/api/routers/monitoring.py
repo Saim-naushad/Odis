@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 
 from backend.app.api.dependencies.services import get_monitoring_service
 from backend.app.api.schemas.monitoring import (
@@ -23,6 +29,59 @@ from backend.app.api.schemas.observation import ObservationResponse
 from backend.app.application.monitoring_service import MonitoringService
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+
+@dataclass(frozen=True, slots=True)
+class MonitoringStreamEvent:
+    event: str
+    data: str
+
+
+def _encode_sse(event: MonitoringStreamEvent) -> str:
+    """Encode a single Server-Sent Event message."""
+    lines = [f"event: {event.event}"]
+    for data_line in event.data.splitlines() or [""]:
+        lines.append(f"data: {data_line}")
+    return "\n".join(lines) + "\n\n"
+
+
+@router.get(
+    "/events",
+    summary="Stream monitoring updates (SSE)",
+    response_description="Continuous Server-Sent Events stream for monitoring updates.",
+)
+async def stream_monitoring_events(
+    request: Request,
+    service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+) -> StreamingResponse:
+    # NOTE: service is injected now to keep the API surface stable; future PRs can
+    # stream real monitoring events from persisted runs without changing the route.
+    _ = service
+
+    async def event_generator() -> AsyncIterator[str]:
+        heartbeat_interval_s = 15
+        while True:
+            if await request.is_disconnected():
+                return
+
+            payload = {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "type": "heartbeat",
+            }
+            yield _encode_sse(
+                MonitoringStreamEvent(event="heartbeat", data=json.dumps(payload))
+            )
+            await asyncio.sleep(heartbeat_interval_s)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get(

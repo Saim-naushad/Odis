@@ -98,3 +98,7 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = ["domain.*", "application.*", "backend.*"]
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["pydantic_settings"]
+ignore_missing_imports = true
