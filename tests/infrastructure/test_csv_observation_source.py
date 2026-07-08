@@ -2,10 +2,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from tests.builders import build_observation
 
 from domain.value_objects.measurement_type import MeasurementType
 from infrastructure.sources.csv_observation_source import CsvObservationSource
+from tests.builders import build_observation
 
 _HEADER = "id,asset_id,measurement_type,value,unit,timestamp\n"
 

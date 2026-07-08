@@ -2,7 +2,6 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from tests.builders import DEFAULT_TIMESTAMP, build_observation
 
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
@@ -18,6 +17,7 @@ from infrastructure.repositories.observation_repository import (
     InMemoryObservationRepository,
 )
 from infrastructure.repositories.situation_repository import InMemorySituationRepository
+from tests.builders import DEFAULT_TIMESTAMP, build_observation
 
 
 def build_situation(**overrides: Any) -> OperationalSituation:

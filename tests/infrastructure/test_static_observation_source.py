@@ -1,7 +1,7 @@
 import pytest
-from tests.builders import build_observation, build_observation_sequence
 
 from infrastructure.sources.static_observation_source import StaticObservationSource
+from tests.builders import build_observation, build_observation_sequence
 
 
 def test_empty_source_returns_empty_tuple() -> None:

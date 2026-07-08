@@ -44,6 +44,16 @@ target-version = "py311"
 line-length = 88
 src = ["src", "backend", "tests", "examples"]
 
+[tool.ruff.lint.isort]
+known-first-party = [
+    "application",
+    "backend",
+    "domain",
+    "infrastructure",
+    "odis",
+    "tests",
+]
+
 [tool.ruff.lint]
 select = [
     "E",      # pycodestyle errors
