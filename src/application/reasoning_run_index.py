@@ -19,5 +19,9 @@ class ReasoningRunIndexRepository(ABC):
         pass
 
     @abstractmethod
+    def list(self) -> list[ReasoningRunIndex]:
+        pass
+
+    @abstractmethod
     def save(self, index: ReasoningRunIndex) -> None:
         pass

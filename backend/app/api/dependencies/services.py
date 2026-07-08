@@ -18,6 +18,7 @@ from backend.app.api.dependencies.repositories import (
     get_situation_repository,
     get_structured_assessment_repository,
 )
+from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
 from domain.repositories.decision_context_repository import DecisionContextRepository
@@ -71,4 +72,43 @@ def get_observation_service(
         reasoning_session=reasoning_session,
         structured_assessment_repository=structured_assessment_repository,
         reasoning_trace_repository=reasoning_trace_repository,
+    )
+
+
+def get_monitoring_service(
+    observation_repository: Annotated[
+        ObservationRepository, Depends(get_observation_repository)
+    ],
+    reasoning_run_repository: Annotated[
+        ReasoningRunRepository, Depends(get_reasoning_run_repository)
+    ],
+    reasoning_run_index_repository: Annotated[
+        ReasoningRunIndexRepository, Depends(get_reasoning_run_index_repository)
+    ],
+    situation_repository: Annotated[
+        SituationRepository, Depends(get_situation_repository)
+    ],
+    structured_assessment_repository: Annotated[
+        StructuredAssessmentRepository, Depends(get_structured_assessment_repository)
+    ],
+    reasoning_trace_repository: Annotated[
+        ReasoningTraceRepository, Depends(get_reasoning_trace_repository)
+    ],
+    decision_context_repository: Annotated[
+        DecisionContextRepository, Depends(get_decision_context_repository)
+    ],
+    decision_plan_repository: Annotated[
+        DecisionPlanRepository, Depends(get_decision_plan_repository)
+    ],
+) -> MonitoringService:
+    """Provide a request-scoped monitoring service."""
+    return MonitoringService(
+        observation_repository=observation_repository,
+        reasoning_run_repository=reasoning_run_repository,
+        reasoning_run_index_repository=reasoning_run_index_repository,
+        situation_repository=situation_repository,
+        structured_assessment_repository=structured_assessment_repository,
+        reasoning_trace_repository=reasoning_trace_repository,
+        decision_context_repository=decision_context_repository,
+        decision_plan_repository=decision_plan_repository,
     )

@@ -17,5 +17,9 @@ class ReasoningRunRepository(ABC):
         pass
 
     @abstractmethod
+    def list(self) -> list[PersistedReasoningRun]:
+        pass
+
+    @abstractmethod
     def save(self, run: PersistedReasoningRun) -> None:
         pass

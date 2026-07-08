@@ -11,6 +11,9 @@ class InMemoryReasoningRunRepository(ReasoningRunRepository):
     def get(self, run_id: str) -> PersistedReasoningRun | None:
         return self._storage.get(run_id)
 
+    def list(self) -> list[PersistedReasoningRun]:
+        return [self._storage[key] for key in sorted(self._storage)]
+
     def save(self, run: PersistedReasoningRun) -> None:
         if run.id in self._storage:
             raise ValueError(f"reasoning run with id {run.id!r} already exists")

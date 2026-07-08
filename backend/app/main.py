@@ -13,6 +13,7 @@ from sqlalchemy import Engine
 
 from backend.app.api.routers import (
     health_router,
+    monitoring_router,
     observations_router,
     platform_router,
 )
@@ -84,6 +85,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(platform_router)
     app.include_router(health_router)
     app.include_router(observations_router)
+    app.include_router(monitoring_router)
 
     return app
 

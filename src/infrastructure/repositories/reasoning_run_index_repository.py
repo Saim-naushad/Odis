@@ -11,6 +11,9 @@ class InMemoryReasoningRunIndexRepository(ReasoningRunIndexRepository):
     def get(self, run_id: str) -> ReasoningRunIndex | None:
         return self._storage.get(run_id)
 
+    def list(self) -> list[ReasoningRunIndex]:
+        return [self._storage[key] for key in sorted(self._storage)]
+
     def save(self, index: ReasoningRunIndex) -> None:
         if index.run_id in self._storage:
             raise ValueError(

@@ -157,6 +157,22 @@ Ingestion exists because industrial equipment speaks industrial protocols. The p
 
 The API exists because every subsystem — ingestion, reasoning, frontend, third-party integrations — should integrate through a stable, documented contract rather than shared database access or direct library imports.
 
+### Monitoring boundary
+
+**Monitoring endpoints provide read-only access to persisted reasoning history and debugging data.**
+
+- Serve dashboards and operator tooling without exposing persistence internals
+- Offer stable contracts for reasoning artifacts (situations, assessments, plans, traces)
+- Keep orchestration in application services; routers remain thin
+- Avoid auth, pagination frameworks, and complex filtering DSLs until explicitly required
+
+Representative endpoints:
+
+- `GET /monitoring/assets`
+- `GET /monitoring/assets/{asset_id}/latest`
+- `GET /monitoring/assets/{asset_id}/history`
+- `GET /monitoring/runs/{run_id}`
+
 ### Reasoning
 
 **Transforms operational evidence into structured assessments and recommendations.**

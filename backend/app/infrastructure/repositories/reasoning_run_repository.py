@@ -1,5 +1,6 @@
 """SQLAlchemy-backed reasoning run repository."""
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from application.reasoning_run import ReasoningRun
@@ -23,6 +24,14 @@ class SqlAlchemyReasoningRunRepository(SqlAlchemyRepository, ReasoningRunReposit
         if model is None:
             return None
         return reasoning_run_to_domain(model)
+
+    def list(self) -> list[PersistedReasoningRun]:
+        statement = select(ReasoningRunModel).order_by(
+            ReasoningRunModel.started_at,
+            ReasoningRunModel.id,
+        )
+        models = self._session.scalars(statement).all()
+        return [reasoning_run_to_domain(model) for model in models]
 
     def save(self, run: PersistedReasoningRun) -> None:
         if self._session.get(ReasoningRunModel, run.id) is not None:
