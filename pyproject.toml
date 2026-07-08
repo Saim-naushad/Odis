@@ -3,12 +3,18 @@ name = "odis"
 version = "0.1.0"
 description = "Operational reasoning platform"
 requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "pydantic-settings>=2.0",
+    "uvicorn[standard]>=0.32",
+]
 
 [project.scripts]
 odis = "odis.cli:main"
 
 [project.optional-dependencies]
 dev = [
+    "httpx>=0.28",
     "pytest>=8.0",
     "ruff>=0.8",
     "mypy>=1.13",
@@ -20,7 +26,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "backend"]
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
@@ -33,7 +39,7 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py311"
 line-length = 88
-src = ["src", "tests", "examples"]
+src = ["src", "backend", "tests", "examples"]
 
 [tool.ruff.lint]
 select = [
@@ -74,5 +80,5 @@ warn_unused_ignores = true
 
 # Application and domain code should be fully typed.
 [[tool.mypy.overrides]]
-module = ["domain.*", "application.*"]
+module = ["domain.*", "application.*", "backend.*"]
 disallow_untyped_defs = true
