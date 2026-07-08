@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { monitoringClient } from '../api/monitoringClient'
 import type {
   MonitoringAssetHistoryItemResponse,
@@ -42,6 +43,11 @@ export interface UseMonitoringDashboardOptions {
   pollIntervalMs?: number
 }
 
+type LatestAndHistoryData = {
+  latest: MonitoringAssetLatestResponse
+  history: MonitoringAssetHistoryItemResponse[]
+}
+
 export function useMonitoringDashboard(
   options?: UseMonitoringDashboardOptions,
 ): MonitoringDashboardState & {
@@ -52,37 +58,9 @@ export function useMonitoringDashboard(
   retryRunHistory: () => Promise<void>
   retryReasoningTrace: () => Promise<void>
 } {
-  const [platformStatus, setPlatformStatus] =
-    useState<MonitoringDashboardState['platformStatus']>('unknown')
-  const [platformName, setPlatformName] = useState<string>()
-  const [reasoningEngineVersion, setReasoningEngineVersion] = useState<string>()
-  const [platformPhase, setPlatformPhase] = useState<string>()
-  const [platformErrorMessage, setPlatformErrorMessage] = useState<string>()
-
-  const [assets, setAssets] = useState<MonitoringAssetResponse[]>([])
-  const [assetsLoading, setAssetsLoading] = useState(false)
-  const [assetsError, setAssetsError] = useState<string>()
-
+  const queryClient = useQueryClient()
   const [selectedAssetId, setSelectedAssetId] = useState<string>()
-
-  const [latestForAsset, setLatestForAsset] =
-    useState<MonitoringAssetLatestResponse>()
-  const [latestLoading, setLatestLoading] = useState(false)
-  const [latestError, setLatestError] = useState<string>()
-
-  const [history, setHistory] = useState<MonitoringAssetHistoryItemResponse[]>(
-    [],
-  )
-  const [historyLoading, setHistoryLoading] = useState(false)
-  const [historyError, setHistoryError] = useState<string>()
-
   const [selectedRunId, setSelectedRunId] = useState<string>()
-  const [runDetails, setRunDetails] =
-    useState<MonitoringRunDetailsResponse>()
-  const [runDetailsLoading, setRunDetailsLoading] = useState(false)
-  const [runDetailsError, setRunDetailsError] = useState<string>()
-
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date>()
 
   // Tracks whether we have ever successfully loaded data for the current panel.
   // Used only to differentiate initial load failures vs refresh failures in UX.
@@ -96,18 +74,6 @@ export function useMonitoringDashboard(
   const selectedRunIdRef = useRef<string | undefined>(selectedRunId)
   selectedAssetIdRef.current = selectedAssetId
   selectedRunIdRef.current = selectedRunId
-
-  // Prevent overlapping polling requests (single-flight per resource).
-  const platformPollInFlightRef = useRef(false)
-  const assetsPollInFlightRef = useRef(false)
-  const latestHistoryPollInFlightRef = useRef(false)
-  const runDetailsPollInFlightRef = useRef(false)
-
-  // Prevent stale responses from older in-flight work overwriting newer state.
-  const platformReqIdRef = useRef(0)
-  const assetsReqIdRef = useRef(0)
-  const latestHistoryReqIdRef = useRef(0)
-  const runDetailsReqIdRef = useRef(0)
 
   const pollIntervalMs = useMemo(
     () => options?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
@@ -141,294 +107,103 @@ export function useMonitoringDashboard(
   // so panels can't briefly render stale data from the previously selected asset.
   useLayoutEffect(() => {
     if (!selectedAssetId) {
-      setLatestForAsset(undefined)
-      setHistory([])
-      setLatestLoading(false)
-      setHistoryLoading(false)
-      setLatestError(undefined)
-      setHistoryError(undefined)
-
       setSelectedRunId(undefined)
-      setRunDetails(undefined)
-      setRunDetailsLoading(false)
-      setRunDetailsError(undefined)
-
-      setLastUpdatedAt(undefined)
       hasLoadedLatestHistoryRef.current = false
       hasLoadedHistoryRef.current = false
       hasLoadedRunDetailsRef.current = false
       return
     }
 
-    setLatestForAsset(undefined)
-    setHistory([])
-    setLatestLoading(true)
-    setHistoryLoading(true)
-    setLatestError(undefined)
-    setHistoryError(undefined)
-
     setSelectedRunId(undefined)
-    setRunDetails(undefined)
-    setRunDetailsLoading(false)
-    setRunDetailsError(undefined)
-
-    setLastUpdatedAt(undefined)
 
     hasLoadedLatestHistoryRef.current = false
     hasLoadedHistoryRef.current = false
     hasLoadedRunDetailsRef.current = false
   }, [selectedAssetId])
 
-  // Platform health + metadata
+  const platformQuery = useQuery({
+    queryKey: ['monitoring', 'platform'],
+    queryFn: async ({ signal }) => {
+      const [health, meta] = await Promise.all([
+        monitoringClient.getHealth(signal),
+        monitoringClient.getPlatformMetadata(signal),
+      ])
+      return { health, meta }
+    },
+    refetchInterval: platformPollIntervalMs,
+    refetchIntervalInBackground: true,
+  })
+
+  const assetsQuery = useQuery({
+    queryKey: ['monitoring', 'assets'],
+    queryFn: ({ signal }) => monitoringClient.listAssets(signal),
+    refetchInterval: assetsPollIntervalMs,
+    refetchIntervalInBackground: true,
+  })
+
+  const latestAndHistoryQuery = useQuery<LatestAndHistoryData>({
+    queryKey: ['monitoring', 'asset', selectedAssetId, 'latest+history'],
+    enabled: Boolean(selectedAssetId),
+    queryFn: async ({ signal }) => {
+      const assetId = selectedAssetId as string
+      const [latest, history] = await Promise.all([
+        monitoringClient.getLatestForAsset(assetId, signal),
+        monitoringClient.getHistoryForAsset(assetId, signal),
+      ])
+      return { latest, history }
+    },
+    refetchInterval: pollIntervalMs,
+    refetchIntervalInBackground: true,
+  })
+
+  const runDetailsQuery = useQuery({
+    queryKey: ['monitoring', 'run', selectedRunId],
+    enabled: Boolean(selectedRunId),
+    queryFn: ({ signal }) => monitoringClient.getRunDetails(selectedRunId as string, signal),
+    refetchInterval: runDetailsPollIntervalMs,
+    refetchIntervalInBackground: true,
+  })
+
+  // Preserve selection behavior: auto-select first asset when assets load.
   useEffect(() => {
-    let cancelled = false
-
-    async function fetchPlatform() {
-      if (platformPollInFlightRef.current) return
-      platformPollInFlightRef.current = true
-      const requestId = ++platformReqIdRef.current
-
-      try {
-        const [health, meta] = await Promise.all([
-          monitoringClient.getHealth(),
-          monitoringClient.getPlatformMetadata(),
-        ])
-        if (cancelled || requestId !== platformReqIdRef.current) return
-        setPlatformStatus(health.status === 'ok' ? 'ok' : 'error')
-        setPlatformName(meta.platform_name)
-        setReasoningEngineVersion(meta.reasoning_engine_version)
-        setPlatformPhase(meta.platform_phase)
-        setPlatformErrorMessage(undefined)
-      } catch (error) {
-        if (cancelled || requestId !== platformReqIdRef.current) return
-        setPlatformStatus('error')
-        setPlatformErrorMessage(
-          error instanceof Error ? error.message : 'Failed to reach platform',
-        )
-      } finally {
-        platformPollInFlightRef.current = false
-      }
+    if (!assetsQuery.data || assetsQuery.data.length === 0) return
+    if (!selectedAssetIdRef.current) {
+      setSelectedAssetId(assetsQuery.data[0].id)
     }
+  }, [assetsQuery.data])
 
-    fetchPlatform()
-    const timer = setInterval(fetchPlatform, platformPollIntervalMs)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [platformPollIntervalMs])
-
-  // Assets list
+  // Preserve selection behavior: auto-select newest run when asset latest loads.
   useEffect(() => {
-    let cancelled = false
-
-    async function fetchAssets() {
-      if (assetsPollInFlightRef.current) return
-      assetsPollInFlightRef.current = true
-      const requestId = ++assetsReqIdRef.current
-
-      setAssetsLoading(true)
-      setAssetsError(undefined)
-      try {
-        const data = await monitoringClient.listAssets()
-        if (cancelled || requestId !== assetsReqIdRef.current) return
-        setAssets(data)
-        hasLoadedAssetsRef.current = true
-        if (!selectedAssetIdRef.current && data.length > 0) {
-          setSelectedAssetId(data[0].id)
-        }
-      } catch (error) {
-        if (cancelled || requestId !== assetsReqIdRef.current) return
-        setAssetsError(
-          formatPhaseError(
-            hasLoadedAssetsRef.current,
-            error,
-            'Failed to load assets',
-            'Failed to refresh assets',
-          ),
-        )
-      } finally {
-        if (!cancelled) {
-          setAssetsLoading(false)
-        }
-        assetsPollInFlightRef.current = false
-      }
+    const latest = latestAndHistoryQuery.data?.latest
+    if (!latest) return
+    if (!selectedRunIdRef.current) {
+      setSelectedRunId(latest.run_id)
     }
+  }, [latestAndHistoryQuery.data])
 
-    fetchAssets()
-    const timer = setInterval(fetchAssets, assetsPollIntervalMs)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [assetsPollIntervalMs])
-
-  // Latest + history for selected asset
+  // Preserve initial-vs-refresh UX messaging.
   useEffect(() => {
-    if (!selectedAssetId) {
-      setLatestForAsset(undefined)
-      setHistory([])
-      setSelectedRunId(undefined)
-      return
-    }
+    if (assetsQuery.isSuccess) hasLoadedAssetsRef.current = true
+  }, [assetsQuery.isSuccess])
 
-    const assetId: string = selectedAssetId
-    let cancelled = false
-
-    async function fetchLatestAndHistory() {
-      if (latestHistoryPollInFlightRef.current) return
-      latestHistoryPollInFlightRef.current = true
-      const requestId = ++latestHistoryReqIdRef.current
-
-      setLatestLoading(true)
-      setHistoryLoading(true)
-      setLatestError(undefined)
-      setHistoryError(undefined)
-
-      try {
-        const [latest, historyItems] = await Promise.all([
-          monitoringClient.getLatestForAsset(assetId),
-          monitoringClient.getHistoryForAsset(assetId),
-        ])
-        if (
-          cancelled ||
-          requestId !== latestHistoryReqIdRef.current
-        ) {
-          return
-        }
-
-        setLatestForAsset(latest)
-        setHistory(historyItems)
-        setLastUpdatedAt(new Date())
-        hasLoadedLatestHistoryRef.current = true
-        hasLoadedHistoryRef.current = true
-
-        if (!selectedRunIdRef.current) {
-          setSelectedRunId(latest.run_id)
-        }
-      } catch (error) {
-        if (
-          cancelled ||
-          requestId !== latestHistoryReqIdRef.current
-        ) {
-          return
-        }
-        setLatestError(
-          formatPhaseError(
-            hasLoadedLatestHistoryRef.current,
-            error,
-            'Failed to load asset data',
-            'Failed to refresh asset data',
-          ),
-        )
-        setHistoryError(
-          formatPhaseError(
-            hasLoadedHistoryRef.current,
-            error,
-            'Failed to load history',
-            'Failed to refresh history',
-          ),
-        )
-      } finally {
-        if (!cancelled) {
-          setLatestLoading(false)
-          setHistoryLoading(false)
-        }
-        latestHistoryPollInFlightRef.current = false
-      }
-    }
-
-    fetchLatestAndHistory()
-    const timer = setInterval(fetchLatestAndHistory, pollIntervalMs)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [pollIntervalMs, selectedAssetId])
-
-  // Run details for selected run
   useEffect(() => {
-    if (!selectedRunId) {
-      setRunDetails(undefined)
-      setRunDetailsLoading(false)
-      setRunDetailsError(undefined)
-      return
+    if (latestAndHistoryQuery.isSuccess) {
+      hasLoadedLatestHistoryRef.current = true
+      hasLoadedHistoryRef.current = true
     }
+  }, [latestAndHistoryQuery.isSuccess])
 
-    const runId: string = selectedRunId
-    let cancelled = false
-
-    // Prevent stale trace/details from a previous run from flashing while we load the new run.
-    hasLoadedRunDetailsRef.current = false
-    setRunDetails(undefined)
-    setRunDetailsLoading(true)
-    setRunDetailsError(undefined)
-
-    async function fetchRunDetails() {
-      if (runDetailsPollInFlightRef.current) return
-      runDetailsPollInFlightRef.current = true
-      const requestId = ++runDetailsReqIdRef.current
-
-      try {
-        const details = await monitoringClient.getRunDetails(runId)
-        if (cancelled || requestId !== runDetailsReqIdRef.current) return
-        setRunDetails(details)
-        hasLoadedRunDetailsRef.current = true
-      } catch (error) {
-        if (cancelled || requestId !== runDetailsReqIdRef.current) return
-        setRunDetailsError(
-          formatPhaseError(
-            hasLoadedRunDetailsRef.current,
-            error,
-            'Failed to load run details',
-            'Failed to refresh run details',
-          ),
-        )
-      } finally {
-        if (!cancelled) {
-          setRunDetailsLoading(false)
-        }
-        runDetailsPollInFlightRef.current = false
-      }
-    }
-
-    fetchRunDetails()
-    const timer = setInterval(fetchRunDetails, runDetailsPollIntervalMs)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [runDetailsPollIntervalMs, selectedRunId])
+  useEffect(() => {
+    if (runDetailsQuery.isSuccess) hasLoadedRunDetailsRef.current = true
+  }, [runDetailsQuery.isSuccess])
 
   async function retryAssetList(): Promise<void> {
-    setAssetsLoading(true)
-    setAssetsError(undefined)
-    let assetIdToLoad: string | undefined = selectedAssetId
+    const result = await assetsQuery.refetch()
+    const assets = result.data
+    const assetIdToLoad = selectedAssetIdRef.current ?? assets?.[0]?.id
 
-    try {
-      const data = await monitoringClient.listAssets()
-      setAssets(data)
-      hasLoadedAssetsRef.current = true
-
-      if (!selectedAssetId && data.length > 0) {
-        setSelectedAssetId(data[0].id)
-        assetIdToLoad = data[0].id
-      }
-    } catch (error) {
-      setAssetsError(
-        formatPhaseError(
-          hasLoadedAssetsRef.current,
-          error,
-          'Failed to load assets',
-          'Failed to refresh assets',
-        ),
-      )
-    } finally {
-      setAssetsLoading(false)
+    if (!selectedAssetIdRef.current && assets && assets.length > 0) {
+      setSelectedAssetId(assets[0].id)
     }
 
     // Asset list tiles also depend on selected-asset latest/history.
@@ -438,158 +213,130 @@ export function useMonitoringDashboard(
   }
 
   async function retryLatestAndHistory(assetIdOverride?: string): Promise<void> {
-    const assetIdToLoad = assetIdOverride ?? selectedAssetId
+    const assetIdToLoad = assetIdOverride ?? selectedAssetIdRef.current
     if (!assetIdToLoad) return
 
-    setLatestLoading(true)
-    setHistoryLoading(true)
-    setLatestError(undefined)
-    setHistoryError(undefined)
-
-    try {
-      const [latest, historyItems] = await Promise.all([
-        monitoringClient.getLatestForAsset(assetIdToLoad),
-        monitoringClient.getHistoryForAsset(assetIdToLoad),
-      ])
-
-      setLatestForAsset(latest)
-      setHistory(historyItems)
-      setLastUpdatedAt(new Date())
-      hasLoadedLatestHistoryRef.current = true
-      hasLoadedHistoryRef.current = true
-
-      if (!selectedRunId) {
-        setSelectedRunId(latest.run_id)
-      }
-    } catch (error) {
-      setLatestError(
-        formatPhaseError(
-          hasLoadedLatestHistoryRef.current,
-          error,
-          'Failed to load asset data',
-          'Failed to refresh asset data',
-        ),
-      )
-      setHistoryError(
-        formatPhaseError(
-          hasLoadedHistoryRef.current,
-          error,
-          'Failed to load history',
-          'Failed to refresh history',
-        ),
-      )
-    } finally {
-      setLatestLoading(false)
-      setHistoryLoading(false)
+    // If we are retrying a non-selected asset, switch selection and refetch the
+    // *target* query key (never the stale, previously-selected key).
+    if (assetIdOverride && assetIdOverride !== selectedAssetIdRef.current) {
+      setSelectedAssetId(assetIdOverride)
+      await queryClient.refetchQueries({
+        queryKey: ['monitoring', 'asset', assetIdOverride, 'latest+history'],
+        exact: true,
+      })
+      return
     }
+
+    await latestAndHistoryQuery.refetch()
   }
 
   async function retryRunHistory(): Promise<void> {
-    if (!selectedAssetId) return
-
-    setHistoryLoading(true)
-    setHistoryError(undefined)
-
-    try {
-      const historyItems = await monitoringClient.getHistoryForAsset(
-        selectedAssetId,
-      )
-      setHistory(historyItems)
-      hasLoadedHistoryRef.current = true
-    } catch (error) {
-      setHistoryError(
-        formatPhaseError(
-          hasLoadedHistoryRef.current,
-          error,
-          'Failed to load history',
-          'Failed to refresh history',
-        ),
-      )
-    } finally {
-      setHistoryLoading(false)
-    }
+    if (!selectedAssetIdRef.current) return
+    await latestAndHistoryQuery.refetch()
   }
 
   async function retryRunDetails(runIdOverride?: string): Promise<void> {
-    const runId = runIdOverride ?? selectedRunId
+    const runId = runIdOverride ?? selectedRunIdRef.current
     if (!runId) return
 
-    setRunDetailsLoading(true)
-    setRunDetailsError(undefined)
-
-    try {
-      const details = await monitoringClient.getRunDetails(runId)
-      setRunDetails(details)
-      hasLoadedRunDetailsRef.current = true
-    } catch (error) {
-      setRunDetailsError(
-        formatPhaseError(
-          hasLoadedRunDetailsRef.current,
-          error,
-          'Failed to load run details',
-          'Failed to refresh run details',
-        ),
-      )
-    } finally {
-      setRunDetailsLoading(false)
+    if (runIdOverride && runIdOverride !== selectedRunIdRef.current) {
+      setSelectedRunId(runIdOverride)
+      await queryClient.refetchQueries({
+        queryKey: ['monitoring', 'run', runIdOverride],
+        exact: true,
+      })
+      return
     }
+
+    await runDetailsQuery.refetch()
   }
 
   async function retryAssetDetails(): Promise<void> {
-    if (!selectedAssetId) return
+    if (!selectedAssetIdRef.current) return
 
-    // Retry latest + history for the selected asset.
-    setLatestLoading(true)
-    setHistoryLoading(true)
-    setLatestError(undefined)
-    setHistoryError(undefined)
-
-    let latest: MonitoringAssetLatestResponse | undefined
-    try {
-      const [latestResult, historyItems] = await Promise.all([
-        monitoringClient.getLatestForAsset(selectedAssetId),
-        monitoringClient.getHistoryForAsset(selectedAssetId),
-      ])
-      latest = latestResult
-
-      setLatestForAsset(latestResult)
-      setHistory(historyItems)
-      setLastUpdatedAt(new Date())
-      hasLoadedLatestHistoryRef.current = true
-      hasLoadedHistoryRef.current = true
-
-      if (!selectedRunId) {
-        setSelectedRunId(latestResult.run_id)
-      }
-    } catch (error) {
-      setLatestError(
-        formatPhaseError(
-          hasLoadedLatestHistoryRef.current,
-          error,
-          'Failed to load asset data',
-          'Failed to refresh asset data',
-        ),
-      )
-      setHistoryError(
-        formatPhaseError(
-          hasLoadedHistoryRef.current,
-          error,
-          'Failed to load history',
-          'Failed to refresh history',
-        ),
-      )
-      return
-    } finally {
-      setLatestLoading(false)
-      setHistoryLoading(false)
-    }
+    const latestHistoryResult = await latestAndHistoryQuery.refetch()
+    const runIdToFetch =
+      selectedRunIdRef.current ?? latestHistoryResult.data?.latest.run_id
 
     // Retry run details for the currently selected run (or the newest run if none yet).
-    const runIdToFetch = selectedRunId ?? latest?.run_id
     if (runIdToFetch) {
       await retryRunDetails(runIdToFetch)
     }
   }
+
+  const platformStatus: MonitoringDashboardState['platformStatus'] =
+    platformQuery.isLoading && !platformQuery.data
+      ? 'unknown'
+      : platformQuery.isError
+        ? 'error'
+        : platformQuery.data?.health.status === 'ok'
+          ? 'ok'
+          : 'error'
+
+  const platformName = platformQuery.data?.meta.platform_name
+  const reasoningEngineVersion =
+    platformQuery.data?.meta.reasoning_engine_version
+  const platformPhase = platformQuery.data?.meta.platform_phase
+  const platformErrorMessage = platformQuery.isError
+    ? platformQuery.error instanceof Error
+      ? platformQuery.error.message
+      : 'Failed to reach platform'
+    : undefined
+
+  const assets = assetsQuery.data ?? []
+  const assetsLoading = assetsQuery.isFetching
+  const assetsError = assetsQuery.isError
+    ? formatPhaseError(
+        hasLoadedAssetsRef.current,
+        assetsQuery.error,
+        'Failed to load assets',
+        'Failed to refresh assets',
+      )
+    : undefined
+
+  const latestForAsset = selectedAssetId
+    ? latestAndHistoryQuery.data?.latest
+    : undefined
+  const history = selectedAssetId ? latestAndHistoryQuery.data?.history ?? [] : []
+  const latestLoading = Boolean(selectedAssetId) && latestAndHistoryQuery.isFetching
+  const historyLoading = Boolean(selectedAssetId) && latestAndHistoryQuery.isFetching
+  const latestError =
+    selectedAssetId && latestAndHistoryQuery.isError
+      ? formatPhaseError(
+          hasLoadedLatestHistoryRef.current,
+          latestAndHistoryQuery.error,
+          'Failed to load asset data',
+          'Failed to refresh asset data',
+        )
+      : undefined
+  const historyError =
+    selectedAssetId && latestAndHistoryQuery.isError
+      ? formatPhaseError(
+          hasLoadedHistoryRef.current,
+          latestAndHistoryQuery.error,
+          'Failed to load history',
+          'Failed to refresh history',
+        )
+      : undefined
+
+  const runDetails =
+    selectedRunId && selectedAssetId ? runDetailsQuery.data : undefined
+  const runDetailsLoading =
+    Boolean(selectedRunId) && Boolean(selectedAssetId) && runDetailsQuery.isFetching
+  const runDetailsError =
+    selectedRunId && runDetailsQuery.isError
+      ? formatPhaseError(
+          hasLoadedRunDetailsRef.current,
+          runDetailsQuery.error,
+          'Failed to load run details',
+          'Failed to refresh run details',
+        )
+      : undefined
+
+  const lastUpdatedAt =
+    selectedAssetId && latestAndHistoryQuery.data
+      ? new Date(latestAndHistoryQuery.dataUpdatedAt)
+      : undefined
 
   return {
     platformStatus,

@@ -9,35 +9,45 @@ import type {
 } from '../types/monitoring'
 
 export const monitoringClient = {
-  getHealth(): Promise<HealthResponse> {
-    return apiClient.get('/health')
+  getHealth(signal?: AbortSignal): Promise<HealthResponse> {
+    return apiClient.get('/health', signal)
   },
 
-  getPlatformMetadata(): Promise<PlatformMetadataResponse> {
-    return apiClient.get('/')
+  getPlatformMetadata(signal?: AbortSignal): Promise<PlatformMetadataResponse> {
+    return apiClient.get('/', signal)
   },
 
-  listAssets(): Promise<MonitoringAssetResponse[]> {
-    return apiClient.get('/monitoring/assets')
+  listAssets(signal?: AbortSignal): Promise<MonitoringAssetResponse[]> {
+    return apiClient.get('/monitoring/assets', signal)
   },
 
   getLatestForAsset(
     assetId: string,
+    signal?: AbortSignal,
   ): Promise<MonitoringAssetLatestResponse> {
-    return apiClient.get(`/monitoring/assets/${encodeURIComponent(assetId)}/latest`)
+    return apiClient.get(
+      `/monitoring/assets/${encodeURIComponent(assetId)}/latest`,
+      signal,
+    )
   },
 
   getHistoryForAsset(
     assetId: string,
+    signal?: AbortSignal,
   ): Promise<MonitoringAssetHistoryItemResponse[]> {
     return apiClient.get(
       `/monitoring/assets/${encodeURIComponent(assetId)}/history`,
+      signal,
     )
   },
 
-  getRunDetails(runId: string): Promise<MonitoringRunDetailsResponse> {
+  getRunDetails(
+    runId: string,
+    signal?: AbortSignal,
+  ): Promise<MonitoringRunDetailsResponse> {
     return apiClient.get(
       `/monitoring/runs/${encodeURIComponent(runId)}`,
+      signal,
     )
   },
 }
