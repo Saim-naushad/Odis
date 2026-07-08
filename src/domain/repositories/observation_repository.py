@@ -11,3 +11,7 @@ class ObservationRepository(ABC):
     @abstractmethod
     def save(self, observation: Observation) -> None:
         pass
+
+    @abstractmethod
+    def list(self) -> list[Observation]:
+        pass

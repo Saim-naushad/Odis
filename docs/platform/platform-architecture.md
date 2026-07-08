@@ -337,9 +337,12 @@ backend/app/infrastructure/
   database/
     base.py          # SQLAlchemy DeclarativeBase for ORM models
     session.py       # Engine and session factory creation
+    models/          # SQLAlchemy ORM models (infrastructure only)
+    mappers/         # Domain ↔ ORM mapping functions
   repositories/
     protocols.py     # PlatformRepository marker protocol
     base.py          # SqlAlchemyRepository base class
+    observation_repository.py  # SQLAlchemy ObservationRepository
 ```
 
 Alembic migrations are configured at the repository root (`alembic/`, `alembic.ini`) and load the database URL from application settings (`DATABASE_URL`).
@@ -357,13 +360,40 @@ The reasoning engine defines **what** to persist through domain repository inter
 
 ### Repository pattern
 
-Future entity repositories will:
+Entity repositories:
 
 1. Implement a domain repository interface from `src/domain/repositories/`
 2. Subclass `SqlAlchemyRepository` for session management
 3. Map between domain entities and ORM models within the infrastructure layer
 
-No domain entity repositories are implemented yet. This PR establishes the abstraction — `PlatformRepository`, `SqlAlchemyRepository`, declarative `Base`, session factory, and the `get_db_session` FastAPI dependency — that future persistence PRs will follow.
+`SqlAlchemyObservationRepository` is the first concrete implementation. It satisfies the domain `ObservationRepository` contract with `save`, `get`, and `list`. Observations are immutable — no update or delete operations are exposed.
+
+### Observation persistence
+
+Observations are the first entity persisted by the platform. They are the evidence foundation for reasoning: every assessment traces back to stored measurement records.
+
+| Domain field | ORM column | Notes |
+|--------------|------------|-------|
+| `id` | `id` | Primary key |
+| `asset_id` | `asset_id` | Indexed for asset-scoped queries |
+| `timestamp` | `timestamp` | Timezone-aware `DateTime` |
+| `measurement_type.name` | `measurement_type_name` | Value object flattened to string |
+| `value` | `value` | `float` |
+| `unit` | `unit` | Measurement unit string |
+
+Mapping is explicit and isolated in `backend/app/infrastructure/database/mappers/observation.py`. ORM models never leave the infrastructure layer — repository methods accept and return domain `Observation` entities.
+
+The initial Alembic migration (`b8265a976460`) creates the `observations` table only. Future entities will receive their own migrations.
+
+### Repository responsibilities
+
+| Method | Behavior |
+|--------|----------|
+| `save(observation)` | Insert a new observation; reject duplicate IDs |
+| `get(id)` | Return the domain observation or `None` |
+| `list()` | Return all persisted observations as domain objects |
+
+The reasoning engine depends only on the domain `ObservationRepository` interface. It can run with `InMemoryObservationRepository` in tests or `SqlAlchemyObservationRepository` in production — no changes to reasoning logic are required.
 
 ### Configuration
 

@@ -13,3 +13,6 @@ class InMemoryObservationRepository(ObservationRepository):
         if observation.id in self._storage:
             raise ValueError(f"observation with id {observation.id!r} already exists")
         self._storage[observation.id] = observation
+
+    def list(self) -> list[Observation]:
+        return list(self._storage.values())

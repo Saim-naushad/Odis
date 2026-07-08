@@ -3,6 +3,11 @@
 import contextlib
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from starlette.requests import Request
+
 from backend.app.api.dependencies.database import get_db_session
 from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.database.base import Base
@@ -11,10 +16,6 @@ from backend.app.infrastructure.database.session import (
     create_session_factory,
 )
 from backend.app.main import create_app
-from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-from starlette.requests import Request
 
 
 @pytest.fixture
@@ -95,5 +96,7 @@ def test_app_without_database_url_skips_engine() -> None:
         assert app.state.session_factory is None
 
 
-def test_declarative_base_metadata_is_empty() -> None:
-    assert Base.metadata.tables == {}
+def test_declarative_base_metadata_includes_observations_table() -> None:
+    from backend.app.infrastructure.database import models as _models  # noqa: F401
+
+    assert "observations" in Base.metadata.tables
