@@ -278,6 +278,12 @@ Scenarios provide context for **expectation selection**: the same telemetry may 
 
 Future expectation policies will evaluate behavior relative to scenarios so that declared expectations apply to the operating phase in which observations are interpreted.
 
+#### Expectation Policy
+
+`ExpectationPolicy` is an immutable application-layer value object that maps an `OperationalScenario` to the `Expectation` values relevant under that scenario. It belongs to **operational profiles**, which define which expectations apply in each operating phase.
+
+The policy does not evaluate expectations, detect scenarios, or participate in the reasoning pipeline today. Future pipeline integration will use it to select the applicable expectations before evaluation.
+
 ### Runs vs. the run registry
 
 Two complementary responsibilities keep execution metadata organized:
