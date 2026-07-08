@@ -3,11 +3,6 @@
 import contextlib
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-from starlette.requests import Request
-
 from backend.app.api.dependencies.database import get_db_session
 from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.database.base import Base
@@ -16,6 +11,10 @@ from backend.app.infrastructure.database.session import (
     create_session_factory,
 )
 from backend.app.main import create_app
+from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from starlette.requests import Request
 
 
 @pytest.fixture

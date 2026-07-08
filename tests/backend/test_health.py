@@ -1,8 +1,7 @@
 """Health endpoint specifications."""
 
-from fastapi.testclient import TestClient
-
 from backend.app.main import create_app
+from fastapi.testclient import TestClient
 
 
 def test_health_returns_ok() -> None:

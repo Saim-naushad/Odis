@@ -1,9 +1,8 @@
 """Platform metadata endpoint specifications."""
 
-from fastapi.testclient import TestClient
-
 from backend.app.infrastructure.config.settings import Settings
 from backend.app.main import create_app
+from fastapi.testclient import TestClient
 
 
 def test_root_returns_platform_metadata() -> None:
