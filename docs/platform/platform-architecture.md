@@ -326,6 +326,51 @@ New protocol adapters are added by implementing the ingestion contract, not by m
 
 ---
 
+## Backend Persistence Architecture
+
+The platform backend establishes persistence as an infrastructure concern under `backend/app/infrastructure/`. SQLAlchemy and Alembic live exclusively in this layer — the reasoning engine in `src/` never imports them.
+
+### Package layout
+
+```
+backend/app/infrastructure/
+  database/
+    base.py          # SQLAlchemy DeclarativeBase for ORM models
+    session.py       # Engine and session factory creation
+  repositories/
+    protocols.py     # PlatformRepository marker protocol
+    base.py          # SqlAlchemyRepository base class
+```
+
+Alembic migrations are configured at the repository root (`alembic/`, `alembic.ini`) and load the database URL from application settings (`DATABASE_URL`).
+
+### Persistence boundary
+
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| **Domain contracts** | `src/domain/repositories/` | Abstract repository interfaces (observations, situations, plans, etc.) |
+| **Reasoning engine** | `src/` | Operates on domain objects; uses in-memory repositories for tests |
+| **Platform infrastructure** | `backend/app/infrastructure/` | SQLAlchemy engine, sessions, ORM models, concrete repository implementations |
+| **API orchestration** | `backend/app/api/` | FastAPI dependencies inject request-scoped sessions; routes call application services |
+
+The reasoning engine defines **what** to persist through domain repository interfaces. The platform backend defines **how** to persist through SQLAlchemy-backed implementations that satisfy those interfaces. This separation keeps assessment logic testable without a database and allows persistence technology to evolve independently.
+
+### Repository pattern
+
+Future entity repositories will:
+
+1. Implement a domain repository interface from `src/domain/repositories/`
+2. Subclass `SqlAlchemyRepository` for session management
+3. Map between domain entities and ORM models within the infrastructure layer
+
+No domain entity repositories are implemented yet. This PR establishes the abstraction — `PlatformRepository`, `SqlAlchemyRepository`, declarative `Base`, session factory, and the `get_db_session` FastAPI dependency — that future persistence PRs will follow.
+
+### Configuration
+
+Database connectivity is configured through Pydantic Settings. Set `DATABASE_URL` to a PostgreSQL connection string in production (e.g. `postgresql+psycopg://user:pass@host/db`). When unset, the API starts without a database connection; persistence features activate once `DATABASE_URL` is provided.
+
+---
+
 ## Deployment Vision
 
 ### Initial deployment: Docker Compose
@@ -493,7 +538,7 @@ High-level implementation sequence for the production platform:
 |------|-------------|-------------|
 | 1 | **FastAPI platform foundation** | HTTP API skeleton, project structure, health endpoints, service wiring |
 | 2 | **Docker Compose development environment** | Multi-service local stack with reproducible startup |
-| 3 | **PostgreSQL persistence** | Schema, migrations, repository implementations for domain entities |
+| 3 | **PostgreSQL persistence** | Database foundation (engine, sessions, migrations, repository abstractions); entity repository implementations follow in subsequent PRs |
 | 4 | **Reasoning API** | Endpoints that trigger reasoning and return assessments and plans |
 | 5 | **Fuel cell simulator** | Realistic telemetry generator for development and demonstration |
 | 6 | **MQTT ingestion** | Subscriber service that receives telemetry and forwards to API |

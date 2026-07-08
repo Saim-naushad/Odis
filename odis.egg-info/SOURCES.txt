@@ -4,6 +4,7 @@ backend/app/__init__.py
 backend/app/main.py
 backend/app/api/__init__.py
 backend/app/api/dependencies/__init__.py
+backend/app/api/dependencies/database.py
 backend/app/api/dependencies/settings.py
 backend/app/api/routers/__init__.py
 backend/app/api/routers/health.py
@@ -14,6 +15,12 @@ backend/app/api/schemas/platform.py
 backend/app/infrastructure/__init__.py
 backend/app/infrastructure/config/__init__.py
 backend/app/infrastructure/config/settings.py
+backend/app/infrastructure/database/__init__.py
+backend/app/infrastructure/database/base.py
+backend/app/infrastructure/database/session.py
+backend/app/infrastructure/repositories/__init__.py
+backend/app/infrastructure/repositories/base.py
+backend/app/infrastructure/repositories/protocols.py
 odis.egg-info/PKG-INFO
 odis.egg-info/SOURCES.txt
 odis.egg-info/dependency_links.txt

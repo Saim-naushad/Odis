@@ -12,7 +12,9 @@ The reasoning engine remains in `src/` as a separate subsystem. This backend doe
 backend/
   app/
     api/                 # HTTP layer (routers, schemas, dependencies)
-    infrastructure/      # Configuration and future adapters
+    infrastructure/      # Configuration, database, repository adapters
+      database/          # SQLAlchemy engine, session factory, declarative base
+      repositories/      # Repository abstractions for future implementations
     main.py              # FastAPI application factory
 ```
 
@@ -41,8 +43,9 @@ Settings are loaded from environment variables (and an optional `.env` file) via
 | `APP_NAME` | `ODIS Platform` | Service title shown in OpenAPI |
 | `APP_VERSION` | `0.1.0` | API version |
 | `ENVIRONMENT` | `development` | Deployment environment label |
+| `DATABASE_URL` | *(unset)* | PostgreSQL or SQLite connection string; enables persistence when set |
 
-Reserved for future use: `DATABASE_URL`, `MQTT_BROKER_URL`, `KAFKA_BOOTSTRAP_SERVERS`.
+Reserved for future use: `MQTT_BROKER_URL`, `KAFKA_BOOTSTRAP_SERVERS`.
 
 ## Endpoints
 

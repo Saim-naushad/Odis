@@ -13,13 +13,13 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     app_name: str = "ODIS Platform"
     app_version: str = "0.1.0"
     environment: str = "development"
 
-    # Reserved for future platform integrations (unused in foundation phase).
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     mqtt_broker_url: str | None = Field(
         default=None,

@@ -9,9 +9,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fastapi import FastAPI
+from sqlalchemy import Engine
 
 from backend.app.api.routers import health_router, platform_router
 from backend.app.infrastructure.config.settings import Settings, get_settings
+from backend.app.infrastructure.database.session import (
+    create_db_engine,
+    create_session_factory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +35,15 @@ def _build_lifespan(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         """Initialize and tear down lightweight application state."""
+        engine: Engine | None = None
+        app.state.engine = None
+        app.state.session_factory = None
+
+        if active_settings.database_url is not None:
+            engine = create_db_engine(active_settings)
+            app.state.engine = engine
+            app.state.session_factory = create_session_factory(engine)
+
         app.state.runtime = AppState(
             started_at=datetime.now(UTC),
             settings=active_settings,
@@ -41,6 +55,8 @@ def _build_lifespan(
             active_settings.environment,
         )
         yield
+        if engine is not None:
+            engine.dispose()
         logger.info("Shutting down %s", active_settings.app_name)
 
     return lifespan
