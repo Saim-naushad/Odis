@@ -1,5 +1,6 @@
 """Application service dependency providers for route handlers."""
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -20,6 +21,8 @@ from backend.app.api.dependencies.repositories import (
     get_situation_repository,
     get_structured_assessment_repository,
 )
+from backend.app.api.routers.platform import REASONING_ENGINE_VERSION
+from backend.app.application.health_service import HealthService
 from backend.app.application.monitoring_event_source import MonitoringEventSource
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.observation_service import ObservationService
@@ -27,6 +30,7 @@ from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
+from backend.app.infrastructure.config.settings import get_settings
 from domain.repositories.decision_context_repository import DecisionContextRepository
 from domain.repositories.decision_plan_repository import DecisionPlanRepository
 from domain.repositories.observation_repository import ObservationRepository
@@ -89,4 +93,35 @@ def get_monitoring_service(
         reasoning_trace_repository=reasoning_trace_repository,
         decision_context_repository=decision_context_repository,
         decision_plan_repository=decision_plan_repository,
+    )
+
+
+def get_health_service(request: Request) -> HealthService:
+    """Return the application-scoped health service."""
+    settings = getattr(request.app.state, "settings", None)
+    runtime = getattr(request.app.state, "runtime", None)
+    engine = getattr(request.app.state, "engine", None)
+    session_factory = getattr(request.app.state, "session_factory", None)
+    monitoring_event_source = getattr(
+        request.app.state,
+        "monitoring_event_source",
+        None,
+    )
+
+    if settings is None:
+        settings = get_settings()
+
+    started_at = (
+        runtime.started_at
+        if runtime is not None and hasattr(runtime, "started_at")
+        else datetime.now(UTC)
+    )
+
+    return HealthService(
+        settings=settings,
+        started_at=started_at,
+        reasoning_engine_version=REASONING_ENGINE_VERSION,
+        engine=engine,
+        session_factory=session_factory,
+        monitoring_event_source=monitoring_event_source,
     )
