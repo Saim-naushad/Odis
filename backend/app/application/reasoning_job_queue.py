@@ -15,6 +15,7 @@ from backend.app.domain.reasoning_job import ReasoningJob, ReasoningJobStatus
 from backend.app.domain.repositories.reasoning_job_repository import (
     ReasoningJobRepository,
 )
+from backend.app.infrastructure.tracing import business_span
 
 
 class ReasoningJobQueue(Protocol):
@@ -40,17 +41,18 @@ class DatabaseReasoningJobQueue:
         self._repository = repository
 
     def enqueue(self, asset_id: str) -> ReasoningJob:
-        job = ReasoningJob(
-            id=str(uuid4()),
-            asset_id=asset_id,
-            status=ReasoningJobStatus.PENDING,
-            created_at=datetime.now(UTC),
-            started_at=None,
-            completed_at=None,
-            attempts=0,
-        )
-        self._repository.save(job)
-        return job
+        with business_span("enqueue_reasoning_job", attributes={"asset_id": asset_id}):
+            job = ReasoningJob(
+                id=str(uuid4()),
+                asset_id=asset_id,
+                status=ReasoningJobStatus.PENDING,
+                created_at=datetime.now(UTC),
+                started_at=None,
+                completed_at=None,
+                attempts=0,
+            )
+            self._repository.save(job)
+            return job
 
     def claim(self) -> ReasoningJob | None:
         return self._repository.claim_oldest_pending()

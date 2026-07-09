@@ -26,6 +26,7 @@ from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
 from backend.app.infrastructure.repositories.reasoning_job_repository import (
     SqlAlchemyReasoningJobRepository,
 )
+from backend.app.infrastructure.tracing import configure_tracing, shutdown_tracing
 
 logger = get_logger(__name__)
 
@@ -66,6 +67,10 @@ def run_worker(*, poll_interval_seconds: float = 1.0) -> None:
         log_level=settings.log_level,
         environment=settings.environment,
     )
+    configure_tracing(
+        settings,
+        service_name=settings.otel_service_name or "odis-worker",
+    )
 
     if settings.database_url is None:
         msg = "DATABASE_URL is required to run the reasoning worker"
@@ -91,6 +96,7 @@ def run_worker(*, poll_interval_seconds: float = 1.0) -> None:
                 time.sleep(poll_interval_seconds)
     finally:
         engine.dispose()
+        shutdown_tracing()
         logger.info("reasoning_worker_stopped")
 
 

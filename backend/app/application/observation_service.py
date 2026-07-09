@@ -28,6 +28,7 @@ from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.observation_metrics import (
     observations_created_total,
 )
+from backend.app.infrastructure.tracing import business_span
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
 from domain.repositories.decision_plan_repository import DecisionPlanRepository
@@ -137,6 +138,12 @@ class ObservationService:
     def run_reasoning_for_asset(self, asset_id: str) -> bool:
         if self._reasoning_session is None:
             return False
+
+        with business_span("run_reasoning_pipeline", attributes={"asset_id": asset_id}):
+            return self._run_reasoning_for_asset(asset_id)
+
+    def _run_reasoning_for_asset(self, asset_id: str) -> bool:
+        assert self._reasoning_session is not None
 
         asset_observations = self._repository.list_by_asset(asset_id)
         if not _can_run_reasoning(asset_observations):

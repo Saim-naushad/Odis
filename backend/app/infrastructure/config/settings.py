@@ -40,6 +40,16 @@ class Settings(BaseSettings):
         validation_alias="CACHE_TTL_SECONDS",
     )
 
+    otel_enabled: bool = Field(default=False, validation_alias="OTEL_ENABLED")
+    otel_exporter_otlp_endpoint: str | None = Field(
+        default=None,
+        validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT",
+    )
+    otel_service_name: str | None = Field(
+        default=None,
+        validation_alias="OTEL_SERVICE_NAME",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

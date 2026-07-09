@@ -28,6 +28,11 @@ from backend.app.infrastructure.logging import configure_logging, get_logger
 from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork,
 )
+from backend.app.infrastructure.tracing import (
+    configure_tracing,
+    instrument_fastapi_app,
+    shutdown_tracing,
+)
 
 logger = get_logger(__name__)
 
@@ -87,6 +92,7 @@ def _build_lifespan(
         yield
         if engine is not None:
             engine.dispose()
+        shutdown_tracing()
         logger.info(
             "application_shutdown",
             app_name=active_settings.app_name,
@@ -102,6 +108,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         log_level=active_settings.log_level,
         environment=active_settings.environment,
     )
+    configure_tracing(
+        active_settings,
+        service_name=active_settings.otel_service_name or "odis-api",
+    )
 
     app = FastAPI(
         title=active_settings.app_name,
@@ -115,6 +125,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = active_settings
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(HTTPMetricsMiddleware)
+    instrument_fastapi_app(app, settings=active_settings)
 
     app.include_router(platform_router)
     app.include_router(health_router)

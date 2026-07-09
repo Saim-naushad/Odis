@@ -8,6 +8,7 @@ from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.domain.digital_twin import DigitalTwin
 from backend.app.domain.timeline import TimelineEvent
+from backend.app.infrastructure.tracing import business_span
 from domain.entities.asset import Asset
 from domain.value_objects.location import Location
 
@@ -74,40 +75,41 @@ class DigitalTwinService:
         return twin
 
     def _assemble(self, asset_id: str) -> DigitalTwin:
-        history = self._monitoring.get_history_for_asset(asset_id)
-        if history is None:
-            raise DigitalTwinAssetNotFoundError(asset_id)
-        if not history:
-            raise DigitalTwinNoReasoningHistoryError(asset_id)
+        with business_span("build_digital_twin", attributes={"asset_id": asset_id}):
+            history = self._monitoring.get_history_for_asset(asset_id)
+            if history is None:
+                raise DigitalTwinAssetNotFoundError(asset_id)
+            if not history:
+                raise DigitalTwinNoReasoningHistoryError(asset_id)
 
-        latest = self._monitoring.get_latest_for_asset(asset_id)
-        assert latest is not None
+            latest = self._monitoring.get_latest_for_asset(asset_id)
+            assert latest is not None
 
-        operational_state = self._monitoring.get_operational_state(asset_id)
-        recommendation = self._monitoring.get_recommendation(asset_id)
-        # If the asset has a latest run, state and recommendation should exist;
-        # still guard to keep service defensive.
-        if operational_state is None or recommendation is None:
-            raise DigitalTwinNoReasoningHistoryError(asset_id)
+            operational_state = self._monitoring.get_operational_state(asset_id)
+            recommendation = self._monitoring.get_recommendation(asset_id)
+            # If the asset has a latest run, state and recommendation should exist;
+            # still guard to keep service defensive.
+            if operational_state is None or recommendation is None:
+                raise DigitalTwinNoReasoningHistoryError(asset_id)
 
-        notification = self._monitoring.get_latest_notification(asset_id)
-        timeline = self._monitoring.get_timeline_for_asset(asset_id) or []
-        timeline_preview = self._preview_timeline(timeline)
+            notification = self._monitoring.get_latest_notification(asset_id)
+            timeline = self._monitoring.get_timeline_for_asset(asset_id) or []
+            timeline_preview = self._preview_timeline(timeline)
 
-        descriptor = _default_asset_descriptor(asset_id)
+            descriptor = _default_asset_descriptor(asset_id)
 
-        return DigitalTwin(
-            asset_id=descriptor.asset.id,
-            asset_name=descriptor.asset.name,
-            asset_type=descriptor.asset.type,
-            location=descriptor.asset.location,
-            operational_state=operational_state,
-            recommendation=recommendation,
-            notification=notification,
-            latest_reasoning_run_id=latest.run.id,
-            timeline_preview=tuple(timeline_preview),
-            last_updated=operational_state.last_updated,
-        )
+            return DigitalTwin(
+                asset_id=descriptor.asset.id,
+                asset_name=descriptor.asset.name,
+                asset_type=descriptor.asset.type,
+                location=descriptor.asset.location,
+                operational_state=operational_state,
+                recommendation=recommendation,
+                notification=notification,
+                latest_reasoning_run_id=latest.run.id,
+                timeline_preview=tuple(timeline_preview),
+                last_updated=operational_state.last_updated,
+            )
 
     def _preview_timeline(self, timeline: list[TimelineEvent]) -> list[TimelineEvent]:
         if self._timeline_preview_limit <= 0:

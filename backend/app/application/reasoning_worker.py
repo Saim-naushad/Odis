@@ -18,6 +18,7 @@ from backend.app.infrastructure.metrics.reasoning_metrics import (
     reasoning_failures_total,
     reasoning_runs_total,
 )
+from backend.app.infrastructure.tracing import business_span
 
 logger = get_logger(__name__)
 
@@ -47,15 +48,19 @@ class ReasoningWorker:
 
             start = time.perf_counter()
             try:
-                service = create_observation_service(
-                    uow,
-                    self._event_bus,
-                    self._outbox_dispatcher,
-                )
-                service.run_reasoning_for_asset(job.asset_id)
-                job_queue.complete(job)
-                uow.commit()
-                self._outbox_dispatcher.dispatch()
+                with business_span(
+                    "process_reasoning_job",
+                    attributes={"job_id": job.id, "asset_id": job.asset_id},
+                ):
+                    service = create_observation_service(
+                        uow,
+                        self._event_bus,
+                        self._outbox_dispatcher,
+                    )
+                    service.run_reasoning_for_asset(job.asset_id)
+                    job_queue.complete(job)
+                    uow.commit()
+                    self._outbox_dispatcher.dispatch()
                 reasoning_runs_total.inc()
                 reasoning_duration_seconds.observe(time.perf_counter() - start)
                 logger.info(
