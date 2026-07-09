@@ -8,7 +8,8 @@ import type {
   MonitoringRunDetailsResponse,
 } from '../types/monitoring'
 
-const DEFAULT_POLL_INTERVAL_MS = 5_000
+/** Fallback poll interval when SSE is unavailable; SSE invalidation is primary. */
+const DEFAULT_POLL_INTERVAL_MS = 60_000
 
 export interface MonitoringDashboardState {
   platformStatus: 'unknown' | 'ok' | 'error'
@@ -80,11 +81,6 @@ export function useMonitoringDashboard(
     [options?.pollIntervalMs],
   )
 
-  // Reduce polling for resources that do not need frequent updates.
-  const platformPollIntervalMs = Math.max(30_000, pollIntervalMs * 6)
-  const assetsPollIntervalMs = Math.max(15_000, pollIntervalMs * 3)
-  const runDetailsPollIntervalMs = Math.max(15_000, pollIntervalMs * 3)
-
   function formatPhaseError(
     hasLoadedBefore: boolean,
     error: unknown,
@@ -130,14 +126,14 @@ export function useMonitoringDashboard(
       ])
       return { health, meta }
     },
-    refetchInterval: platformPollIntervalMs,
+    refetchInterval: pollIntervalMs,
     refetchIntervalInBackground: true,
   })
 
   const assetsQuery = useQuery({
     queryKey: ['monitoring', 'assets'],
     queryFn: ({ signal }) => monitoringClient.listAssets(signal),
-    refetchInterval: assetsPollIntervalMs,
+    refetchInterval: pollIntervalMs,
     refetchIntervalInBackground: true,
   })
 
@@ -160,7 +156,7 @@ export function useMonitoringDashboard(
     queryKey: ['monitoring', 'run', selectedRunId],
     enabled: Boolean(selectedRunId),
     queryFn: ({ signal }) => monitoringClient.getRunDetails(selectedRunId as string, signal),
-    refetchInterval: runDetailsPollIntervalMs,
+    refetchInterval: pollIntervalMs,
     refetchIntervalInBackground: true,
   })
 

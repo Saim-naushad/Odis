@@ -3,6 +3,10 @@ import type { MonitoringSsePayload } from './monitoringEventTypes'
 
 export function createMonitoringEventDispatcher(queryClient: QueryClient) {
   return {
+    invalidateAll(): void {
+      void queryClient.invalidateQueries({ queryKey: ['monitoring'] })
+    },
+
     dispatch(payload: MonitoringSsePayload): void {
       switch (payload.type) {
         case 'asset_updated':
