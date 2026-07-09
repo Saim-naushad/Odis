@@ -19,6 +19,7 @@ from backend.app.api.dependencies.repositories import (
     get_reasoning_trace_repository,
     get_situation_repository,
     get_structured_assessment_repository,
+    get_timeline_repository,
 )
 from backend.app.api.routers.platform import REASONING_ENGINE_VERSION
 from backend.app.application.events.event_bus import DomainEventBus
@@ -31,6 +32,7 @@ from backend.app.application.observation_service_factory import (
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
 from backend.app.application.unit_of_work import UnitOfWork
+from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.infrastructure.config.settings import get_settings
 from domain.repositories.decision_context_repository import DecisionContextRepository
 from domain.repositories.decision_plan_repository import DecisionPlanRepository
@@ -98,6 +100,9 @@ def get_monitoring_service(
     decision_plan_repository: Annotated[
         DecisionPlanRepository, Depends(get_decision_plan_repository)
     ],
+    timeline_repository: Annotated[
+        TimelineRepository, Depends(get_timeline_repository)
+    ],
 ) -> MonitoringService:
     """Provide a request-scoped monitoring service."""
     return MonitoringService(
@@ -109,6 +114,7 @@ def get_monitoring_service(
         reasoning_trace_repository=reasoning_trace_repository,
         decision_context_repository=decision_context_repository,
         decision_plan_repository=decision_plan_repository,
+        timeline_repository=timeline_repository,
     )
 
 

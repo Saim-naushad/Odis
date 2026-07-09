@@ -67,4 +67,7 @@ def create_observation_service(
         reasoning_session=reasoning_session,
         structured_assessment_repository=structured_assessment_repository,
         reasoning_trace_repository=reasoning_trace_repository,
+        decision_plan_repository=SqlAlchemyDecisionPlanRepository(session),
+        reasoning_run_index_repository=SqlAlchemyReasoningRunIndexRepository(session),
+        reasoning_run_repository=SqlAlchemyReasoningRunRepository(session),
     )

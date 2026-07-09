@@ -21,10 +21,15 @@ from backend.app.api.routers import (
 from backend.app.application.events.domain_events import (
     ObservationCreated,
     ReasoningCompleted,
+    ReasoningStarted,
+    RecommendationUpdated,
 )
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.events.handlers.monitoring_event_handler import (
     MonitoringEventHandler,
+)
+from backend.app.application.events.handlers.timeline_event_handler import (
+    TimelineEventHandler,
 )
 from backend.app.application.monitoring_event_source import (
     InMemoryMonitoringEventSource,
@@ -87,6 +92,26 @@ def _build_lifespan(
             ReasoningCompleted,
             monitoring_handler.on_reasoning_completed,
         )
+        if app.state.session_factory is not None:
+            timeline_handler = TimelineEventHandler(
+                lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
+            )
+            domain_event_bus.subscribe(
+                ObservationCreated,
+                timeline_handler.on_observation_created,
+            )
+            domain_event_bus.subscribe(
+                ReasoningStarted,
+                timeline_handler.on_reasoning_started,
+            )
+            domain_event_bus.subscribe(
+                ReasoningCompleted,
+                timeline_handler.on_reasoning_completed,
+            )
+            domain_event_bus.subscribe(
+                RecommendationUpdated,
+                timeline_handler.on_recommendation_updated,
+            )
         if app.state.session_factory is not None:
             outbox_dispatcher = OutboxDispatcher(
                 lambda: SqlAlchemyUnitOfWork(app.state.session_factory),

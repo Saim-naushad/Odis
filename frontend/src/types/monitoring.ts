@@ -118,3 +118,19 @@ export interface MonitoringRunDetailsResponse {
   decision_plan: DecisionPlanResponse
 }
 
+export type TimelineEventType =
+  | 'observation_received'
+  | 'reasoning_started'
+  | 'reasoning_completed'
+  | 'recommendation_updated'
+
+export interface TimelineEventResponse {
+  id: string
+  asset_id: string
+  timestamp: string
+  event_type: TimelineEventType
+  title: string
+  description: string
+  metadata: Record<string, unknown>
+}
+

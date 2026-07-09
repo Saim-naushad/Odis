@@ -23,3 +23,19 @@ class ReasoningCompleted:
     run_id: str
     timestamp: datetime
 
+
+@dataclass(frozen=True, slots=True)
+class ReasoningStarted:
+    asset_id: str
+    run_id: str
+    timestamp: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class RecommendationUpdated:
+    asset_id: str
+    run_id: str
+    previous_recommendation: str | None
+    new_recommendation: str
+    timestamp: datetime
+

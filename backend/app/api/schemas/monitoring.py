@@ -15,6 +15,7 @@ from backend.app.domain.reasoning import (
     ConfidenceScore,
     Evidence,
 )
+from backend.app.domain.timeline import TimelineEvent, TimelineEventType
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.operational_situation import OperationalSituation
@@ -206,5 +207,27 @@ class AlternativeHypothesisResponse(BaseModel):
             title=hypothesis.title,
             reason=hypothesis.reason,
             confidence=hypothesis.confidence,
+        )
+
+
+class TimelineEventResponse(BaseModel):
+    id: str
+    asset_id: str
+    timestamp: datetime
+    event_type: TimelineEventType
+    title: str
+    description: str
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+    @classmethod
+    def from_domain(cls, event: TimelineEvent) -> Self:
+        return cls(
+            id=event.id,
+            asset_id=event.asset_id,
+            timestamp=event.timestamp,
+            event_type=event.event_type,
+            title=event.title,
+            description=event.description,
+            metadata=event.metadata,
         )
 

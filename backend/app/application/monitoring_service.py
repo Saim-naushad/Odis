@@ -9,6 +9,8 @@ from application.reasoning_trace import ReasoningTrace
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment import StructuredAssessment
 from application.structured_assessment_repository import StructuredAssessmentRepository
+from backend.app.domain.repositories.timeline_repository import TimelineRepository
+from backend.app.domain.timeline import TimelineEvent
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.observation import Observation
@@ -66,6 +68,7 @@ class MonitoringService:
         reasoning_trace_repository: ReasoningTraceRepository,
         decision_context_repository: DecisionContextRepository,
         decision_plan_repository: DecisionPlanRepository,
+        timeline_repository: TimelineRepository,
     ) -> None:
         self._observation_repository = observation_repository
         self._reasoning_run_repository = reasoning_run_repository
@@ -75,6 +78,7 @@ class MonitoringService:
         self._reasoning_trace_repository = reasoning_trace_repository
         self._decision_context_repository = decision_context_repository
         self._decision_plan_repository = decision_plan_repository
+        self._timeline_repository = timeline_repository
 
     def list_assets(self) -> list[str]:
         """Return every known asset identifier in stable order."""
@@ -118,6 +122,12 @@ class MonitoringService:
 
         history.sort(key=lambda item: (item.run.started_at, item.run.id))
         return history
+
+    def get_timeline_for_asset(self, asset_id: str) -> list[TimelineEvent] | None:
+        """Return operational timeline events for an asset (oldest → newest)."""
+        if not self._observation_repository.list_by_asset(asset_id):
+            return None
+        return self._timeline_repository.list_by_asset(asset_id)
 
     def get_run_details(self, run_id: str) -> MonitoringRunDetails | None:
         """Return the complete persisted reasoning run for debugging."""

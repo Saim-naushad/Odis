@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from application.reasoning_run_index import ReasoningRunIndexRepository
 from application.reasoning_session import ReasoningSession
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
@@ -20,7 +21,9 @@ from backend.app.infrastructure.metrics.observation_metrics import (
 )
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
+from domain.repositories.decision_plan_repository import DecisionPlanRepository
 from domain.repositories.observation_repository import ObservationRepository
+from domain.repositories.reasoning_run_repository import ReasoningRunRepository
 
 logger = get_logger(__name__)
 
@@ -50,6 +53,9 @@ class ObservationService:
         reasoning_session: ReasoningSession | None = None,
         structured_assessment_repository: StructuredAssessmentRepository | None = None,
         reasoning_trace_repository: ReasoningTraceRepository | None = None,
+        decision_plan_repository: DecisionPlanRepository | None = None,
+        reasoning_run_index_repository: ReasoningRunIndexRepository | None = None,
+        reasoning_run_repository: ReasoningRunRepository | None = None,
         operational_goal: OperationalGoal | None = None,
     ) -> None:
         self._uow = uow
@@ -59,6 +65,9 @@ class ObservationService:
         self._reasoning_session = reasoning_session
         self._structured_assessment_repository = structured_assessment_repository
         self._reasoning_trace_repository = reasoning_trace_repository
+        self._decision_plan_repository = decision_plan_repository
+        self._reasoning_run_index_repository = reasoning_run_index_repository
+        self._reasoning_run_repository = reasoning_run_repository
         self._operational_goal = operational_goal or DEFAULT_OPERATIONAL_GOAL
 
     def create(self, observation: Observation) -> Observation:
@@ -110,10 +119,27 @@ class ObservationService:
         if not _can_run_reasoning(asset_observations):
             return False
 
+        previous_recommendation = self._latest_recommendation_for_asset(asset_id)
+        now = datetime.now(UTC)
+
         result = self._reasoning_session.run(
             self._operational_goal,
             asset_observations,
         )
+
+        if self._event_bus is not None:
+            started_event = OutboxEvent(
+                id=str(uuid4()),
+                event_type="ReasoningStarted",
+                payload={
+                    "asset_id": asset_id,
+                    "run_id": result.run.id,
+                    "timestamp": result.run.started_at.isoformat(),
+                },
+                created_at=now,
+                dispatched_at=None,
+            )
+            self._uow.session.add(started_event)
 
         if self._structured_assessment_repository is not None:
             self._structured_assessment_repository.save(
@@ -124,6 +150,25 @@ class ObservationService:
             self._reasoning_trace_repository.save(result.run.id, result.trace)
 
         if self._event_bus is not None:
+            if (
+                previous_recommendation is not None
+                and previous_recommendation != result.plan.recommendation
+            ):
+                recommendation_event = OutboxEvent(
+                    id=str(uuid4()),
+                    event_type="RecommendationUpdated",
+                    payload={
+                        "asset_id": asset_id,
+                        "run_id": result.run.id,
+                        "previous_recommendation": previous_recommendation,
+                        "new_recommendation": result.plan.recommendation,
+                        "timestamp": now.isoformat(),
+                    },
+                    created_at=now,
+                    dispatched_at=None,
+                )
+                self._uow.session.add(recommendation_event)
+
             outbox_event = OutboxEvent(
                 id=str(uuid4()),
                 event_type="ReasoningCompleted",
@@ -142,3 +187,35 @@ class ObservationService:
             run_id=result.run.id,
         )
         return True
+
+    def _latest_recommendation_for_asset(self, asset_id: str) -> str | None:
+        if (
+            self._decision_plan_repository is None
+            or self._reasoning_run_index_repository is None
+            or self._reasoning_run_repository is None
+        ):
+            return None
+
+        asset_observation_ids = {
+            observation.id
+            for observation in self._repository.list_by_asset(asset_id)
+        }
+        latest_plan_id: str | None = None
+        latest_started_at: datetime | None = None
+        for index in self._reasoning_run_index_repository.list():
+            if not any(
+                observation_id in asset_observation_ids
+                for observation_id in index.observation_ids
+            ):
+                continue
+            run = self._reasoning_run_repository.get(index.run_id)
+            if run is None:
+                continue
+            if latest_started_at is None or run.started_at > latest_started_at:
+                latest_started_at = run.started_at
+                latest_plan_id = index.plan_id
+
+        if latest_plan_id is None:
+            return None
+        plan = self._decision_plan_repository.get(latest_plan_id)
+        return plan.recommendation if plan is not None else None

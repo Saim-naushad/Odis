@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 from backend.app.application.events.domain_events import (
     ObservationCreated,
     ReasoningCompleted,
+    ReasoningStarted,
+    RecommendationUpdated,
 )
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.unit_of_work import UnitOfWork
@@ -42,6 +44,23 @@ def _deserialize_domain_event(
         return ReasoningCompleted(
             asset_id=str(payload["asset_id"]),
             run_id=str(payload["run_id"]),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "ReasoningStarted":
+        return ReasoningStarted(
+            asset_id=str(payload["asset_id"]),
+            run_id=str(payload["run_id"]),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "RecommendationUpdated":
+        previous = payload.get("previous_recommendation")
+        return RecommendationUpdated(
+            asset_id=str(payload["asset_id"]),
+            run_id=str(payload["run_id"]),
+            previous_recommendation=(
+                str(previous) if previous is not None else None
+            ),
+            new_recommendation=str(payload["new_recommendation"]),
             timestamp=_parse_datetime(str(payload["timestamp"])),
         )
     return None

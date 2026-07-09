@@ -6,6 +6,7 @@ import type {
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
   PlatformMetadataResponse,
+  TimelineEventResponse,
 } from '../types/monitoring'
 
 export const monitoringClient = {
@@ -47,6 +48,16 @@ export const monitoringClient = {
   ): Promise<MonitoringRunDetailsResponse> {
     return apiClient.get(
       `/monitoring/runs/${encodeURIComponent(runId)}`,
+      signal,
+    )
+  },
+
+  getTimelineForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+  ): Promise<TimelineEventResponse[]> {
+    return apiClient.get(
+      `/monitoring/assets/${encodeURIComponent(assetId)}/timeline`,
       signal,
     )
   },

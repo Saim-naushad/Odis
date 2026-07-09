@@ -24,6 +24,7 @@ from backend.app.api.schemas.monitoring import (
     OperationalSituationResponse,
     ReasoningTraceResponse,
     StructuredAssessmentResponse,
+    TimelineEventResponse,
 )
 from backend.app.api.schemas.observation import ObservationResponse
 from backend.app.application.monitoring_service import MonitoringService
@@ -160,6 +161,25 @@ def get_history_for_asset(
         )
         for item in history
     ]
+
+
+@router.get(
+    "/assets/{asset_id}/timeline",
+    response_model=list[TimelineEventResponse],
+    summary="Get investigation timeline for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Asset not found"}},
+)
+def get_timeline_for_asset(
+    asset_id: str,
+    service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+) -> list[TimelineEventResponse]:
+    timeline = service.get_timeline_for_asset(asset_id)
+    if timeline is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} not found",
+        )
+    return [TimelineEventResponse.from_domain(event) for event in timeline]
 
 
 @router.get(

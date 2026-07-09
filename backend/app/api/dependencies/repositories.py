@@ -9,6 +9,7 @@ from application.reasoning_run_index import ReasoningRunIndexRepository
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.api.dependencies.database import get_db_session
+from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.infrastructure.repositories.decision_context_repository import (
     SqlAlchemyDecisionContextRepository,
 )
@@ -32,6 +33,9 @@ from backend.app.infrastructure.repositories.situation_repository import (
 )
 from backend.app.infrastructure.repositories.structured_assessment_repository import (
     SqlAlchemyStructuredAssessmentRepository,
+)
+from backend.app.infrastructure.repositories.timeline_repository import (
+    SqlAlchemyTimelineRepository,
 )
 from domain.repositories.decision_context_repository import DecisionContextRepository
 from domain.repositories.decision_plan_repository import DecisionPlanRepository
@@ -94,3 +98,10 @@ def get_reasoning_trace_repository(
 ) -> ReasoningTraceRepository:
     """Provide a request-scoped reasoning trace repository."""
     return SqlAlchemyReasoningTraceRepository(session)
+
+
+def get_timeline_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> TimelineRepository:
+    """Provide a request-scoped timeline repository."""
+    return SqlAlchemyTimelineRepository(session)

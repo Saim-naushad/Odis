@@ -19,6 +19,9 @@ from backend.app.infrastructure.database.models.reasoning_trace import (
 from backend.app.infrastructure.database.models.structured_assessment import (
     StructuredAssessmentModel,
 )
+from backend.app.infrastructure.database.models.timeline_event import (
+    TimelineEventModel,
+)
 
 __all__ = [
     "DecisionContextModel",
@@ -30,4 +33,5 @@ __all__ = [
     "ReasoningRunModel",
     "ReasoningTraceModel",
     "StructuredAssessmentModel",
+    "TimelineEventModel",
 ]

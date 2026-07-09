@@ -23,6 +23,10 @@ export function createMonitoringEventDispatcher(queryClient: QueryClient) {
               ],
               exact: true,
             })
+            void queryClient.invalidateQueries({
+              queryKey: ['monitoring', 'asset', payload.asset_id, 'timeline'],
+              exact: true,
+            })
           }
           break
         case 'run_updated':

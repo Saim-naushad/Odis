@@ -5,10 +5,13 @@ from backend.app.domain.reasoning import (
     ConfidenceScore,
     Evidence,
 )
+from backend.app.domain.timeline import TimelineEvent, TimelineEventType
 
 __all__ = [
     "AlternativeHypothesis",
     "ConfidenceScore",
     "Evidence",
+    "TimelineEvent",
+    "TimelineEventType",
 ]
 

@@ -219,3 +219,54 @@ def test_unknown_run_returns_404(api_client: TestClient) -> None:
     assert response.status_code == 404
     assert response.json()["detail"] == "reasoning run with id 'missing-run' not found"
 
+
+def test_asset_timeline_returns_operational_events_in_order(
+    api_client: TestClient,
+) -> None:
+    asset_id = "asset-timeline"
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-timeline-1",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:00:00Z",
+            value=30.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-timeline-2",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:01:00Z",
+            value=45.0,
+        ),
+    )
+
+    response = api_client.get(f"/monitoring/assets/{asset_id}/timeline")
+
+    assert response.status_code == 200
+    events = response.json()
+    assert len(events) >= 3
+
+    timestamps = [item["timestamp"] for item in events]
+    assert timestamps == sorted(timestamps)
+
+    event_types = [item["event_type"] for item in events]
+    assert "observation_received" in event_types
+    assert "reasoning_started" in event_types
+    assert "reasoning_completed" in event_types
+
+    for event in events:
+        assert event["asset_id"] == asset_id
+        assert event["title"]
+        assert event["description"]
+        assert isinstance(event["metadata"], dict)
+
+
+def test_unknown_asset_timeline_returns_404(api_client: TestClient) -> None:
+    response = api_client.get("/monitoring/assets/missing-asset/timeline")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "asset with id 'missing-asset' not found"
+

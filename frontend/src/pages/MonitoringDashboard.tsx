@@ -3,6 +3,7 @@ import { AssetList } from '../components/AssetList'
 import { AssetDetails } from '../components/AssetDetails'
 import { ReasoningTrace } from '../components/ReasoningTrace'
 import { RunHistory } from '../components/RunHistory'
+import { Timeline } from '../components/Timeline'
 import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
 import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
@@ -59,6 +60,12 @@ export function MonitoringDashboard() {
               loading={state.historyLoading}
               error={state.historyError}
               onRetry={state.retryRunHistory}
+            />
+            <Timeline
+              events={state.timeline}
+              loading={state.timelineLoading}
+              error={state.timelineError}
+              onRetry={state.retryTimeline}
             />
           </div>
         </section>

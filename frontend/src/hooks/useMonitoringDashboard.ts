@@ -7,6 +7,7 @@ import type {
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
+  TimelineEventResponse,
 } from '../types/monitoring'
 
 /** Fallback poll interval when SSE is unavailable; SSE invalidation is primary. */
@@ -38,6 +39,10 @@ export interface MonitoringDashboardState {
   runDetailsLoading: boolean
   runDetailsError?: string
 
+  timeline: TimelineEventResponse[]
+  timelineLoading: boolean
+  timelineError?: string
+
   lastUpdatedAt?: Date
 }
 
@@ -64,6 +69,7 @@ export function useMonitoringDashboard(
   retryAssetDetails: () => Promise<void>
   retryRunHistory: () => Promise<void>
   retryReasoningTrace: () => Promise<void>
+  retryTimeline: () => Promise<void>
 } {
   const queryClient = useQueryClient()
   const [selectedAssetId, setSelectedAssetId] = useState<string>()
@@ -75,6 +81,7 @@ export function useMonitoringDashboard(
   const hasLoadedLatestHistoryRef = useRef(false)
   const hasLoadedHistoryRef = useRef(false)
   const hasLoadedRunDetailsRef = useRef(false)
+  const hasLoadedTimelineRef = useRef(false)
 
   // Keep track of current selection without forcing effect restarts.
   const selectedAssetIdRef = useRef<string | undefined>(selectedAssetId)
@@ -116,6 +123,7 @@ export function useMonitoringDashboard(
       hasLoadedLatestHistoryRef.current = false
       hasLoadedHistoryRef.current = false
       hasLoadedRunDetailsRef.current = false
+      hasLoadedTimelineRef.current = false
       return
     }
 
@@ -124,6 +132,7 @@ export function useMonitoringDashboard(
     hasLoadedLatestHistoryRef.current = false
     hasLoadedHistoryRef.current = false
     hasLoadedRunDetailsRef.current = false
+    hasLoadedTimelineRef.current = false
   }, [selectedAssetId])
 
   const platformQuery = useQuery({
@@ -169,6 +178,15 @@ export function useMonitoringDashboard(
     refetchIntervalInBackground: true,
   })
 
+  const timelineQuery = useQuery({
+    queryKey: ['monitoring', 'asset', selectedAssetId, 'timeline'],
+    enabled: Boolean(selectedAssetId),
+    queryFn: ({ signal }) =>
+      monitoringClient.getTimelineForAsset(selectedAssetId as string, signal),
+    refetchInterval,
+    refetchIntervalInBackground: true,
+  })
+
   // Preserve selection behavior: auto-select first asset when assets load.
   useEffect(() => {
     if (!assetsQuery.data || assetsQuery.data.length === 0) return
@@ -201,6 +219,10 @@ export function useMonitoringDashboard(
   useEffect(() => {
     if (runDetailsQuery.isSuccess) hasLoadedRunDetailsRef.current = true
   }, [runDetailsQuery.isSuccess])
+
+  useEffect(() => {
+    if (timelineQuery.isSuccess) hasLoadedTimelineRef.current = true
+  }, [timelineQuery.isSuccess])
 
   async function retryAssetList(): Promise<void> {
     const result = await assetsQuery.refetch()
@@ -267,6 +289,11 @@ export function useMonitoringDashboard(
     if (runIdToFetch) {
       await retryRunDetails(runIdToFetch)
     }
+  }
+
+  async function retryTimeline(): Promise<void> {
+    if (!selectedAssetIdRef.current) return
+    await timelineQuery.refetch()
   }
 
   const platformStatus: MonitoringDashboardState['platformStatus'] =
@@ -338,6 +365,18 @@ export function useMonitoringDashboard(
         )
       : undefined
 
+  const timeline = selectedAssetId ? timelineQuery.data ?? [] : []
+  const timelineLoading = Boolean(selectedAssetId) && timelineQuery.isFetching
+  const timelineError =
+    selectedAssetId && timelineQuery.isError
+      ? formatPhaseError(
+          hasLoadedTimelineRef.current,
+          timelineQuery.error,
+          'Failed to load timeline',
+          'Failed to refresh timeline',
+        )
+      : undefined
+
   const lastUpdatedAt =
     selectedAssetId && latestAndHistoryQuery.data
       ? new Date(latestAndHistoryQuery.dataUpdatedAt)
@@ -363,6 +402,9 @@ export function useMonitoringDashboard(
     runDetails,
     runDetailsLoading,
     runDetailsError,
+    timeline,
+    timelineLoading,
+    timelineError,
     lastUpdatedAt,
     setSelectedAssetId,
     setSelectedRunId,
@@ -370,6 +412,7 @@ export function useMonitoringDashboard(
     retryAssetDetails,
     retryRunHistory,
     retryReasoningTrace: () => retryRunDetails(),
+    retryTimeline,
   }
 }
 
