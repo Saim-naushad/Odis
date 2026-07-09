@@ -8,6 +8,8 @@ from typing import Any
 
 import structlog
 from structlog import contextvars
+from structlog.stdlib import BoundLogger
+from structlog.stdlib import get_logger as get_stdlib_logger
 from structlog.types import Processor
 
 # Canonical context fields for cross-service correlation.
@@ -86,9 +88,9 @@ def configure_logging(
         uvicorn_logger.setLevel(level)
 
 
-def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
+def get_logger(name: str | None = None) -> BoundLogger:
     """Return a module-scoped structured logger."""
-    return structlog.get_logger(name)
+    return get_stdlib_logger(name)
 
 
 def get_request_id() -> str | None:
