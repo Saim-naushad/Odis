@@ -12,6 +12,9 @@ from backend.app.application.monitoring_event_source import (
 )
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
 from backend.app.infrastructure.logging import get_logger
+from backend.app.infrastructure.metrics.observation_metrics import (
+    observations_created_total,
+)
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
 from domain.repositories.observation_repository import ObservationRepository
@@ -64,6 +67,7 @@ class ObservationService:
             "asset_updated",
             asset_id=observation.asset_id,
         )
+        observations_created_total.inc()
         logger.info(
             "observation_created",
             observation_id=observation.id,
@@ -79,13 +83,13 @@ class ObservationService:
         """Return all persisted observations in deterministic order."""
         return self._repository.list()
 
-    def run_reasoning_for_asset(self, asset_id: str) -> None:
+    def run_reasoning_for_asset(self, asset_id: str) -> bool:
         if self._reasoning_session is None:
-            return
+            return False
 
         asset_observations = self._repository.list_by_asset(asset_id)
         if not _can_run_reasoning(asset_observations):
-            return
+            return False
 
         result = self._reasoning_session.run(
             self._operational_goal,
@@ -115,6 +119,7 @@ class ObservationService:
             asset_id=asset_id,
             run_id=result.run.id,
         )
+        return True
 
     def _publish_monitoring_event(
         self,

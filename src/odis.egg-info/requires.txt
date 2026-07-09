@@ -5,6 +5,7 @@ psycopg[binary]>=3.2
 pydantic-settings>=2.0
 sqlalchemy>=2.0
 structlog>=24.0
+prometheus-client>=0.21
 uvicorn[standard]>=0.32
 
 [dev]

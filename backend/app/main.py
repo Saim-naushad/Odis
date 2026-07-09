@@ -10,9 +10,10 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
-from backend.app.api.middleware import RequestIDMiddleware
+from backend.app.api.middleware import HTTPMetricsMiddleware, RequestIDMiddleware
 from backend.app.api.routers import (
     health_router,
+    metrics_router,
     monitoring_router,
     observations_router,
     platform_router,
@@ -103,9 +104,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = active_settings
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(HTTPMetricsMiddleware)
 
     app.include_router(platform_router)
     app.include_router(health_router)
+    app.include_router(metrics_router)
     app.include_router(observations_router)
     app.include_router(monitoring_router)
 

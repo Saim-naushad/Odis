@@ -26,6 +26,9 @@ from backend.app.api.schemas.observation import ObservationResponse
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.monitoring_sse_stream import stream_monitoring_sse_events
 from backend.app.infrastructure.logging import get_logger
+from backend.app.infrastructure.metrics.monitoring_metrics import (
+    monitoring_sse_connections,
+)
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 logger = get_logger(__name__)
@@ -45,13 +48,18 @@ async def stream_monitoring_events(
     # stream real monitoring events from persisted runs without changing the route.
     _ = service
 
+    monitoring_sse_connections.inc()
+
     async def event_generator() -> AsyncIterator[str]:
         logger.info("monitoring_sse_started")
-        async for message in stream_monitoring_sse_events(
-            is_disconnected=request.is_disconnected,
-            event_source=event_source,
-        ):
-            yield message
+        try:
+            async for message in stream_monitoring_sse_events(
+                is_disconnected=request.is_disconnected,
+                event_source=event_source,
+            ):
+                yield message
+        finally:
+            monitoring_sse_connections.dec()
 
     return StreamingResponse(
         event_generator(),

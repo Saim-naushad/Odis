@@ -1,5 +1,7 @@
 """In-process background execution for post-observation reasoning."""
 
+import time
+
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.app.application.monitoring_event_source import MonitoringEventSource
@@ -10,6 +12,11 @@ from backend.app.infrastructure.logging import (
     bind_request_id,
     clear_log_context,
     get_logger,
+)
+from backend.app.infrastructure.metrics.reasoning_metrics import (
+    reasoning_duration_seconds,
+    reasoning_failures_total,
+    reasoning_runs_total,
 )
 
 logger = get_logger(__name__)
@@ -34,12 +41,17 @@ class ReasoningTaskRunner:
         """
         bind_request_id(request_id)
         session = self._session_factory()
+        start = time.perf_counter()
         try:
             service = create_observation_service(session, self._monitoring_event_source)
-            service.run_reasoning_for_asset(asset_id)
+            ran = service.run_reasoning_for_asset(asset_id)
             session.commit()
+            if ran:
+                reasoning_runs_total.inc()
+                reasoning_duration_seconds.observe(time.perf_counter() - start)
         except Exception:
             session.rollback()
+            reasoning_failures_total.inc()
             logger.exception(
                 "background_reasoning_failed",
                 asset_id=asset_id,
