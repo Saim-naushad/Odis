@@ -8,6 +8,7 @@ from application.reasoning_run_index import ReasoningRunIndexRepository
 from application.reasoning_session import ReasoningSession
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
+from backend.app.api.dependencies.monitoring_events import get_monitoring_event_source
 from backend.app.api.dependencies.repositories import (
     get_decision_context_repository,
     get_decision_plan_repository,
@@ -18,6 +19,7 @@ from backend.app.api.dependencies.repositories import (
     get_situation_repository,
     get_structured_assessment_repository,
 )
+from backend.app.application.monitoring_event_source import MonitoringEventSource
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
@@ -65,6 +67,9 @@ def get_observation_service(
     reasoning_trace_repository: Annotated[
         ReasoningTraceRepository, Depends(get_reasoning_trace_repository)
     ],
+    monitoring_event_source: Annotated[
+        MonitoringEventSource, Depends(get_monitoring_event_source)
+    ],
 ) -> ObservationService:
     """Provide a request-scoped observation application service."""
     return ObservationService(
@@ -72,6 +77,7 @@ def get_observation_service(
         reasoning_session=reasoning_session,
         structured_assessment_repository=structured_assessment_repository,
         reasoning_trace_repository=reasoning_trace_repository,
+        monitoring_event_source=monitoring_event_source,
     )
 
 
