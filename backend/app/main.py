@@ -36,6 +36,9 @@ from backend.app.infrastructure.database.session import (
     create_session_factory,
 )
 from backend.app.infrastructure.logging import configure_logging, get_logger
+from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
+    SqlAlchemyUnitOfWork,
+)
 
 logger = get_logger(__name__)
 
@@ -84,7 +87,7 @@ def _build_lifespan(
         )
         if app.state.session_factory is not None:
             app.state.reasoning_task_runner = ReasoningTaskRunner(
-                app.state.session_factory,
+                lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
                 domain_event_bus,
             )
         logger.info(

@@ -3,9 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 
-from backend.app.api.dependencies.database import get_db_session
 from backend.app.api.dependencies.services import (
     get_observation_service,
     get_reasoning_task_runner,
@@ -29,7 +27,6 @@ router = APIRouter(prefix="/observations", tags=["observations"])
 def create_observation(
     payload: ObservationCreate,
     background_tasks: BackgroundTasks,
-    session: Annotated[Session, Depends(get_db_session)],
     service: Annotated[ObservationService, Depends(get_observation_service)],
     reasoning_runner: Annotated[
         ReasoningTaskRunner, Depends(get_reasoning_task_runner)
@@ -49,7 +46,6 @@ def create_observation(
             detail=str(exc),
         ) from exc
 
-    session.commit()
     background_tasks.add_task(
         reasoning_runner.run_for_asset,
         observation.asset_id,

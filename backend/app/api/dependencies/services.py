@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from application.reasoning_run_index import ReasoningRunIndexRepository
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
-from backend.app.api.dependencies.database import get_db_session
+from backend.app.api.dependencies.database import get_unit_of_work
 from backend.app.api.dependencies.repositories import (
     get_decision_context_repository,
     get_decision_plan_repository,
@@ -29,6 +29,7 @@ from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
+from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.config.settings import get_settings
 from domain.repositories.decision_context_repository import DecisionContextRepository
 from domain.repositories.decision_plan_repository import DecisionPlanRepository
@@ -46,11 +47,11 @@ def get_domain_event_bus(request: Request) -> DomainEventBus:
 
 
 def get_observation_service(
-    session: Annotated[Session, Depends(get_db_session)],
+    uow: Annotated[UnitOfWork[Session], Depends(get_unit_of_work)],
     event_bus: Annotated[DomainEventBus, Depends(get_domain_event_bus)],
 ) -> ObservationService:
     """Provide a request-scoped observation application service."""
-    return create_observation_service(session, event_bus)
+    return create_observation_service(uow, event_bus)
 
 
 def get_reasoning_task_runner(request: Request) -> ReasoningTaskRunner:

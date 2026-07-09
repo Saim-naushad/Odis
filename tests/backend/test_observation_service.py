@@ -26,6 +26,9 @@ from backend.app.infrastructure.database.session import (
     create_db_engine,
     create_session_factory,
 )
+from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
+    SqlAlchemyUnitOfWork,
+)
 from backend.app.infrastructure.repositories.decision_context_repository import (
     SqlAlchemyDecisionContextRepository,
 )
@@ -86,7 +89,9 @@ def observation_service(db_session: Session) -> ObservationService:
         reasoning_run_repository=SqlAlchemyReasoningRunRepository(db_session),
         reasoning_run_index_repository=SqlAlchemyReasoningRunIndexRepository(db_session),
     )
+    uow = SqlAlchemyUnitOfWork(lambda: db_session)
     return ObservationService(
+        uow,
         SqlAlchemyObservationRepository(db_session),
         reasoning_session=reasoning_session,
         structured_assessment_repository=SqlAlchemyStructuredAssessmentRepository(
@@ -192,6 +197,7 @@ def test_create_publishes_asset_updated_event(
         reasoning_run_index_repository=SqlAlchemyReasoningRunIndexRepository(db_session),
     )
     service = ObservationService(
+        SqlAlchemyUnitOfWork(lambda: db_session),
         SqlAlchemyObservationRepository(db_session),
         reasoning_session=reasoning_session,
         event_bus=event_bus,
@@ -224,6 +230,7 @@ def test_create_publishes_run_and_asset_events_when_reasoning_runs(
         reasoning_run_index_repository=SqlAlchemyReasoningRunIndexRepository(db_session),
     )
     service = ObservationService(
+        SqlAlchemyUnitOfWork(lambda: db_session),
         SqlAlchemyObservationRepository(db_session),
         event_bus=event_bus,
         reasoning_session=reasoning_session,

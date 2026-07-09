@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 from application.reasoning_session import ReasoningSession
 from application.reasoning_trace_repository import ReasoningTraceRepository
@@ -13,6 +14,7 @@ from backend.app.application.events.domain_events import (
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.exceptions import ObservationAlreadyExistsError
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
+from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.observation_metrics import (
     observations_created_total,
@@ -41,6 +43,7 @@ class ObservationService:
 
     def __init__(
         self,
+        uow: UnitOfWork[Any],
         repository: ObservationRepository,
         *,
         event_bus: DomainEventBus | None = None,
@@ -49,6 +52,7 @@ class ObservationService:
         reasoning_trace_repository: ReasoningTraceRepository | None = None,
         operational_goal: OperationalGoal | None = None,
     ) -> None:
+        self._uow = uow
         self._repository = repository
         self._event_bus = event_bus
         self._reasoning_session = reasoning_session
@@ -60,6 +64,7 @@ class ObservationService:
         """Persist a new observation."""
         try:
             self._repository.save(observation)
+            self._uow.commit()
         except ValueError as exc:
             if "already exists" in str(exc):
                 raise ObservationAlreadyExistsError(str(exc)) from exc

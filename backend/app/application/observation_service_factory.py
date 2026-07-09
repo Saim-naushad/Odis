@@ -8,6 +8,7 @@ from application.structured_assessment_repository import StructuredAssessmentRep
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
+from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.repositories.decision_context_repository import (
     SqlAlchemyDecisionContextRepository,
 )
@@ -36,10 +37,11 @@ from domain.repositories.observation_repository import ObservationRepository
 
 
 def create_observation_service(
-    session: Session,
+    uow: UnitOfWork[Session],
     event_bus: DomainEventBus,
 ) -> ObservationService:
     """Build an observation service wired to the given session."""
+    session = uow.session
     reasoning_session = ReasoningSession(
         profile=DEFAULT_OPERATIONAL_PROFILE,
         situation_repository=SqlAlchemySituationRepository(session),
@@ -56,6 +58,7 @@ def create_observation_service(
     )
     repository: ObservationRepository = SqlAlchemyObservationRepository(session)
     return ObservationService(
+        uow,
         repository,
         event_bus=event_bus,
         reasoning_session=reasoning_session,

@@ -1,13 +1,15 @@
 """In-process background execution for post-observation reasoning."""
 
 import time
+from collections.abc import Callable
 
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
+from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.logging import (
     bind_request_id,
     clear_log_context,
@@ -27,10 +29,10 @@ class ReasoningTaskRunner:
 
     def __init__(
         self,
-        session_factory: sessionmaker[Session],
+        unit_of_work_factory: Callable[[], UnitOfWork[Session]],
         event_bus: DomainEventBus,
     ) -> None:
-        self._session_factory = session_factory
+        self._unit_of_work_factory = unit_of_work_factory
         self._event_bus = event_bus
 
     def run_for_asset(self, asset_id: str, request_id: str | None = None) -> None:
@@ -40,17 +42,16 @@ class ReasoningTaskRunner:
         middleware clears logging context before FastAPI background tasks run.
         """
         bind_request_id(request_id)
-        session = self._session_factory()
         start = time.perf_counter()
         try:
-            service = create_observation_service(session, self._event_bus)
-            ran = service.run_reasoning_for_asset(asset_id)
-            session.commit()
-            if ran:
-                reasoning_runs_total.inc()
-                reasoning_duration_seconds.observe(time.perf_counter() - start)
+            with self._unit_of_work_factory() as uow:
+                service = create_observation_service(uow, self._event_bus)
+                ran = service.run_reasoning_for_asset(asset_id)
+                uow.commit()
+                if ran:
+                    reasoning_runs_total.inc()
+                    reasoning_duration_seconds.observe(time.perf_counter() - start)
         except Exception:
-            session.rollback()
             reasoning_failures_total.inc()
             logger.exception(
                 "background_reasoning_failed",
@@ -58,5 +59,4 @@ class ReasoningTaskRunner:
             )
             raise
         finally:
-            session.close()
             clear_log_context()
