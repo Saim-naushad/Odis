@@ -11,9 +11,12 @@ from fastapi.responses import StreamingResponse
 from backend.app.api.dependencies.monitoring_events import MonitoringEventSourceDep
 from backend.app.api.dependencies.services import get_monitoring_service
 from backend.app.api.schemas.monitoring import (
+    AlternativeHypothesisResponse,
+    ConfidenceScoreResponse,
     DecisionContextResponse,
     DecisionPlanResponse,
     DecisionPlanSummaryResponse,
+    EvidenceResponse,
     MonitoringAssetHistoryItemResponse,
     MonitoringAssetLatestResponse,
     MonitoringAssetResponse,
@@ -176,6 +179,30 @@ def get_run_details(
             detail=f"reasoning run with id {run_id!r} not found",
         )
 
+    from backend.app.application.explainable_reasoning import build_explainable_decision
+
+    explainable = build_explainable_decision(
+        assessment=details.decision_context.assessment,
+        observations=details.observations,
+        decision_plan=details.decision_plan,
+        structured_assessment=details.structured_assessment,
+    )
+
+    plan_response = DecisionPlanResponse.from_domain(details.decision_plan)
+    plan_response = plan_response.model_copy(
+        update={
+            "confidence": ConfidenceScoreResponse.from_domain(explainable.confidence),
+            "evidence": tuple(
+                EvidenceResponse.from_domain(item) for item in explainable.evidence
+            ),
+            "alternative_hypotheses": tuple(
+                AlternativeHypothesisResponse.from_domain(item)
+                for item in explainable.alternative_hypotheses
+            ),
+            "expected_outcome": explainable.expected_outcome,
+        }
+    )
+
     return MonitoringRunDetailsResponse(
         run_id=details.run.id,
         started_at=details.run.started_at,
@@ -197,6 +224,6 @@ def get_run_details(
             details.operational_situation
         ),
         decision_context=DecisionContextResponse.from_domain(details.decision_context),
-        decision_plan=DecisionPlanResponse.from_domain(details.decision_plan),
+        decision_plan=plan_response,
     )
 

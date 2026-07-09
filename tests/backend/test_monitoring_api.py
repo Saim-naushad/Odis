@@ -203,6 +203,14 @@ def test_run_lookup_returns_complete_details(api_client: TestClient) -> None:
     assert payload["operational_situation"] is not None
     assert payload["decision_context"] is not None
     assert payload["decision_plan"] is not None
+    assert payload["decision_plan"]["confidence"]["value"] >= 0
+    assert payload["decision_plan"]["confidence"]["value"] <= 100
+    assert payload["decision_plan"]["confidence"]["rationale"]
+    assert payload["decision_plan"]["evidence"]
+    assert len(payload["decision_plan"]["evidence"]) >= 1
+    assert payload["decision_plan"]["alternative_hypotheses"]
+    assert 1 <= len(payload["decision_plan"]["alternative_hypotheses"]) <= 2
+    assert payload["decision_plan"]["expected_outcome"]
 
 
 def test_unknown_run_returns_404(api_client: TestClient) -> None:

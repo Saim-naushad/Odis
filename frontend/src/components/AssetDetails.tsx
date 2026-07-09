@@ -182,7 +182,7 @@ export function AssetDetails({
                 Decision summary
               </h3>
               {runDetails ? (
-                <div className="mt-1 space-y-1 text-[11px]">
+                <div className="mt-1 space-y-2 text-[11px]">
                   <p className="text-slate-100">
                     {runDetails.decision_plan.recommendation}
                   </p>
@@ -192,6 +192,88 @@ export function AssetDetails({
                   <p className="text-slate-400">
                     Justification: {runDetails.decision_plan.justification}
                   </p>
+
+                  {runDetails.decision_plan.confidence && (
+                    <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Confidence
+                      </p>
+                      <p className="mt-1 text-slate-100">
+                        {runDetails.decision_plan.confidence.value}/100
+                      </p>
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        {runDetails.decision_plan.confidence.rationale}
+                      </p>
+                    </div>
+                  )}
+
+                  {runDetails.decision_plan.expected_outcome && (
+                    <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Expected outcome
+                      </p>
+                      <p className="mt-1 text-slate-100">
+                        {runDetails.decision_plan.expected_outcome}
+                      </p>
+                    </div>
+                  )}
+
+                  {runDetails.decision_plan.evidence &&
+                    runDetails.decision_plan.evidence.length > 0 && (
+                      <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Evidence
+                        </p>
+                        <ul className="mt-1 space-y-1">
+                          {runDetails.decision_plan.evidence.map((item) => (
+                            <li key={item.id} className="text-slate-200">
+                              <span className="font-mono text-[10px] text-slate-400">
+                                {item.measurement_type}
+                              </span>{' '}
+                              <span className="text-slate-100">
+                                {item.description}
+                              </span>
+                              <div className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-slate-500">
+                                <span className="font-mono">
+                                  {item.observed_value}
+                                </span>
+                                <span className="font-mono">
+                                  w={item.contribution_weight.toFixed(2)}
+                                </span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                  {runDetails.decision_plan.alternative_hypotheses &&
+                    runDetails.decision_plan.alternative_hypotheses.length > 0 && (
+                      <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          Alternative hypotheses
+                        </p>
+                        <ul className="mt-1 space-y-1">
+                          {runDetails.decision_plan.alternative_hypotheses.map(
+                            (item) => (
+                              <li key={item.title} className="text-slate-200">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-slate-100">
+                                    {item.title}
+                                  </span>
+                                  <span className="font-mono text-[10px] text-slate-400">
+                                    {item.confidence}%
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 text-[10px] text-slate-500">
+                                  {item.reason}
+                                </p>
+                              </li>
+                            ),
+                          )}
+                        </ul>
+                      </div>
+                    )}
                 </div>
               ) : loading ? (
                 <p className="mt-1 text-[11px] text-slate-500">

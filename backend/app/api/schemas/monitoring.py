@@ -10,6 +10,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.structured_assessment import StructuredAssessment
 from backend.app.api.schemas.observation import ObservationResponse
+from backend.app.domain.reasoning import (
+    AlternativeHypothesis,
+    ConfidenceScore,
+    Evidence,
+)
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.operational_situation import OperationalSituation
@@ -80,6 +85,10 @@ class DecisionPlanResponse(BaseModel):
     priority: str
     recommendation: str
     justification: str
+    confidence: ConfidenceScoreResponse | None = None
+    evidence: tuple[EvidenceResponse, ...] = ()
+    alternative_hypotheses: tuple[AlternativeHypothesisResponse, ...] = ()
+    expected_outcome: str | None = None
 
     @classmethod
     def from_domain(cls, plan: DecisionPlan) -> Self:
@@ -157,4 +166,45 @@ class MonitoringRunDetailsResponse(BaseModel):
     operational_situation: OperationalSituationResponse
     decision_context: DecisionContextResponse
     decision_plan: DecisionPlanResponse
+
+
+class EvidenceResponse(BaseModel):
+    id: str
+    description: str
+    measurement_type: str
+    observed_value: str
+    contribution_weight: float
+
+    @classmethod
+    def from_domain(cls, evidence: Evidence) -> Self:
+        return cls(
+            id=evidence.id,
+            description=evidence.description,
+            measurement_type=evidence.measurement_type,
+            observed_value=evidence.observed_value,
+            contribution_weight=evidence.contribution_weight,
+        )
+
+
+class ConfidenceScoreResponse(BaseModel):
+    value: int
+    rationale: str
+
+    @classmethod
+    def from_domain(cls, score: ConfidenceScore) -> Self:
+        return cls(value=score.value, rationale=score.rationale)
+
+
+class AlternativeHypothesisResponse(BaseModel):
+    title: str
+    reason: str
+    confidence: int
+
+    @classmethod
+    def from_domain(cls, hypothesis: AlternativeHypothesis) -> Self:
+        return cls(
+            title=hypothesis.title,
+            reason=hypothesis.reason,
+            confidence=hypothesis.confidence,
+        )
 

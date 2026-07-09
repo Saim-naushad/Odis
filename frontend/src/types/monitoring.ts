@@ -34,10 +34,33 @@ export interface DecisionPlanSummaryResponse {
   recommendation: string
 }
 
+export interface EvidenceResponse {
+  id: string
+  description: string
+  measurement_type: string
+  observed_value: string
+  contribution_weight: number
+}
+
+export interface ConfidenceScoreResponse {
+  value: number
+  rationale: string
+}
+
+export interface AlternativeHypothesisResponse {
+  title: string
+  reason: string
+  confidence: number
+}
+
 export interface DecisionPlanResponse extends DecisionPlanSummaryResponse {
   context_id: string
   created_at: string
   justification: string
+  confidence?: ConfidenceScoreResponse | null
+  evidence?: EvidenceResponse[]
+  alternative_hypotheses?: AlternativeHypothesisResponse[]
+  expected_outcome?: string | null
 }
 
 export interface DecisionContextResponse {
