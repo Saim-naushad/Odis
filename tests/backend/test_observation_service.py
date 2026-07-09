@@ -122,6 +122,7 @@ def test_create_second_observation_runs_reasoning_and_persists_artifacts(
 
     observation_service.create(first)
     observation_service.create(second)
+    observation_service.run_reasoning_for_asset(first.asset_id)
 
     from sqlalchemy import select
 
@@ -229,6 +230,7 @@ def test_create_publishes_run_and_asset_events_when_reasoning_runs(
     )
     service.create(first)
     service.create(second)
+    service.run_reasoning_for_asset(second.asset_id)
 
     first_asset_event = queue.get_nowait()
     assert first_asset_event.type == "asset_updated"

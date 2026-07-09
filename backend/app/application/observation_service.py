@@ -49,7 +49,7 @@ class ObservationService:
         self._monitoring_event_source = monitoring_event_source
 
     def create(self, observation: Observation) -> Observation:
-        """Persist a new observation and run reasoning when evidence is sufficient."""
+        """Persist a new observation."""
         try:
             self._repository.save(observation)
         except ValueError as exc:
@@ -61,7 +61,6 @@ class ObservationService:
             "asset_updated",
             asset_id=observation.asset_id,
         )
-        self._run_reasoning_for_asset(observation.asset_id)
         return observation
 
     def get(self, observation_id: str) -> Observation | None:
@@ -72,7 +71,7 @@ class ObservationService:
         """Return all persisted observations in deterministic order."""
         return self._repository.list()
 
-    def _run_reasoning_for_asset(self, asset_id: str) -> None:
+    def run_reasoning_for_asset(self, asset_id: str) -> None:
         if self._reasoning_session is None:
             return
 

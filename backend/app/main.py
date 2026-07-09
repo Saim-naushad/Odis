@@ -20,6 +20,7 @@ from backend.app.api.routers import (
 from backend.app.application.monitoring_event_source import (
     InMemoryMonitoringEventSource,
 )
+from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
 from backend.app.infrastructure.config.settings import Settings, get_settings
 from backend.app.infrastructure.database.session import (
     create_db_engine,
@@ -46,17 +47,25 @@ def _build_lifespan(
         engine: Engine | None = None
         app.state.engine = None
         app.state.session_factory = None
+        app.state.reasoning_task_runner = None
 
         if active_settings.database_url is not None:
             engine = create_db_engine(active_settings)
             app.state.engine = engine
-            app.state.session_factory = create_session_factory(engine)
+            session_factory = create_session_factory(engine)
+            app.state.session_factory = session_factory
 
         app.state.runtime = AppState(
             started_at=datetime.now(UTC),
             settings=active_settings,
         )
-        app.state.monitoring_event_source = InMemoryMonitoringEventSource()
+        monitoring_event_source = InMemoryMonitoringEventSource()
+        app.state.monitoring_event_source = monitoring_event_source
+        if app.state.session_factory is not None:
+            app.state.reasoning_task_runner = ReasoningTaskRunner(
+                app.state.session_factory,
+                monitoring_event_source,
+            )
         logger.info(
             "Starting %s v%s (%s)",
             active_settings.app_name,
