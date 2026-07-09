@@ -4,6 +4,7 @@ httpx>=0.28
 psycopg[binary]>=3.2
 pydantic-settings>=2.0
 sqlalchemy>=2.0
+structlog>=24.0
 uvicorn[standard]>=0.32
 
 [dev]

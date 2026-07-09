@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
@@ -26,8 +25,9 @@ from backend.app.infrastructure.database.session import (
     create_db_engine,
     create_session_factory,
 )
+from backend.app.infrastructure.logging import configure_logging, get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,15 +67,18 @@ def _build_lifespan(
                 monitoring_event_source,
             )
         logger.info(
-            "Starting %s v%s (%s)",
-            active_settings.app_name,
-            active_settings.app_version,
-            active_settings.environment,
+            "application_starting",
+            app_name=active_settings.app_name,
+            app_version=active_settings.app_version,
+            environment=active_settings.environment,
         )
         yield
         if engine is not None:
             engine.dispose()
-        logger.info("Shutting down %s", active_settings.app_name)
+        logger.info(
+            "application_shutdown",
+            app_name=active_settings.app_name,
+        )
 
     return lifespan
 
@@ -83,6 +86,10 @@ def _build_lifespan(
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build and configure the FastAPI application."""
     active_settings = settings or get_settings()
+    configure_logging(
+        log_level=active_settings.log_level,
+        environment=active_settings.environment,
+    )
 
     app = FastAPI(
         title=active_settings.app_name,

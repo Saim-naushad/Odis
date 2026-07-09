@@ -11,9 +11,12 @@ from backend.app.application.monitoring_event_source import (
     MonitoringEventSource,
 )
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
+from backend.app.infrastructure.logging import get_logger
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
 from domain.repositories.observation_repository import ObservationRepository
+
+logger = get_logger(__name__)
 
 
 def _can_run_reasoning(observations: Sequence[Observation]) -> bool:
@@ -61,6 +64,11 @@ class ObservationService:
             "asset_updated",
             asset_id=observation.asset_id,
         )
+        logger.info(
+            "observation_created",
+            observation_id=observation.id,
+            asset_id=observation.asset_id,
+        )
         return observation
 
     def get(self, observation_id: str) -> Observation | None:
@@ -99,6 +107,11 @@ class ObservationService:
         )
         self._publish_monitoring_event(
             "asset_updated",
+            asset_id=asset_id,
+            run_id=result.run.id,
+        )
+        logger.info(
+            "reasoning_completed",
             asset_id=asset_id,
             run_id=result.run.id,
         )

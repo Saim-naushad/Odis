@@ -9,6 +9,7 @@ Requires-Dist: httpx>=0.28
 Requires-Dist: psycopg[binary]>=3.2
 Requires-Dist: pydantic-settings>=2.0
 Requires-Dist: sqlalchemy>=2.0
+Requires-Dist: structlog>=24.0
 Requires-Dist: uvicorn[standard]>=0.32
 Provides-Extra: dev
 Requires-Dist: httpx>=0.28; extra == "dev"

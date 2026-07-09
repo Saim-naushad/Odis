@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     app_name: str = "ODIS Platform"
     app_version: str = "0.1.0"
     environment: str = "development"
+    log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     database_url: str | None = Field(default=None, validation_alias="DATABASE_URL")
     mqtt_broker_url: str | None = Field(

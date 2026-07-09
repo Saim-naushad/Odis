@@ -10,6 +10,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "pydantic-settings>=2.0",
     "sqlalchemy>=2.0",
+    "structlog>=24.0",
     "uvicorn[standard]>=0.32",
 ]
 
@@ -100,5 +101,5 @@ module = ["domain.*", "application.*", "backend.*"]
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["pydantic_settings"]
+module = ["pydantic_settings", "structlog", "structlog.*"]
 ignore_missing_imports = true
