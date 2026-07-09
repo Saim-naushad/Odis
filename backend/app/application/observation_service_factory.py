@@ -7,6 +7,7 @@ from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service import ObservationService
+from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.repositories.decision_context_repository import (
@@ -39,6 +40,7 @@ from domain.repositories.observation_repository import ObservationRepository
 def create_observation_service(
     uow: UnitOfWork[Session],
     event_bus: DomainEventBus,
+    outbox_dispatcher: OutboxDispatcher | None = None,
 ) -> ObservationService:
     """Build an observation service wired to the given session."""
     session = uow.session
@@ -61,6 +63,7 @@ def create_observation_service(
         uow,
         repository,
         event_bus=event_bus,
+        outbox_dispatcher=outbox_dispatcher,
         reasoning_session=reasoning_session,
         structured_assessment_repository=structured_assessment_repository,
         reasoning_trace_repository=reasoning_trace_repository,

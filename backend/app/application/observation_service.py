@@ -3,18 +3,17 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from application.reasoning_session import ReasoningSession
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
-from backend.app.application.events.domain_events import (
-    ObservationCreated,
-    ReasoningCompleted,
-)
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.exceptions import ObservationAlreadyExistsError
+from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
 from backend.app.application.unit_of_work import UnitOfWork
+from backend.app.domain.outbox import OutboxEvent
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.observation_metrics import (
     observations_created_total,
@@ -47,6 +46,7 @@ class ObservationService:
         repository: ObservationRepository,
         *,
         event_bus: DomainEventBus | None = None,
+        outbox_dispatcher: OutboxDispatcher | None = None,
         reasoning_session: ReasoningSession | None = None,
         structured_assessment_repository: StructuredAssessmentRepository | None = None,
         reasoning_trace_repository: ReasoningTraceRepository | None = None,
@@ -55,6 +55,7 @@ class ObservationService:
         self._uow = uow
         self._repository = repository
         self._event_bus = event_bus
+        self._outbox_dispatcher = outbox_dispatcher
         self._reasoning_session = reasoning_session
         self._structured_assessment_repository = structured_assessment_repository
         self._reasoning_trace_repository = reasoning_trace_repository
@@ -64,20 +65,27 @@ class ObservationService:
         """Persist a new observation."""
         try:
             self._repository.save(observation)
+            if self._event_bus is not None:
+                outbox_event = OutboxEvent(
+                    id=str(uuid4()),
+                    event_type="ObservationCreated",
+                    payload={
+                        "asset_id": observation.asset_id,
+                        "observation_id": observation.id,
+                        "timestamp": datetime.now(UTC).isoformat(),
+                    },
+                    created_at=datetime.now(UTC),
+                    dispatched_at=None,
+                )
+                self._uow.session.add(outbox_event)
             self._uow.commit()
         except ValueError as exc:
             if "already exists" in str(exc):
                 raise ObservationAlreadyExistsError(str(exc)) from exc
             raise
 
-        if self._event_bus is not None:
-            self._event_bus.publish(
-                ObservationCreated(
-                    asset_id=observation.asset_id,
-                    observation_id=observation.id,
-                    timestamp=datetime.now(UTC),
-                )
-            )
+        if self._event_bus is not None and self._outbox_dispatcher is not None:
+            self._outbox_dispatcher.dispatch()
         observations_created_total.inc()
         logger.info(
             "observation_created",
@@ -116,13 +124,18 @@ class ObservationService:
             self._reasoning_trace_repository.save(result.run.id, result.trace)
 
         if self._event_bus is not None:
-            self._event_bus.publish(
-                ReasoningCompleted(
-                    asset_id=asset_id,
-                    run_id=result.run.id,
-                    timestamp=datetime.now(UTC),
-                )
+            outbox_event = OutboxEvent(
+                id=str(uuid4()),
+                event_type="ReasoningCompleted",
+                payload={
+                    "asset_id": asset_id,
+                    "run_id": result.run.id,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+                created_at=datetime.now(UTC),
+                dispatched_at=None,
             )
+            self._uow.session.add(outbox_event)
         logger.info(
             "reasoning_completed",
             asset_id=asset_id,

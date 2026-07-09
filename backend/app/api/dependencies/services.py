@@ -28,6 +28,7 @@ from backend.app.application.observation_service import ObservationService
 from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
+from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.config.settings import get_settings
@@ -46,12 +47,21 @@ def get_domain_event_bus(request: Request) -> DomainEventBus:
     return bus
 
 
+def get_outbox_dispatcher(request: Request) -> OutboxDispatcher:
+    dispatcher = getattr(request.app.state, "outbox_dispatcher", None)
+    if not isinstance(dispatcher, OutboxDispatcher):
+        msg = "Outbox dispatcher is not configured on the application"
+        raise RuntimeError(msg)
+    return dispatcher
+
+
 def get_observation_service(
     uow: Annotated[UnitOfWork[Session], Depends(get_unit_of_work)],
     event_bus: Annotated[DomainEventBus, Depends(get_domain_event_bus)],
+    outbox_dispatcher: Annotated[OutboxDispatcher, Depends(get_outbox_dispatcher)],
 ) -> ObservationService:
     """Provide a request-scoped observation application service."""
-    return create_observation_service(uow, event_bus)
+    return create_observation_service(uow, event_bus, outbox_dispatcher)
 
 
 def get_reasoning_task_runner(request: Request) -> ReasoningTaskRunner:

@@ -29,6 +29,7 @@ from backend.app.application.events.handlers.monitoring_event_handler import (
 from backend.app.application.monitoring_event_source import (
     InMemoryMonitoringEventSource,
 )
+from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
 from backend.app.infrastructure.config.settings import Settings, get_settings
 from backend.app.infrastructure.database.session import (
@@ -61,6 +62,7 @@ def _build_lifespan(
         app.state.engine = None
         app.state.session_factory = None
         app.state.reasoning_task_runner = None
+        app.state.outbox_dispatcher = None
 
         if active_settings.database_url is not None:
             engine = create_db_engine(active_settings)
@@ -86,9 +88,15 @@ def _build_lifespan(
             monitoring_handler.on_reasoning_completed,
         )
         if app.state.session_factory is not None:
+            outbox_dispatcher = OutboxDispatcher(
+                lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
+                domain_event_bus,
+            )
+            app.state.outbox_dispatcher = outbox_dispatcher
             app.state.reasoning_task_runner = ReasoningTaskRunner(
                 lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
                 domain_event_bus,
+                outbox_dispatcher,
             )
         logger.info(
             "application_starting",

@@ -18,6 +18,7 @@ from backend.app.application.monitoring_event_source import (
     InMemoryMonitoringEventSource,
 )
 from backend.app.application.observation_service import ObservationService
+from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
 from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.database import models as _models  # noqa: F401
@@ -201,6 +202,10 @@ def test_create_publishes_asset_updated_event(
         SqlAlchemyObservationRepository(db_session),
         reasoning_session=reasoning_session,
         event_bus=event_bus,
+        outbox_dispatcher=OutboxDispatcher(
+            lambda: SqlAlchemyUnitOfWork(lambda: db_session),
+            event_bus,
+        ),
     )
     queue = event_source.subscribe()
 
@@ -229,11 +234,16 @@ def test_create_publishes_run_and_asset_events_when_reasoning_runs(
         reasoning_run_repository=SqlAlchemyReasoningRunRepository(db_session),
         reasoning_run_index_repository=SqlAlchemyReasoningRunIndexRepository(db_session),
     )
+    dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(lambda: db_session),
+        event_bus,
+    )
     service = ObservationService(
         SqlAlchemyUnitOfWork(lambda: db_session),
         SqlAlchemyObservationRepository(db_session),
         event_bus=event_bus,
         reasoning_session=reasoning_session,
+        outbox_dispatcher=dispatcher,
         structured_assessment_repository=SqlAlchemyStructuredAssessmentRepository(
             db_session
         ),
@@ -254,6 +264,8 @@ def test_create_publishes_run_and_asset_events_when_reasoning_runs(
     service.create(first)
     service.create(second)
     service.run_reasoning_for_asset(second.asset_id)
+    db_session.commit()
+    dispatcher.dispatch()
 
     first_asset_event = queue.get_nowait()
     assert first_asset_event.type == "asset_updated"
