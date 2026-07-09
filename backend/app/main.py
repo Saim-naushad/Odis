@@ -18,6 +18,14 @@ from backend.app.api.routers import (
     observations_router,
     platform_router,
 )
+from backend.app.application.events.domain_events import (
+    ObservationCreated,
+    ReasoningCompleted,
+)
+from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.events.handlers.monitoring_event_handler import (
+    MonitoringEventHandler,
+)
 from backend.app.application.monitoring_event_source import (
     InMemoryMonitoringEventSource,
 )
@@ -63,10 +71,21 @@ def _build_lifespan(
         )
         monitoring_event_source = InMemoryMonitoringEventSource()
         app.state.monitoring_event_source = monitoring_event_source
+        domain_event_bus = DomainEventBus()
+        app.state.domain_event_bus = domain_event_bus
+        monitoring_handler = MonitoringEventHandler(monitoring_event_source)
+        domain_event_bus.subscribe(
+            ObservationCreated,
+            monitoring_handler.on_observation_created,
+        )
+        domain_event_bus.subscribe(
+            ReasoningCompleted,
+            monitoring_handler.on_reasoning_completed,
+        )
         if app.state.session_factory is not None:
             app.state.reasoning_task_runner = ReasoningTaskRunner(
                 app.state.session_factory,
-                monitoring_event_source,
+                domain_event_bus,
             )
         logger.info(
             "application_starting",

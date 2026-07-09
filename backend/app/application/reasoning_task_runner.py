@@ -4,7 +4,7 @@ import time
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from backend.app.application.monitoring_event_source import MonitoringEventSource
+from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
@@ -28,10 +28,10 @@ class ReasoningTaskRunner:
     def __init__(
         self,
         session_factory: sessionmaker[Session],
-        monitoring_event_source: MonitoringEventSource,
+        event_bus: DomainEventBus,
     ) -> None:
         self._session_factory = session_factory
-        self._monitoring_event_source = monitoring_event_source
+        self._event_bus = event_bus
 
     def run_for_asset(self, asset_id: str, request_id: str | None = None) -> None:
         """Execute reasoning for an asset using a fresh database session.
@@ -43,7 +43,7 @@ class ReasoningTaskRunner:
         session = self._session_factory()
         start = time.perf_counter()
         try:
-            service = create_observation_service(session, self._monitoring_event_source)
+            service = create_observation_service(session, self._event_bus)
             ran = service.run_reasoning_for_asset(asset_id)
             session.commit()
             if ran:

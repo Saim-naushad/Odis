@@ -10,7 +10,6 @@ from application.reasoning_run_index import ReasoningRunIndexRepository
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.api.dependencies.database import get_db_session
-from backend.app.api.dependencies.monitoring_events import get_monitoring_event_source
 from backend.app.api.dependencies.repositories import (
     get_decision_context_repository,
     get_decision_plan_repository,
@@ -22,8 +21,8 @@ from backend.app.api.dependencies.repositories import (
     get_structured_assessment_repository,
 )
 from backend.app.api.routers.platform import REASONING_ENGINE_VERSION
+from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.health_service import HealthService
-from backend.app.application.monitoring_event_source import MonitoringEventSource
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.observation_service_factory import (
@@ -38,14 +37,20 @@ from domain.repositories.reasoning_run_repository import ReasoningRunRepository
 from domain.repositories.situation_repository import SituationRepository
 
 
+def get_domain_event_bus(request: Request) -> DomainEventBus:
+    bus = getattr(request.app.state, "domain_event_bus", None)
+    if not isinstance(bus, DomainEventBus):
+        msg = "Domain event bus is not configured on the application"
+        raise RuntimeError(msg)
+    return bus
+
+
 def get_observation_service(
     session: Annotated[Session, Depends(get_db_session)],
-    monitoring_event_source: Annotated[
-        MonitoringEventSource, Depends(get_monitoring_event_source)
-    ],
+    event_bus: Annotated[DomainEventBus, Depends(get_domain_event_bus)],
 ) -> ObservationService:
     """Provide a request-scoped observation application service."""
-    return create_observation_service(session, monitoring_event_source)
+    return create_observation_service(session, event_bus)
 
 
 def get_reasoning_task_runner(request: Request) -> ReasoningTaskRunner:

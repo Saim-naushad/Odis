@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from application.reasoning_session import ReasoningSession
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
-from backend.app.application.monitoring_event_source import MonitoringEventSource
+from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
 from backend.app.infrastructure.repositories.decision_context_repository import (
@@ -37,7 +37,7 @@ from domain.repositories.observation_repository import ObservationRepository
 
 def create_observation_service(
     session: Session,
-    monitoring_event_source: MonitoringEventSource,
+    event_bus: DomainEventBus,
 ) -> ObservationService:
     """Build an observation service wired to the given session."""
     reasoning_session = ReasoningSession(
@@ -57,8 +57,8 @@ def create_observation_service(
     repository: ObservationRepository = SqlAlchemyObservationRepository(session)
     return ObservationService(
         repository,
+        event_bus=event_bus,
         reasoning_session=reasoning_session,
         structured_assessment_repository=structured_assessment_repository,
         reasoning_trace_repository=reasoning_trace_repository,
-        monitoring_event_source=monitoring_event_source,
     )

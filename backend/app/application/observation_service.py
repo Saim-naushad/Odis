@@ -1,15 +1,17 @@
 """Application service for observation persistence and reasoning orchestration."""
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
 from application.reasoning_session import ReasoningSession
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
-from backend.app.application.exceptions import ObservationAlreadyExistsError
-from backend.app.application.monitoring_event_source import (
-    MonitoringEvent,
-    MonitoringEventSource,
+from backend.app.application.events.domain_events import (
+    ObservationCreated,
+    ReasoningCompleted,
 )
+from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.exceptions import ObservationAlreadyExistsError
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.observation_metrics import (
@@ -41,18 +43,18 @@ class ObservationService:
         self,
         repository: ObservationRepository,
         *,
+        event_bus: DomainEventBus | None = None,
         reasoning_session: ReasoningSession | None = None,
         structured_assessment_repository: StructuredAssessmentRepository | None = None,
         reasoning_trace_repository: ReasoningTraceRepository | None = None,
         operational_goal: OperationalGoal | None = None,
-        monitoring_event_source: MonitoringEventSource | None = None,
     ) -> None:
         self._repository = repository
+        self._event_bus = event_bus
         self._reasoning_session = reasoning_session
         self._structured_assessment_repository = structured_assessment_repository
         self._reasoning_trace_repository = reasoning_trace_repository
         self._operational_goal = operational_goal or DEFAULT_OPERATIONAL_GOAL
-        self._monitoring_event_source = monitoring_event_source
 
     def create(self, observation: Observation) -> Observation:
         """Persist a new observation."""
@@ -63,10 +65,14 @@ class ObservationService:
                 raise ObservationAlreadyExistsError(str(exc)) from exc
             raise
 
-        self._publish_monitoring_event(
-            "asset_updated",
-            asset_id=observation.asset_id,
-        )
+        if self._event_bus is not None:
+            self._event_bus.publish(
+                ObservationCreated(
+                    asset_id=observation.asset_id,
+                    observation_id=observation.id,
+                    timestamp=datetime.now(UTC),
+                )
+            )
         observations_created_total.inc()
         logger.info(
             "observation_created",
@@ -104,36 +110,17 @@ class ObservationService:
         if self._reasoning_trace_repository is not None:
             self._reasoning_trace_repository.save(result.run.id, result.trace)
 
-        self._publish_monitoring_event(
-            "run_updated",
-            asset_id=asset_id,
-            run_id=result.run.id,
-        )
-        self._publish_monitoring_event(
-            "asset_updated",
-            asset_id=asset_id,
-            run_id=result.run.id,
-        )
+        if self._event_bus is not None:
+            self._event_bus.publish(
+                ReasoningCompleted(
+                    asset_id=asset_id,
+                    run_id=result.run.id,
+                    timestamp=datetime.now(UTC),
+                )
+            )
         logger.info(
             "reasoning_completed",
             asset_id=asset_id,
             run_id=result.run.id,
         )
         return True
-
-    def _publish_monitoring_event(
-        self,
-        event_type: str,
-        *,
-        asset_id: str | None = None,
-        run_id: str | None = None,
-    ) -> None:
-        if self._monitoring_event_source is None:
-            return
-        self._monitoring_event_source.publish(
-            MonitoringEvent.create(
-                event_type=event_type,
-                asset_id=asset_id,
-                run_id=run_id,
-            )
-        )

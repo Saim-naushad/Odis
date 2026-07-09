@@ -6,6 +6,14 @@ import pytest
 from sqlalchemy.orm import Session
 
 from application.reasoning_session import ReasoningSession
+from backend.app.application.events.domain_events import (
+    ObservationCreated,
+    ReasoningCompleted,
+)
+from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.events.handlers.monitoring_event_handler import (
+    MonitoringEventHandler,
+)
 from backend.app.application.monitoring_event_source import (
     InMemoryMonitoringEventSource,
 )
@@ -171,6 +179,10 @@ def test_create_publishes_asset_updated_event(
     db_session: Session,
 ) -> None:
     event_source = InMemoryMonitoringEventSource()
+    event_bus = DomainEventBus()
+    handler = MonitoringEventHandler(event_source)
+    event_bus.subscribe(ObservationCreated, handler.on_observation_created)
+    event_bus.subscribe(ReasoningCompleted, handler.on_reasoning_completed)
     reasoning_session = ReasoningSession(
         profile=DEFAULT_OPERATIONAL_PROFILE,
         situation_repository=SqlAlchemySituationRepository(db_session),
@@ -182,7 +194,7 @@ def test_create_publishes_asset_updated_event(
     service = ObservationService(
         SqlAlchemyObservationRepository(db_session),
         reasoning_session=reasoning_session,
-        monitoring_event_source=event_source,
+        event_bus=event_bus,
     )
     queue = event_source.subscribe()
 
@@ -199,6 +211,10 @@ def test_create_publishes_run_and_asset_events_when_reasoning_runs(
     db_session: Session,
 ) -> None:
     event_source = InMemoryMonitoringEventSource()
+    event_bus = DomainEventBus()
+    handler = MonitoringEventHandler(event_source)
+    event_bus.subscribe(ObservationCreated, handler.on_observation_created)
+    event_bus.subscribe(ReasoningCompleted, handler.on_reasoning_completed)
     reasoning_session = ReasoningSession(
         profile=DEFAULT_OPERATIONAL_PROFILE,
         situation_repository=SqlAlchemySituationRepository(db_session),
@@ -209,12 +225,12 @@ def test_create_publishes_run_and_asset_events_when_reasoning_runs(
     )
     service = ObservationService(
         SqlAlchemyObservationRepository(db_session),
+        event_bus=event_bus,
         reasoning_session=reasoning_session,
         structured_assessment_repository=SqlAlchemyStructuredAssessmentRepository(
             db_session
         ),
         reasoning_trace_repository=SqlAlchemyReasoningTraceRepository(db_session),
-        monitoring_event_source=event_source,
     )
     queue = event_source.subscribe()
 
