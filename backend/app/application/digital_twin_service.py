@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.domain.digital_twin import DigitalTwin
 from backend.app.domain.timeline import TimelineEvent
+from backend.app.infrastructure.metrics.reasoning_metrics import (
+    record_digital_twin_build_duration,
+)
 from backend.app.infrastructure.tracing import business_span
 from domain.entities.asset import Asset
 from domain.value_objects.location import Location
@@ -76,6 +80,7 @@ class DigitalTwinService:
 
     def _assemble(self, asset_id: str) -> DigitalTwin:
         with business_span("build_digital_twin", attributes={"asset_id": asset_id}):
+            build_start = time.perf_counter()
             history = self._monitoring.get_history_for_asset(asset_id)
             if history is None:
                 raise DigitalTwinAssetNotFoundError(asset_id)
@@ -98,7 +103,7 @@ class DigitalTwinService:
 
             descriptor = _default_asset_descriptor(asset_id)
 
-            return DigitalTwin(
+            twin = DigitalTwin(
                 asset_id=descriptor.asset.id,
                 asset_name=descriptor.asset.name,
                 asset_type=descriptor.asset.type,
@@ -110,6 +115,8 @@ class DigitalTwinService:
                 timeline_preview=tuple(timeline_preview),
                 last_updated=operational_state.last_updated,
             )
+            record_digital_twin_build_duration(time.perf_counter() - build_start)
+            return twin
 
     def _preview_timeline(self, timeline: list[TimelineEvent]) -> list[TimelineEvent]:
         if self._timeline_preview_limit <= 0:

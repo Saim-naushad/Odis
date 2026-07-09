@@ -11,8 +11,8 @@ from backend.app.application.integration_event_publisher import (
 from backend.app.application.integration_events import IntegrationEvent
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.integration_event_metrics import (
-    integration_events_published_total,
-    integration_publish_failures_total,
+    record_integration_event_published,
+    record_integration_publish_failure,
 )
 
 logger = get_logger(__name__)
@@ -47,9 +47,9 @@ class KafkaIntegrationEventPublisher(IntegrationEventPublisher):
             )
             # Synchronous confirmation to count as "published".
             future.get(timeout=5)
-            integration_events_published_total.inc()
+            record_integration_event_published(event.type)
         except Exception:
-            integration_publish_failures_total.inc()
+            record_integration_publish_failure()
             logger.warning(
                 "kafka_integration_event_publish_failed",
                 integration_event_type=event.type,

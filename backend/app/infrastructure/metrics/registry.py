@@ -10,8 +10,12 @@ from backend.app.infrastructure.metrics import (  # noqa: F401
     http_metrics,
     integration_event_metrics,
     monitoring_metrics,
+    notification_metrics,
     observation_metrics,
+    operational_state_metrics,
     reasoning_metrics,
+    recommendation_metrics,
+    worker_metrics,
 )
 
 __all__ = ["CONTENT_TYPE_LATEST", "REGISTRY", "generate_metrics"]

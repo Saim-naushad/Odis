@@ -14,9 +14,11 @@ from backend.app.application.reasoning_job_queue import ReasoningJobQueue
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.reasoning_metrics import (
-    reasoning_duration_seconds,
-    reasoning_failures_total,
-    reasoning_runs_total,
+    record_reasoning_failure,
+    record_reasoning_run,
+)
+from backend.app.infrastructure.metrics.worker_metrics import (
+    record_reasoning_job_duration,
 )
 from backend.app.infrastructure.tracing import business_span
 
@@ -61,8 +63,8 @@ class ReasoningWorker:
                     job_queue.complete(job)
                     uow.commit()
                     self._outbox_dispatcher.dispatch()
-                reasoning_runs_total.inc()
-                reasoning_duration_seconds.observe(time.perf_counter() - start)
+                record_reasoning_run()
+                record_reasoning_job_duration(time.perf_counter() - start)
                 logger.info(
                     "reasoning_job_completed",
                     job_id=job.id,
@@ -73,7 +75,7 @@ class ReasoningWorker:
             except Exception:
                 job_queue.fail(job)
                 uow.commit()
-                reasoning_failures_total.inc()
+                record_reasoning_failure()
                 logger.exception(
                     "reasoning_job_failed",
                     job_id=job.id,

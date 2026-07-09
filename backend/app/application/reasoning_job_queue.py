@@ -15,6 +15,13 @@ from backend.app.domain.reasoning_job import ReasoningJob, ReasoningJobStatus
 from backend.app.domain.repositories.reasoning_job_repository import (
     ReasoningJobRepository,
 )
+from backend.app.infrastructure.metrics.worker_metrics import (
+    record_reasoning_job_completed,
+    record_reasoning_job_created,
+    record_reasoning_job_failed,
+    record_reasoning_job_running_finished,
+    record_reasoning_job_running_started,
+)
 from backend.app.infrastructure.tracing import business_span
 
 
@@ -52,10 +59,14 @@ class DatabaseReasoningJobQueue:
                 attempts=0,
             )
             self._repository.save(job)
+            record_reasoning_job_created()
             return job
 
     def claim(self) -> ReasoningJob | None:
-        return self._repository.claim_oldest_pending()
+        job = self._repository.claim_oldest_pending()
+        if job is not None:
+            record_reasoning_job_running_started()
+        return job
 
     def complete(self, job: ReasoningJob) -> ReasoningJob:
         completed = ReasoningJob(
@@ -68,6 +79,8 @@ class DatabaseReasoningJobQueue:
             attempts=job.attempts,
         )
         self._repository.update(completed)
+        record_reasoning_job_running_finished()
+        record_reasoning_job_completed()
         return completed
 
     def fail(self, job: ReasoningJob) -> ReasoningJob:
@@ -81,4 +94,6 @@ class DatabaseReasoningJobQueue:
             attempts=job.attempts,
         )
         self._repository.update(failed)
+        record_reasoning_job_running_finished()
+        record_reasoning_job_failed()
         return failed

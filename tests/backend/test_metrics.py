@@ -136,8 +136,64 @@ def test_reasoning_metrics_increment_after_sufficient_observations(
 
     after = api_client.get("/metrics").text
     assert _metric_delta(before, after, "reasoning_runs_total") == 2.0
+    assert _metric_delta(before, after, "reasoning_jobs_created_total") == 2.0
+    assert _metric_delta(before, after, "reasoning_jobs_completed_total") == 2.0
     assert "reasoning_duration_seconds_bucket" in after
     assert "reasoning_duration_seconds_count" in after
+    assert "reasoning_job_duration_seconds_bucket" in after
+    assert "trend_analysis_duration_seconds_bucket" in after
+    assert _metric_sum(after, "recommendations_computed_total") >= 1.0
+
+
+def test_reasoning_jobs_running_gauge_returns_to_zero(
+    api_client: TestClient,
+) -> None:
+    observation = {
+        "id": "obs-running-gauge-1",
+        "asset_id": "asset-running-gauge",
+        "timestamp": "2026-01-01T10:00:00Z",
+        "measurement_type": "temperature",
+        "value": 30.0,
+        "unit": "celsius",
+    }
+    api_client.post("/observations", json=observation)
+    after = api_client.get("/metrics").text
+    assert _metric_value(after, "reasoning_jobs_running") == 0.0
+
+
+def test_digital_twin_build_duration_observed_on_cache_miss(
+    api_client: TestClient,
+) -> None:
+    first = {
+        "id": "obs-dt-metrics-1",
+        "asset_id": "asset-dt-metrics",
+        "timestamp": "2026-01-01T10:00:00Z",
+        "measurement_type": "temperature",
+        "value": 30.0,
+        "unit": "celsius",
+    }
+    second = {
+        "id": "obs-dt-metrics-2",
+        "asset_id": "asset-dt-metrics",
+        "timestamp": "2026-01-01T11:00:00Z",
+        "measurement_type": "temperature",
+        "value": 45.0,
+        "unit": "celsius",
+    }
+    api_client.post("/observations", json=first)
+    api_client.post("/observations", json=second)
+    drain_reasoning_jobs(api_client)
+
+    before = api_client.get("/metrics").text
+    response = api_client.get("/monitoring/assets/asset-dt-metrics/digital-twin")
+    assert response.status_code == 200
+
+    after = api_client.get("/metrics").text
+    assert (
+        _metric_value(after, "digital_twin_build_duration_seconds_count")
+        - _metric_value(before, "digital_twin_build_duration_seconds_count")
+        >= 1.0
+    )
 
 
 def test_monitoring_sse_connections_gauge_updates(

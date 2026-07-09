@@ -1,5 +1,6 @@
 """Application service for observation persistence and reasoning orchestration."""
 
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -25,8 +26,21 @@ from backend.app.domain.outbox import OutboxEvent
 from backend.app.domain.reasoning_job import ReasoningJob
 from backend.app.domain.recommendation import Recommendation
 from backend.app.infrastructure.logging import get_logger
+from backend.app.infrastructure.metrics.notification_metrics import (
+    record_notification_created,
+)
 from backend.app.infrastructure.metrics.observation_metrics import (
-    observations_created_total,
+    record_observation_created,
+)
+from backend.app.infrastructure.metrics.operational_state_metrics import (
+    record_operational_state_transition,
+)
+from backend.app.infrastructure.metrics.reasoning_metrics import (
+    record_reasoning_duration,
+    record_trend_analysis_duration,
+)
+from backend.app.infrastructure.metrics.recommendation_metrics import (
+    record_recommendation_computed,
 )
 from backend.app.infrastructure.tracing import business_span
 from domain.entities.observation import Observation
@@ -118,7 +132,7 @@ class ObservationService:
 
         if self._event_bus is not None and self._outbox_dispatcher is not None:
             self._outbox_dispatcher.dispatch()
-        observations_created_total.inc()
+        record_observation_created()
         logger.info(
             "observation_created",
             observation_id=observation.id,
@@ -170,15 +184,19 @@ class ObservationService:
         previous_primary = (
             primary_observations[:-1] if len(primary_observations) >= 2 else []
         )
+        trend_start = time.perf_counter()
         prev_trend = analyze_trend_diagnostics(
             previous_primary,
             observation_window=5,
         )
+        record_trend_analysis_duration(time.perf_counter() - trend_start)
 
+        reasoning_start = time.perf_counter()
         result = self._reasoning_session.run(
             self._operational_goal,
             asset_observations,
         )
+        record_reasoning_duration(time.perf_counter() - reasoning_start)
 
         new_state: OperationalState | None = None
         notification = None
@@ -189,12 +207,19 @@ class ObservationService:
                 observations=asset_observations,
             )
             recommendation = self._compute_recommendation_from_state(new_state)
+            record_recommendation_computed(
+                category=recommendation.category,
+                priority=recommendation.priority,
+                urgency=recommendation.urgency,
+            )
             notification = NotificationPolicyEngine().compute(recommendation)
 
+        trend_start = time.perf_counter()
         new_trend = analyze_trend_diagnostics(
             primary_observations,
             observation_window=5,
         )
+        record_trend_analysis_duration(time.perf_counter() - trend_start)
 
         if self._event_bus is not None:
             started_event = OutboxEvent(
@@ -271,6 +296,10 @@ class ObservationService:
                         observations=asset_observations,
                     )
                 if previous_state.health_status != new_state.health_status:
+                    record_operational_state_transition(
+                        from_state=previous_state.health_status,
+                        to_state=new_state.health_status,
+                    )
                     self._uow.session.add(
                         OutboxEvent(
                             id=str(uuid4()),
@@ -288,6 +317,10 @@ class ObservationService:
                         )
                     )
                 if previous_state.risk_level != new_state.risk_level:
+                    record_operational_state_transition(
+                        from_state=previous_state.risk_level,
+                        to_state=new_state.risk_level,
+                    )
                     self._uow.session.add(
                         OutboxEvent(
                             id=str(uuid4()),
@@ -309,6 +342,10 @@ class ObservationService:
                 notification is not None
                 and previous_notification_id != notification.id
             ):
+                record_notification_created(
+                    severity=notification.severity,
+                    status=notification.status,
+                )
                 self._uow.session.add(
                     OutboxEvent(
                         id=str(uuid4()),
