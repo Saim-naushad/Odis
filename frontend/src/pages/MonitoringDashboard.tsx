@@ -6,6 +6,7 @@ import { RunHistory } from '../components/RunHistory'
 import { Timeline } from '../components/Timeline'
 import { OperationalStateCard } from '../components/OperationalStateCard'
 import { RecommendationCard } from '../components/RecommendationCard'
+import { NotificationCard } from '../components/NotificationCard'
 import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
 import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
@@ -22,6 +23,13 @@ export function MonitoringDashboard() {
           operationalState={state.operationalState}
           loading={state.operationalStateLoading}
           error={state.operationalStateError}
+        />
+        <NotificationCard
+          selectedAssetId={state.selectedAssetId}
+          notification={state.notification}
+          recommendation={state.recommendation}
+          loading={state.notificationLoading}
+          error={state.notificationError}
         />
         <RecommendationCard
           selectedAssetId={state.selectedAssetId}

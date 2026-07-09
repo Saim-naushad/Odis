@@ -21,6 +21,7 @@ from backend.app.api.schemas.monitoring import (
     MonitoringAssetLatestResponse,
     MonitoringAssetResponse,
     MonitoringRunDetailsResponse,
+    NotificationResponse,
     OperationalSituationResponse,
     OperationalStateResponse,
     ReasoningTraceResponse,
@@ -234,6 +235,31 @@ def get_recommendation_for_asset(
             detail=f"asset with id {asset_id!r} has no reasoning history",
         )
     return RecommendationResponse.from_domain(recommendation)
+
+
+@router.get(
+    "/assets/{asset_id}/notification",
+    response_model=NotificationResponse,
+    summary="Get latest notification for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Notification not found"}},
+)
+def get_latest_notification_for_asset(
+    asset_id: str,
+    service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+) -> NotificationResponse:
+    notification = service.get_latest_notification(asset_id)
+    if notification is None:
+        history = service.get_history_for_asset(asset_id)
+        if history is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"asset with id {asset_id!r} not found",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} has no notification",
+        )
+    return NotificationResponse.from_domain(notification)
 
 
 @router.get(

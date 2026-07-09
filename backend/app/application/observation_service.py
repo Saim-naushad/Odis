@@ -11,13 +11,16 @@ from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.exceptions import ObservationAlreadyExistsError
+from backend.app.application.notification_policy_engine import NotificationPolicyEngine
 from backend.app.application.operational_state_engine import OperationalStateEngine
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
+from backend.app.application.recommendation_engine import RecommendationEngine
 from backend.app.application.time_series_analysis import analyze_trend_diagnostics
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.outbox import OutboxEvent
+from backend.app.domain.recommendation import Recommendation
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.observation_metrics import (
     observations_created_total,
@@ -127,6 +130,11 @@ class ObservationService:
         )
         previous_recommendation = self._latest_recommendation_for_asset(asset_id)
         previous_state = self._latest_operational_state_for_asset(asset_id)
+        previous_notification_id: str | None = None
+        if previous_state is not None:
+            previous_notification_id = self._latest_notification_id_for_state(
+                previous_state
+            )
         now = datetime.now(UTC)
 
         primary_measurement_type = asset_observations[0].measurement_type
@@ -147,6 +155,17 @@ class ObservationService:
             self._operational_goal,
             asset_observations,
         )
+
+        new_state: OperationalState | None = None
+        notification = None
+        if self._event_bus is not None and hasattr(result.plan, "priority"):
+            new_state = self._compute_operational_state_from_result(
+                asset_id=asset_id,
+                result=result,
+                observations=asset_observations,
+            )
+            recommendation = self._compute_recommendation_from_state(new_state)
+            notification = NotificationPolicyEngine().compute(recommendation)
 
         new_trend = analyze_trend_diagnostics(
             primary_observations,
@@ -221,11 +240,12 @@ class ObservationService:
 
             if previous_state is not None:
                 # Operational State transitions (meaningful only).
-                new_state = self._compute_operational_state_from_result(
-                    asset_id=asset_id,
-                    result=result,
-                    observations=asset_observations,
-                )
+                if new_state is None:
+                    new_state = self._compute_operational_state_from_result(
+                        asset_id=asset_id,
+                        result=result,
+                        observations=asset_observations,
+                    )
                 if previous_state.health_status != new_state.health_status:
                     self._uow.session.add(
                         OutboxEvent(
@@ -261,6 +281,31 @@ class ObservationService:
                         )
                     )
 
+            if (
+                notification is not None
+                and previous_notification_id != notification.id
+            ):
+                self._uow.session.add(
+                    OutboxEvent(
+                        id=str(uuid4()),
+                        event_type="NotificationCreated",
+                        payload={
+                            "asset_id": asset_id,
+                            "run_id": result.run.id,
+                            "notification_id": notification.id,
+                            "recommendation_id": notification.recommendation_id,
+                            "severity": notification.severity,
+                            "status": notification.status,
+                            "title": notification.title,
+                            "message": notification.message,
+                            "created_at": notification.created_at.isoformat(),
+                            "timestamp": now.isoformat(),
+                        },
+                        created_at=now,
+                        dispatched_at=None,
+                    )
+                )
+
             outbox_event = OutboxEvent(
                 id=str(uuid4()),
                 event_type="ReasoningCompleted",
@@ -279,6 +324,16 @@ class ObservationService:
             run_id=result.run.id,
         )
         return True
+
+    def _compute_recommendation_from_state(
+        self, state: OperationalState
+    ) -> Recommendation:
+        return RecommendationEngine().compute(state)
+
+    def _latest_notification_id_for_state(self, state: OperationalState) -> str | None:
+        recommendation = self._compute_recommendation_from_state(state)
+        notification = NotificationPolicyEngine().compute(recommendation)
+        return notification.id if notification is not None else None
 
     def _compute_operational_state_from_result(
         self,

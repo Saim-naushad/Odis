@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from typing import cast
 
 from application.reasoning_run_index import ReasoningRunIndexRepository
 from application.reasoning_trace import ReasoningTrace
@@ -11,6 +13,11 @@ from application.structured_assessment import StructuredAssessment
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.application.operational_state_engine import OperationalStateEngine
 from backend.app.application.recommendation_engine import RecommendationEngine
+from backend.app.domain.notification import (
+    Notification,
+    NotificationSeverity,
+    NotificationStatus,
+)
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
@@ -161,6 +168,33 @@ class MonitoringService:
             return None
         engine = RecommendationEngine()
         return engine.compute(state)
+
+    def get_latest_notification(self, asset_id: str) -> Notification | None:
+        """Return the latest created Notification for an asset when available."""
+        if not self._observation_repository.list_by_asset(asset_id):
+            return None
+
+        events = self._timeline_repository.list_by_asset(asset_id)
+        notification_events = [
+            event for event in events if event.event_type == "notification_created"
+        ]
+        if not notification_events:
+            return None
+
+        latest = notification_events[-1]
+        metadata = latest.metadata
+        created_at_raw = str(metadata.get("created_at", latest.timestamp.isoformat()))
+        created_at = datetime.fromisoformat(created_at_raw)
+        return Notification(
+            id=str(metadata["notification_id"]),
+            asset_id=asset_id,
+            recommendation_id=str(metadata["recommendation_id"]),
+            severity=cast(NotificationSeverity, str(metadata["severity"])),
+            status=cast(NotificationStatus, str(metadata["status"])),
+            title=str(metadata["title"]),
+            message=str(metadata["message"]),
+            created_at=created_at,
+        )
 
     def get_run_details(self, run_id: str) -> MonitoringRunDetails | None:
         """Return the complete persisted reasoning run for debugging."""

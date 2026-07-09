@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    NotificationCreated,
     ObservationCreated,
     ReasoningCompleted,
     ReasoningStarted,
@@ -154,6 +155,31 @@ class TimelineEventHandler:
                     "previous_risk_level": event.previous_risk_level,
                     "new_risk_level": event.new_risk_level,
                     "health_score": event.health_score,
+                },
+            )
+        )
+
+    def on_notification_created(self, event: NotificationCreated) -> None:
+        self._record(
+            TimelineEvent(
+                id=str(uuid4()),
+                asset_id=event.asset_id,
+                timestamp=event.timestamp,
+                event_type="notification_created",
+                title="Notification created",
+                description=(
+                    f"{event.severity}: {event.title}. "
+                    f"Linked recommendation {event.recommendation_id}."
+                ),
+                metadata={
+                    "run_id": event.run_id,
+                    "notification_id": event.notification_id,
+                    "recommendation_id": event.recommendation_id,
+                    "severity": event.severity,
+                    "status": event.status,
+                    "title": event.title,
+                    "message": event.message,
+                    "created_at": event.created_at.isoformat(),
                 },
             )
         )

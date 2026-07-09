@@ -20,6 +20,7 @@ from backend.app.api.routers import (
 )
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    NotificationCreated,
     ObservationCreated,
     ReasoningCompleted,
     ReasoningStarted,
@@ -126,6 +127,10 @@ def _build_lifespan(
             domain_event_bus.subscribe(
                 RiskChanged,
                 timeline_handler.on_risk_changed,
+            )
+            domain_event_bus.subscribe(
+                NotificationCreated,
+                timeline_handler.on_notification_created,
             )
         if app.state.session_factory is not None:
             outbox_dispatcher = OutboxDispatcher(

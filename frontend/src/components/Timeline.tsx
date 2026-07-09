@@ -12,6 +12,7 @@ const EVENT_ICONS: Record<TimelineEventType, string> = {
   reasoning_started: '▶',
   reasoning_completed: '✓',
   recommendation_updated: '↻',
+  notification_created: '!',
   trend_changed: '⇅',
   health_changed: '♥',
   risk_changed: '⚠',

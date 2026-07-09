@@ -16,9 +16,10 @@ _EVENT_TYPE_ORDER: dict[str, int] = {
     "reasoning_started": 1,
     "trend_changed": 2,
     "recommendation_updated": 3,
-    "health_changed": 4,
-    "risk_changed": 5,
-    "reasoning_completed": 6,
+    "notification_created": 4,
+    "health_changed": 5,
+    "risk_changed": 6,
+    "reasoning_completed": 7,
 }
 
 

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.structured_assessment import StructuredAssessment
 from backend.app.api.schemas.observation import ObservationResponse
+from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.reasoning import (
     AlternativeHypothesis,
@@ -303,4 +304,28 @@ class RecommendationResponse(BaseModel):
             recommended_steps=list(recommendation.recommended_steps),
             estimated_impact=recommendation.estimated_impact,
             created_at=recommendation.created_at,
+        )
+
+
+class NotificationResponse(BaseModel):
+    id: str
+    asset_id: str
+    recommendation_id: str
+    severity: str
+    status: str
+    title: str
+    message: str
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, notification: Notification) -> Self:
+        return cls(
+            id=notification.id,
+            asset_id=notification.asset_id,
+            recommendation_id=notification.recommendation_id,
+            severity=notification.severity,
+            status=notification.status,
+            title=notification.title,
+            message=notification.message,
+            created_at=notification.created_at,
         )

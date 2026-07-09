@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    NotificationCreated,
     ObservationCreated,
     ReasoningCompleted,
     ReasoningStarted,
@@ -92,6 +93,19 @@ def _deserialize_domain_event(
             previous_risk_level=str(payload["previous_risk_level"]),
             new_risk_level=str(payload["new_risk_level"]),
             health_score=int(payload.get("health_score", 0)),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "NotificationCreated":
+        return NotificationCreated(
+            asset_id=str(payload["asset_id"]),
+            run_id=str(payload["run_id"]),
+            notification_id=str(payload["notification_id"]),
+            recommendation_id=str(payload["recommendation_id"]),
+            severity=str(payload["severity"]),
+            status=str(payload["status"]),
+            title=str(payload["title"]),
+            message=str(payload["message"]),
+            created_at=_parse_datetime(str(payload["created_at"])),
             timestamp=_parse_datetime(str(payload["timestamp"])),
         )
     return None

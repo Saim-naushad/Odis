@@ -7,6 +7,7 @@ import type {
   MonitoringRunDetailsResponse,
   OperationalStateResponse,
   PlatformMetadataResponse,
+  NotificationResponse,
   RecommendationResponse,
   TimelineEventResponse,
 } from '../types/monitoring'
@@ -82,6 +83,19 @@ export const monitoringClient = {
       `/monitoring/assets/${encodeURIComponent(assetId)}/recommendation`,
       signal,
     )
+  },
+
+  getNotificationForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+  ): Promise<NotificationResponse | null> {
+    const path = `/monitoring/assets/${encodeURIComponent(assetId)}/notification`
+    return apiClient.get<NotificationResponse>(path, signal).catch((error) => {
+      if (error instanceof Error && error.message.includes('failed with 404')) {
+        return null
+      }
+      throw error
+    })
   },
 }
 

@@ -70,3 +70,17 @@ class RiskChanged:
     health_score: int
     timestamp: datetime
 
+
+@dataclass(frozen=True, slots=True)
+class NotificationCreated:
+    asset_id: str
+    run_id: str
+    notification_id: str
+    recommendation_id: str
+    severity: str
+    status: str
+    title: str
+    message: str
+    created_at: datetime
+    timestamp: datetime
+

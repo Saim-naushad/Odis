@@ -354,6 +354,102 @@ def test_recommendation_endpoint_returns_current_recommendation(
     assert payload["created_at"]
 
 
+def test_notification_endpoint_returns_404_when_no_notification_exists(
+    api_client: TestClient,
+) -> None:
+    asset_id = "asset-no-notification"
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-nn-1",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:00:00Z",
+            value=10.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-nn-2",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:01:00Z",
+            value=10.0,
+        ),
+    )
+
+    response = api_client.get(f"/monitoring/assets/{asset_id}/notification")
+
+    assert response.status_code == 404
+    assert (
+        response.json()["detail"]
+        == f"asset with id {asset_id!r} has no notification"
+    )
+
+
+def test_notification_endpoint_returns_latest_notification_when_created(
+    api_client: TestClient,
+) -> None:
+    asset_id = "asset-notification"
+
+    # Run 1: stable (LOW priority) -> no notification
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-n-1",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:00:00Z",
+            value=10.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-n-2",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:01:00Z",
+            value=10.0,
+        ),
+    )
+
+    # Run 2: rising trend (MEDIUM/HIGH priority) -> notification created
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-n-3",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:02:00Z",
+            value=20.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-n-4",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:03:00Z",
+            value=30.0,
+        ),
+    )
+
+    response = api_client.get(f"/monitoring/assets/{asset_id}/notification")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset_id"] == asset_id
+    assert payload["id"]
+    assert payload["recommendation_id"]
+    assert payload["severity"] in {"WARNING", "CRITICAL"}
+    assert payload["status"] == "OPEN"
+    assert payload["title"]
+    assert payload["message"]
+    assert payload["created_at"]
+
+    timeline = api_client.get(f"/monitoring/assets/{asset_id}/timeline")
+    assert timeline.status_code == 200
+    event_types = [item["event_type"] for item in timeline.json()]
+    assert "notification_created" in event_types
+
+
 def test_timeline_includes_health_and_risk_transitions(api_client: TestClient) -> None:
     asset_id = "asset-state-transitions"
 

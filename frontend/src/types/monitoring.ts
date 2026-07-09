@@ -151,11 +151,23 @@ export interface RecommendationResponse {
   created_at: string
 }
 
+export interface NotificationResponse {
+  id: string
+  asset_id: string
+  recommendation_id: string
+  severity: 'INFO' | 'WARNING' | 'CRITICAL' | string
+  status: 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | string
+  title: string
+  message: string
+  created_at: string
+}
+
 export type TimelineEventType =
   | 'observation_received'
   | 'reasoning_started'
   | 'reasoning_completed'
   | 'recommendation_updated'
+  | 'notification_created'
   | 'trend_changed'
   | 'health_changed'
   | 'risk_changed'
