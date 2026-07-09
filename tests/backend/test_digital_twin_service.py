@@ -13,6 +13,9 @@ from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
 from backend.app.domain.timeline import TimelineEvent
+from backend.app.infrastructure.cache.memory_digital_twin_cache import (
+    MemoryDigitalTwinCache,
+)
 
 
 class _FakeRun:
@@ -83,7 +86,10 @@ def test_digital_twin_service_raises_when_asset_missing() -> None:
         notification=None,
         timeline=None,
     )
-    service = DigitalTwinService(monitoring_service=monitoring)  # type: ignore[arg-type]
+    service = DigitalTwinService(
+        monitoring_service=monitoring,  # type: ignore[arg-type]
+        cache=MemoryDigitalTwinCache(),
+    )
 
     with pytest.raises(DigitalTwinAssetNotFoundError):
         service.get_for_asset("missing")
@@ -97,7 +103,10 @@ def test_digital_twin_service_raises_when_no_reasoning_history() -> None:
         notification=None,
         timeline=[],
     )
-    service = DigitalTwinService(monitoring_service=monitoring)  # type: ignore[arg-type]
+    service = DigitalTwinService(
+        monitoring_service=monitoring,  # type: ignore[arg-type]
+        cache=MemoryDigitalTwinCache(),
+    )
 
     with pytest.raises(DigitalTwinNoReasoningHistoryError):
         service.get_for_asset("asset-1")
@@ -145,7 +154,10 @@ def test_digital_twin_service_assembles_preview_latest_five_in_order() -> None:
         timeline=timeline,
         latest_run_id="run-99",
     )
-    service = DigitalTwinService(monitoring_service=monitoring)  # type: ignore[arg-type]
+    service = DigitalTwinService(
+        monitoring_service=monitoring,  # type: ignore[arg-type]
+        cache=MemoryDigitalTwinCache(),
+    )
 
     twin = service.get_for_asset(asset_id)
     assert twin is not None

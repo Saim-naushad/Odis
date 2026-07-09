@@ -1,7 +1,7 @@
 """Application service dependency providers for route handlers."""
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import Depends, Request
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ from backend.app.api.dependencies.repositories import (
     get_timeline_repository,
 )
 from backend.app.api.routers.platform import REASONING_ENGINE_VERSION
+from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.digital_twin_service import DigitalTwinService
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.health_service import HealthService
@@ -119,11 +120,20 @@ def get_monitoring_service(
     )
 
 
+def get_digital_twin_cache(request: Request) -> DigitalTwinCache:
+    cache = getattr(request.app.state, "digital_twin_cache", None)
+    if cache is None:
+        msg = "Digital twin cache is not configured on the application"
+        raise RuntimeError(msg)
+    return cast(DigitalTwinCache, cache)
+
+
 def get_digital_twin_service(
     monitoring_service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+    cache: Annotated[DigitalTwinCache, Depends(get_digital_twin_cache)],
 ) -> DigitalTwinService:
     """Provide a request-scoped digital twin assembly service."""
-    return DigitalTwinService(monitoring_service=monitoring_service)
+    return DigitalTwinService(monitoring_service=monitoring_service, cache=cache)
 
 
 def get_health_service(request: Request) -> HealthService:

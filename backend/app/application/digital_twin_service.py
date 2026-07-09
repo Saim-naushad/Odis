@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.domain.digital_twin import DigitalTwin
 from backend.app.domain.timeline import TimelineEvent
@@ -56,12 +57,23 @@ class DigitalTwinService:
         self,
         *,
         monitoring_service: MonitoringService,
+        cache: DigitalTwinCache,
         timeline_preview_limit: int = 5,
     ) -> None:
         self._monitoring = monitoring_service
+        self._cache = cache
         self._timeline_preview_limit = timeline_preview_limit
 
     def get_for_asset(self, asset_id: str) -> DigitalTwin:
+        cached = self._cache.get(asset_id)
+        if cached is not None:
+            return cached
+
+        twin = self._assemble(asset_id)
+        self._cache.set(twin)
+        return twin
+
+    def _assemble(self, asset_id: str) -> DigitalTwin:
         history = self._monitoring.get_history_for_asset(asset_id)
         if history is None:
             raise DigitalTwinAssetNotFoundError(asset_id)

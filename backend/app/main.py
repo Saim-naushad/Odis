@@ -29,6 +29,7 @@ from backend.app.application.events.domain_events import (
     TrendChanged,
 )
 from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.events.handlers import DigitalTwinCacheInvalidationHandler
 from backend.app.application.events.handlers.monitoring_event_handler import (
     MonitoringEventHandler,
 )
@@ -40,6 +41,9 @@ from backend.app.application.monitoring_event_source import (
 )
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
+from backend.app.infrastructure.cache.memory_digital_twin_cache import (
+    MemoryDigitalTwinCache,
+)
 from backend.app.infrastructure.config.settings import Settings, get_settings
 from backend.app.infrastructure.database.session import (
     create_db_engine,
@@ -85,8 +89,33 @@ def _build_lifespan(
         )
         monitoring_event_source = InMemoryMonitoringEventSource()
         app.state.monitoring_event_source = monitoring_event_source
+        digital_twin_cache = MemoryDigitalTwinCache()
+        app.state.digital_twin_cache = digital_twin_cache
         domain_event_bus = DomainEventBus()
         app.state.domain_event_bus = domain_event_bus
+        cache_invalidation_handler = DigitalTwinCacheInvalidationHandler(
+            digital_twin_cache,
+        )
+        domain_event_bus.subscribe(
+            HealthChanged,
+            cache_invalidation_handler.on_health_changed,
+        )
+        domain_event_bus.subscribe(
+            RiskChanged,
+            cache_invalidation_handler.on_risk_changed,
+        )
+        domain_event_bus.subscribe(
+            RecommendationUpdated,
+            cache_invalidation_handler.on_recommendation_updated,
+        )
+        domain_event_bus.subscribe(
+            NotificationCreated,
+            cache_invalidation_handler.on_notification_created,
+        )
+        domain_event_bus.subscribe(
+            ReasoningCompleted,
+            cache_invalidation_handler.on_reasoning_completed,
+        )
         monitoring_handler = MonitoringEventHandler(monitoring_event_source)
         domain_event_bus.subscribe(
             ObservationCreated,
