@@ -14,6 +14,7 @@ from backend.app.api.schemas.observation import ObservationCreate, ObservationRe
 from backend.app.application.exceptions import ObservationAlreadyExistsError
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
+from backend.app.infrastructure.logging import get_request_id
 
 router = APIRouter(prefix="/observations", tags=["observations"])
 
@@ -49,7 +50,11 @@ def create_observation(
         ) from exc
 
     session.commit()
-    background_tasks.add_task(reasoning_runner.run_for_asset, observation.asset_id)
+    background_tasks.add_task(
+        reasoning_runner.run_for_asset,
+        observation.asset_id,
+        get_request_id(),
+    )
     return ObservationResponse.from_domain(observation)
 
 

@@ -6,7 +6,11 @@ from backend.app.application.monitoring_event_source import MonitoringEventSourc
 from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
-from backend.app.infrastructure.logging import get_logger
+from backend.app.infrastructure.logging import (
+    bind_request_id,
+    clear_log_context,
+    get_logger,
+)
 
 logger = get_logger(__name__)
 
@@ -22,8 +26,13 @@ class ReasoningTaskRunner:
         self._session_factory = session_factory
         self._monitoring_event_source = monitoring_event_source
 
-    def run_for_asset(self, asset_id: str) -> None:
-        """Execute reasoning for an asset using a fresh database session."""
+    def run_for_asset(self, asset_id: str, request_id: str | None = None) -> None:
+        """Execute reasoning for an asset using a fresh database session.
+
+        ``request_id`` is captured when the task is scheduled because request
+        middleware clears logging context before FastAPI background tasks run.
+        """
+        bind_request_id(request_id)
         session = self._session_factory()
         try:
             service = create_observation_service(session, self._monitoring_event_source)
@@ -38,3 +47,4 @@ class ReasoningTaskRunner:
             raise
         finally:
             session.close()
+            clear_log_context()

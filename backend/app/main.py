@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from fastapi import FastAPI
 from sqlalchemy import Engine
 
+from backend.app.api.middleware import RequestIDMiddleware
 from backend.app.api.routers import (
     health_router,
     monitoring_router,
@@ -101,6 +102,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=_build_lifespan(active_settings),
     )
     app.state.settings = active_settings
+    app.add_middleware(RequestIDMiddleware)
 
     app.include_router(platform_router)
     app.include_router(health_router)

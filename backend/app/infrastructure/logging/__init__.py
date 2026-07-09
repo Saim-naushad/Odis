@@ -5,6 +5,7 @@ from backend.app.infrastructure.logging.config import (
     clear_log_context,
     configure_logging,
     get_logger,
+    get_request_id,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "clear_log_context",
     "configure_logging",
     "get_logger",
+    "get_request_id",
 ]

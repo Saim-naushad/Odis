@@ -10,8 +10,7 @@ import structlog
 from structlog import contextvars
 from structlog.types import Processor
 
-# Canonical context fields for cross-service correlation. request_id is reserved
-# for future request middleware; bind_request_id() attaches it when available.
+# Canonical context fields for cross-service correlation.
 STANDARD_CONTEXT_FIELDS = (
     "event",
     "asset_id",
@@ -90,6 +89,14 @@ def configure_logging(
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """Return a module-scoped structured logger."""
     return structlog.get_logger(name)
+
+
+def get_request_id() -> str | None:
+    """Return the request_id bound in the current async/task context, if any."""
+    request_id = contextvars.get_contextvars().get("request_id")
+    if isinstance(request_id, str):
+        return request_id
+    return None
 
 
 def bind_request_id(request_id: str | None) -> None:
