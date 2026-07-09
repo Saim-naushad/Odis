@@ -2,6 +2,7 @@
 
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,22 @@ from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.database import models as _models  # noqa: F401
 from backend.app.infrastructure.database.base import Base
 from backend.app.main import create_app
+from tests.backend.helpers import drain_reasoning_jobs
+
+
+@pytest.fixture(autouse=True)
+def auto_process_reasoning_jobs(api_client: TestClient) -> Generator[None, None, None]:
+    """Mirror production worker behavior after observation posts in API tests."""
+    original_post = api_client.post
+
+    def post_with_worker(path: str, **kwargs: Any) -> Any:
+        response = original_post(path, **kwargs)
+        if path == "/observations" and response.status_code == 202:
+            drain_reasoning_jobs(api_client)
+        return response
+
+    api_client.post = post_with_worker  # type: ignore[method-assign, assignment]
+    yield
 
 
 @pytest.fixture

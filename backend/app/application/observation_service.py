@@ -1,6 +1,7 @@
 """Application service for observation persistence and reasoning orchestration."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -15,11 +16,13 @@ from backend.app.application.notification_policy_engine import NotificationPolic
 from backend.app.application.operational_state_engine import OperationalStateEngine
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
+from backend.app.application.reasoning_job_queue import ReasoningJobQueue
 from backend.app.application.recommendation_engine import RecommendationEngine
 from backend.app.application.time_series_analysis import analyze_trend_diagnostics
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.outbox import OutboxEvent
+from backend.app.domain.reasoning_job import ReasoningJob
 from backend.app.domain.recommendation import Recommendation
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.observation_metrics import (
@@ -32,6 +35,14 @@ from domain.repositories.observation_repository import ObservationRepository
 from domain.repositories.reasoning_run_repository import ReasoningRunRepository
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationCreateResult:
+    """Result of persisting an observation and enqueueing reasoning."""
+
+    observation: Observation
+    job: ReasoningJob | None
 
 
 def _can_run_reasoning(observations: Sequence[Observation]) -> bool:
@@ -63,11 +74,13 @@ class ObservationService:
         reasoning_run_index_repository: ReasoningRunIndexRepository | None = None,
         reasoning_run_repository: ReasoningRunRepository | None = None,
         operational_goal: OperationalGoal | None = None,
+        reasoning_job_queue: ReasoningJobQueue | None = None,
     ) -> None:
         self._uow = uow
         self._repository = repository
         self._event_bus = event_bus
         self._outbox_dispatcher = outbox_dispatcher
+        self._reasoning_job_queue = reasoning_job_queue
         self._reasoning_session = reasoning_session
         self._structured_assessment_repository = structured_assessment_repository
         self._reasoning_trace_repository = reasoning_trace_repository
@@ -76,8 +89,9 @@ class ObservationService:
         self._reasoning_run_repository = reasoning_run_repository
         self._operational_goal = operational_goal or DEFAULT_OPERATIONAL_GOAL
 
-    def create(self, observation: Observation) -> Observation:
-        """Persist a new observation."""
+    def create(self, observation: Observation) -> ObservationCreateResult:
+        """Persist a new observation and enqueue asynchronous reasoning."""
+        job: ReasoningJob | None = None
         try:
             self._repository.save(observation)
             if self._event_bus is not None:
@@ -93,6 +107,8 @@ class ObservationService:
                     dispatched_at=None,
                 )
                 self._uow.session.add(outbox_event)
+            if self._reasoning_job_queue is not None:
+                job = self._reasoning_job_queue.enqueue(observation.asset_id)
             self._uow.commit()
         except ValueError as exc:
             if "already exists" in str(exc):
@@ -106,8 +122,9 @@ class ObservationService:
             "observation_created",
             observation_id=observation.id,
             asset_id=observation.asset_id,
+            job_id=job.id if job is not None else None,
         )
-        return observation
+        return ObservationCreateResult(observation=observation, job=job)
 
     def get(self, observation_id: str) -> Observation | None:
         """Return a persisted observation when it exists."""

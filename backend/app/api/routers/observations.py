@@ -2,39 +2,36 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from backend.app.api.dependencies.services import (
-    get_observation_service,
-    get_reasoning_task_runner,
+from backend.app.api.dependencies.services import get_observation_service
+from backend.app.api.schemas.observation import (
+    ObservationAcceptedResponse,
+    ObservationCreate,
+    ObservationResponse,
 )
-from backend.app.api.schemas.observation import ObservationCreate, ObservationResponse
 from backend.app.application.exceptions import ObservationAlreadyExistsError
 from backend.app.application.observation_service import ObservationService
-from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
-from backend.app.infrastructure.logging import get_request_id
 
 router = APIRouter(prefix="/observations", tags=["observations"])
 
 
 @router.post(
     "",
-    response_model=ObservationResponse,
-    status_code=status.HTTP_201_CREATED,
+    response_model=ObservationAcceptedResponse,
+    status_code=status.HTTP_202_ACCEPTED,
     summary="Create an observation",
-    response_description="The persisted observation.",
+    response_description=(
+        "The persisted observation and enqueued reasoning job identifier."
+    ),
 )
 def create_observation(
     payload: ObservationCreate,
-    background_tasks: BackgroundTasks,
     service: Annotated[ObservationService, Depends(get_observation_service)],
-    reasoning_runner: Annotated[
-        ReasoningTaskRunner, Depends(get_reasoning_task_runner)
-    ],
-) -> ObservationResponse:
+) -> ObservationAcceptedResponse:
     """Validate and persist a new operational observation."""
     try:
-        observation = service.create(payload.to_domain())
+        result = service.create(payload.to_domain())
     except ObservationAlreadyExistsError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -46,12 +43,7 @@ def create_observation(
             detail=str(exc),
         ) from exc
 
-    background_tasks.add_task(
-        reasoning_runner.run_for_asset,
-        observation.asset_id,
-        get_request_id(),
-    )
-    return ObservationResponse.from_domain(observation)
+    return ObservationAcceptedResponse.from_create_result(result)
 
 
 @router.get(

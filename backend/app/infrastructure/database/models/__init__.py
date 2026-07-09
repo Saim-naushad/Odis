@@ -9,6 +9,7 @@ from backend.app.infrastructure.database.models.observation import ObservationMo
 from backend.app.infrastructure.database.models.operational_situation import (
     OperationalSituationModel,
 )
+from backend.app.infrastructure.database.models.reasoning_job import ReasoningJobModel
 from backend.app.infrastructure.database.models.reasoning_run import ReasoningRunModel
 from backend.app.infrastructure.database.models.reasoning_run_index import (
     ReasoningRunIndexModel,
@@ -29,6 +30,7 @@ __all__ = [
     "ObservationModel",
     "OperationalSituationModel",
     "OutboxEvent",
+    "ReasoningJobModel",
     "ReasoningRunIndexModel",
     "ReasoningRunModel",
     "ReasoningTraceModel",

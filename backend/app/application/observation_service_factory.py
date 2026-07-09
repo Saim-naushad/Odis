@@ -9,6 +9,7 @@ from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
+from backend.app.application.reasoning_job_queue import DatabaseReasoningJobQueue
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.repositories.decision_context_repository import (
     SqlAlchemyDecisionContextRepository,
@@ -18,6 +19,9 @@ from backend.app.infrastructure.repositories.decision_plan_repository import (
 )
 from backend.app.infrastructure.repositories.observation_repository import (
     SqlAlchemyObservationRepository,
+)
+from backend.app.infrastructure.repositories.reasoning_job_repository import (
+    SqlAlchemyReasoningJobRepository,
 )
 from backend.app.infrastructure.repositories.reasoning_run_index_repository import (
     SqlAlchemyReasoningRunIndexRepository,
@@ -59,11 +63,15 @@ def create_observation_service(
         SqlAlchemyReasoningTraceRepository(session)
     )
     repository: ObservationRepository = SqlAlchemyObservationRepository(session)
+    reasoning_job_queue = DatabaseReasoningJobQueue(
+        SqlAlchemyReasoningJobRepository(session),
+    )
     return ObservationService(
         uow,
         repository,
         event_bus=event_bus,
         outbox_dispatcher=outbox_dispatcher,
+        reasoning_job_queue=reasoning_job_queue,
         reasoning_session=reasoning_session,
         structured_assessment_repository=structured_assessment_repository,
         reasoning_trace_repository=reasoning_trace_repository,

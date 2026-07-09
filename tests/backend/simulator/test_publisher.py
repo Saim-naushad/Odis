@@ -85,5 +85,5 @@ def test_observation_payload_round_trips_through_api(
 
     response = api_client.post("/observations", json=payload)
 
-    assert response.status_code == 201
+    assert response.status_code == 202
     assert response.json()["id"] == observations[0].id

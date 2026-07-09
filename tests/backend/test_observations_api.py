@@ -46,13 +46,21 @@ def _observation_payload(
     }
 
 
-def test_create_observation_returns_201(api_client: TestClient) -> None:
+def test_create_observation_returns_202(api_client: TestClient) -> None:
     payload = _observation_payload()
 
     response = api_client.post("/observations", json=payload)
 
-    assert response.status_code == 201
-    assert response.json() == payload
+    assert response.status_code == 202
+    body = response.json()
+    assert body["id"] == payload["id"]
+    assert body["asset_id"] == payload["asset_id"]
+    assert body["timestamp"] == payload["timestamp"]
+    assert body["measurement_type"] == payload["measurement_type"]
+    assert body["value"] == payload["value"]
+    assert body["unit"] == payload["unit"]
+    assert isinstance(body["job_id"], str)
+    assert body["job_id"]
 
 
 def test_create_observation_rejects_invalid_payload(api_client: TestClient) -> None:
@@ -128,6 +136,8 @@ def test_get_unknown_observation_returns_404(api_client: TestClient) -> None:
 def test_create_observation_triggers_reasoning_when_asset_has_sufficient_evidence(
     api_client: TestClient,
 ) -> None:
+    from tests.backend.helpers import drain_reasoning_jobs
+
     first = _observation_payload(
         observation_id="obs-reason-api-1",
         timestamp="2026-01-01T10:00:00Z",
@@ -142,7 +152,11 @@ def test_create_observation_triggers_reasoning_when_asset_has_sufficient_evidenc
     first_response = api_client.post("/observations", json=first)
     second_response = api_client.post("/observations", json=second)
 
-    assert first_response.status_code == 201
-    assert second_response.status_code == 201
-    assert first_response.json() == first
-    assert second_response.json() == second
+    assert first_response.status_code == 202
+    assert second_response.status_code == 202
+    assert first_response.json()["id"] == first["id"]
+    assert second_response.json()["id"] == second["id"]
+    assert first_response.json()["job_id"]
+    assert second_response.json()["job_id"]
+
+    drain_reasoning_jobs(api_client)

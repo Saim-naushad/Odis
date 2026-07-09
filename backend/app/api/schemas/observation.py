@@ -5,6 +5,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.app.application.observation_service import ObservationCreateResult
 from domain.entities.observation import Observation
 from domain.value_objects.measurement_type import MeasurementType
 
@@ -83,4 +84,47 @@ class ObservationResponse(BaseModel):
             measurement_type=observation.measurement_type.name,
             value=observation.value,
             unit=observation.unit,
+        )
+
+
+class ObservationAcceptedResponse(BaseModel):
+    """Asynchronous acceptance of a persisted observation and reasoning job."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "obs-001",
+                "asset_id": "asset-stack-1",
+                "timestamp": "2026-01-01T12:00:00Z",
+                "measurement_type": "temperature",
+                "value": 42.5,
+                "unit": "celsius",
+                "job_id": "job-001",
+            }
+        }
+    )
+
+    id: str
+    asset_id: str
+    timestamp: datetime
+    measurement_type: str
+    value: float
+    unit: str
+    job_id: str = Field(description="Identifier of the enqueued reasoning job")
+
+    @classmethod
+    def from_create_result(cls, result: ObservationCreateResult) -> Self:
+        """Translate a create result into an accepted API response."""
+        if result.job is None:
+            msg = "reasoning job was not enqueued"
+            raise ValueError(msg)
+        observation = ObservationResponse.from_domain(result.observation)
+        return cls(
+            id=observation.id,
+            asset_id=observation.asset_id,
+            timestamp=observation.timestamp,
+            measurement_type=observation.measurement_type,
+            value=observation.value,
+            unit=observation.unit,
+            job_id=result.job.id,
         )

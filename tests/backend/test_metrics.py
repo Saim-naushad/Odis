@@ -16,6 +16,7 @@ from backend.app.infrastructure.metrics.monitoring_metrics import (
     monitoring_sse_connections,
 )
 from backend.app.main import create_app
+from tests.backend.helpers import drain_reasoning_jobs
 
 
 @pytest.fixture
@@ -102,7 +103,7 @@ def test_observations_created_total_increments(api_client: TestClient) -> None:
             "unit": "celsius",
         },
     )
-    assert response.status_code == 201
+    assert response.status_code == 202
 
     after = api_client.get("/metrics").text
     assert _metric_delta(before, after, "observations_created_total") == 1.0
@@ -131,9 +132,10 @@ def test_reasoning_metrics_increment_after_sufficient_observations(
     before = api_client.get("/metrics").text
     api_client.post("/observations", json=first)
     api_client.post("/observations", json=second)
+    drain_reasoning_jobs(api_client)
 
     after = api_client.get("/metrics").text
-    assert _metric_delta(before, after, "reasoning_runs_total") == 1.0
+    assert _metric_delta(before, after, "reasoning_runs_total") == 2.0
     assert "reasoning_duration_seconds_bucket" in after
     assert "reasoning_duration_seconds_count" in after
 

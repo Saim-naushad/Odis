@@ -20,6 +20,8 @@ from backend.app.application.monitoring_event_source import (
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
+from backend.app.application.reasoning_job_queue import DatabaseReasoningJobQueue
+from backend.app.domain.reasoning_job import ReasoningJobStatus
 from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.database import models as _models  # noqa: F401
 from backend.app.infrastructure.database.base import Base
@@ -38,6 +40,9 @@ from backend.app.infrastructure.repositories.decision_plan_repository import (
 )
 from backend.app.infrastructure.repositories.observation_repository import (
     SqlAlchemyObservationRepository,
+)
+from backend.app.infrastructure.repositories.reasoning_job_repository import (
+    SqlAlchemyReasoningJobRepository,
 )
 from backend.app.infrastructure.repositories.reasoning_run_index_repository import (
     SqlAlchemyReasoningRunIndexRepository,
@@ -100,6 +105,26 @@ def observation_service(db_session: Session) -> ObservationService:
         ),
         reasoning_trace_repository=SqlAlchemyReasoningTraceRepository(db_session),
     )
+
+
+def test_create_enqueues_reasoning_job(
+    db_session: Session,
+) -> None:
+    service = ObservationService(
+        SqlAlchemyUnitOfWork(lambda: db_session),
+        SqlAlchemyObservationRepository(db_session),
+        reasoning_job_queue=DatabaseReasoningJobQueue(
+            SqlAlchemyReasoningJobRepository(db_session),
+        ),
+    )
+    observation = build_observation(id="obs-enqueue")
+
+    result = service.create(observation)
+
+    assert result.observation == observation
+    assert result.job is not None
+    assert result.job.asset_id == observation.asset_id
+    assert result.job.status == ReasoningJobStatus.PENDING
 
 
 def test_create_single_observation_does_not_run_reasoning(

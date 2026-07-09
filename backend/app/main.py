@@ -18,39 +18,11 @@ from backend.app.api.routers import (
     observations_router,
     platform_router,
 )
-from backend.app.application.events.domain_events import (
-    HealthChanged,
-    NotificationCreated,
-    ObservationCreated,
-    ReasoningCompleted,
-    ReasoningStarted,
-    RecommendationUpdated,
-    RiskChanged,
-    TrendChanged,
-)
-from backend.app.application.events.event_bus import DomainEventBus
-from backend.app.application.events.handlers import DigitalTwinCacheInvalidationHandler
-from backend.app.application.events.handlers.monitoring_event_handler import (
-    MonitoringEventHandler,
-)
-from backend.app.application.events.handlers.timeline_event_handler import (
-    TimelineEventHandler,
-)
-from backend.app.application.monitoring_event_source import (
-    InMemoryMonitoringEventSource,
-)
-from backend.app.application.outbox_dispatcher import OutboxDispatcher
-from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
-from backend.app.infrastructure.cache.redis_digital_twin_cache import (
-    RedisDigitalTwinCache,
-)
+from backend.app.application.bootstrap import bootstrap_application_runtime
 from backend.app.infrastructure.config.settings import Settings, get_settings
 from backend.app.infrastructure.database.session import (
     create_db_engine,
     create_session_factory,
-)
-from backend.app.infrastructure.events.kafka_integration_event_publisher import (
-    KafkaIntegrationEventPublisher,
 )
 from backend.app.infrastructure.logging import configure_logging, get_logger
 from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
@@ -77,7 +49,6 @@ def _build_lifespan(
         engine: Engine | None = None
         app.state.engine = None
         app.state.session_factory = None
-        app.state.reasoning_task_runner = None
         app.state.outbox_dispatcher = None
 
         if active_settings.database_url is not None:
@@ -90,100 +61,23 @@ def _build_lifespan(
             started_at=datetime.now(UTC),
             settings=active_settings,
         )
-        monitoring_event_source = InMemoryMonitoringEventSource()
-        app.state.monitoring_event_source = monitoring_event_source
-        digital_twin_cache = RedisDigitalTwinCache(
-            redis_url=active_settings.redis_url,
-            ttl_seconds=active_settings.cache_ttl_seconds,
-        )
-        app.state.digital_twin_cache = digital_twin_cache
-        domain_event_bus = DomainEventBus()
-        app.state.domain_event_bus = domain_event_bus
-        cache_invalidation_handler = DigitalTwinCacheInvalidationHandler(
-            digital_twin_cache,
-        )
-        domain_event_bus.subscribe(
-            HealthChanged,
-            cache_invalidation_handler.on_health_changed,
-        )
-        domain_event_bus.subscribe(
-            RiskChanged,
-            cache_invalidation_handler.on_risk_changed,
-        )
-        domain_event_bus.subscribe(
-            RecommendationUpdated,
-            cache_invalidation_handler.on_recommendation_updated,
-        )
-        domain_event_bus.subscribe(
-            NotificationCreated,
-            cache_invalidation_handler.on_notification_created,
-        )
-        domain_event_bus.subscribe(
-            ReasoningCompleted,
-            cache_invalidation_handler.on_reasoning_completed,
-        )
-        monitoring_handler = MonitoringEventHandler(monitoring_event_source)
-        domain_event_bus.subscribe(
-            ObservationCreated,
-            monitoring_handler.on_observation_created,
-        )
-        domain_event_bus.subscribe(
-            ReasoningCompleted,
-            monitoring_handler.on_reasoning_completed,
-        )
+
+        unit_of_work_factory = None
         if app.state.session_factory is not None:
-            timeline_handler = TimelineEventHandler(
-                lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
-            )
-            domain_event_bus.subscribe(
-                ObservationCreated,
-                timeline_handler.on_observation_created,
-            )
-            domain_event_bus.subscribe(
-                ReasoningStarted,
-                timeline_handler.on_reasoning_started,
-            )
-            domain_event_bus.subscribe(
-                ReasoningCompleted,
-                timeline_handler.on_reasoning_completed,
-            )
-            domain_event_bus.subscribe(
-                RecommendationUpdated,
-                timeline_handler.on_recommendation_updated,
-            )
-            domain_event_bus.subscribe(
-                TrendChanged,
-                timeline_handler.on_trend_changed,
-            )
-            domain_event_bus.subscribe(
-                HealthChanged,
-                timeline_handler.on_health_changed,
-            )
-            domain_event_bus.subscribe(
-                RiskChanged,
-                timeline_handler.on_risk_changed,
-            )
-            domain_event_bus.subscribe(
-                NotificationCreated,
-                timeline_handler.on_notification_created,
-            )
-        if app.state.session_factory is not None:
-            integration_publisher = None
-            if active_settings.kafka_bootstrap_servers:
-                integration_publisher = KafkaIntegrationEventPublisher(
-                    bootstrap_servers=active_settings.kafka_bootstrap_servers,
-                )
-            outbox_dispatcher = OutboxDispatcher(
-                lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
-                domain_event_bus,
-                integration_publisher,
-            )
-            app.state.outbox_dispatcher = outbox_dispatcher
-            app.state.reasoning_task_runner = ReasoningTaskRunner(
-                lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
-                domain_event_bus,
-                outbox_dispatcher,
-            )
+            session_factory = app.state.session_factory
+
+            def unit_of_work_factory() -> SqlAlchemyUnitOfWork:
+                return SqlAlchemyUnitOfWork(session_factory)
+
+        application_runtime = bootstrap_application_runtime(
+            active_settings,
+            unit_of_work_factory=unit_of_work_factory,
+        )
+        app.state.monitoring_event_source = application_runtime.monitoring_event_source
+        app.state.digital_twin_cache = application_runtime.digital_twin_cache
+        app.state.domain_event_bus = application_runtime.domain_event_bus
+        app.state.outbox_dispatcher = application_runtime.outbox_dispatcher
+
         logger.info(
             "application_starting",
             app_name=active_settings.app_name,

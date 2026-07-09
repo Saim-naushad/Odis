@@ -32,7 +32,6 @@ from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
-from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.infrastructure.config.settings import get_settings
@@ -66,15 +65,6 @@ def get_observation_service(
 ) -> ObservationService:
     """Provide a request-scoped observation application service."""
     return create_observation_service(uow, event_bus, outbox_dispatcher)
-
-
-def get_reasoning_task_runner(request: Request) -> ReasoningTaskRunner:
-    """Return the application-scoped background reasoning runner."""
-    runner = getattr(request.app.state, "reasoning_task_runner", None)
-    if not isinstance(runner, ReasoningTaskRunner):
-        msg = "Reasoning task runner is not configured on the application"
-        raise RuntimeError(msg)
-    return runner
 
 
 def get_monitoring_service(
