@@ -9,6 +9,8 @@ from application.reasoning_trace import ReasoningTrace
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment import StructuredAssessment
 from application.structured_assessment_repository import StructuredAssessmentRepository
+from backend.app.application.operational_state_engine import OperationalStateEngine
+from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.domain.timeline import TimelineEvent
 from domain.entities.decision_context import DecisionContext
@@ -128,6 +130,27 @@ class MonitoringService:
         if not self._observation_repository.list_by_asset(asset_id):
             return None
         return self._timeline_repository.list_by_asset(asset_id)
+
+    def get_operational_state(self, asset_id: str) -> OperationalState | None:
+        """Return the current OperationalState for an asset when reasoning exists."""
+        latest = self.get_latest_for_asset(asset_id)
+        if latest is None:
+            return None
+
+        # Compute from the latest persisted reasoning artifacts.
+        run_details = self.get_run_details(latest.run.id)
+        if run_details is None:
+            return None
+
+        engine = OperationalStateEngine()
+        return engine.compute(
+            asset_id=asset_id,
+            last_updated=run_details.run.started_at,
+            assessment=run_details.decision_context.assessment,
+            observations=run_details.observations,
+            decision_plan=run_details.decision_plan,
+            structured_assessment=run_details.structured_assessment,
+        )
 
     def get_run_details(self, run_id: str) -> MonitoringRunDetails | None:
         """Return the complete persisted reasoning run for debugging."""

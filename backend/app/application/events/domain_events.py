@@ -50,3 +50,23 @@ class TrendChanged:
     volatility_score: int
     timestamp: datetime
 
+
+@dataclass(frozen=True, slots=True)
+class HealthChanged:
+    asset_id: str
+    run_id: str
+    previous_health_status: str
+    new_health_status: str
+    health_score: int
+    timestamp: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class RiskChanged:
+    asset_id: str
+    run_id: str
+    previous_risk_level: str
+    new_risk_level: str
+    health_score: int
+    timestamp: datetime
+

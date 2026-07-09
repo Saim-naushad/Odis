@@ -8,10 +8,12 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
+    HealthChanged,
     ObservationCreated,
     ReasoningCompleted,
     ReasoningStarted,
     RecommendationUpdated,
+    RiskChanged,
     TrendChanged,
 )
 from backend.app.application.unit_of_work import UnitOfWork
@@ -110,6 +112,48 @@ class TimelineEventHandler:
                     "new_direction": event.new_direction,
                     "stability_score": event.stability_score,
                     "volatility_score": event.volatility_score,
+                },
+            )
+        )
+
+    def on_health_changed(self, event: HealthChanged) -> None:
+        self._record(
+            TimelineEvent(
+                id=str(uuid4()),
+                asset_id=event.asset_id,
+                timestamp=event.timestamp,
+                event_type="health_changed",
+                title="Health status changed",
+                description=(
+                    f"Health status changed from {event.previous_health_status!r} "
+                    f"to {event.new_health_status!r}."
+                ),
+                metadata={
+                    "run_id": event.run_id,
+                    "previous_health_status": event.previous_health_status,
+                    "new_health_status": event.new_health_status,
+                    "health_score": event.health_score,
+                },
+            )
+        )
+
+    def on_risk_changed(self, event: RiskChanged) -> None:
+        self._record(
+            TimelineEvent(
+                id=str(uuid4()),
+                asset_id=event.asset_id,
+                timestamp=event.timestamp,
+                event_type="risk_changed",
+                title="Risk level changed",
+                description=(
+                    f"Risk level changed from {event.previous_risk_level!r} "
+                    f"to {event.new_risk_level!r}."
+                ),
+                metadata={
+                    "run_id": event.run_id,
+                    "previous_risk_level": event.previous_risk_level,
+                    "new_risk_level": event.new_risk_level,
+                    "health_score": event.health_score,
                 },
             )
         )

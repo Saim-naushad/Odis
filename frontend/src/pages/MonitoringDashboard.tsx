@@ -4,6 +4,7 @@ import { AssetDetails } from '../components/AssetDetails'
 import { ReasoningTrace } from '../components/ReasoningTrace'
 import { RunHistory } from '../components/RunHistory'
 import { Timeline } from '../components/Timeline'
+import { OperationalStateCard } from '../components/OperationalStateCard'
 import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
 import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
@@ -15,6 +16,12 @@ export function MonitoringDashboard() {
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">
       <Header state={state} />
       <main className="flex flex-1 flex-col gap-4 p-4">
+        <OperationalStateCard
+          selectedAssetId={state.selectedAssetId}
+          operationalState={state.operationalState}
+          loading={state.operationalStateLoading}
+          error={state.operationalStateError}
+        />
         <section className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
           <div className="flex flex-col">
             <AssetList

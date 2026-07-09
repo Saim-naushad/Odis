@@ -5,6 +5,7 @@ import type {
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
+  OperationalStateResponse,
   PlatformMetadataResponse,
   TimelineEventResponse,
 } from '../types/monitoring'
@@ -58,6 +59,16 @@ export const monitoringClient = {
   ): Promise<TimelineEventResponse[]> {
     return apiClient.get(
       `/monitoring/assets/${encodeURIComponent(assetId)}/timeline`,
+      signal,
+    )
+  },
+
+  getOperationalStateForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+  ): Promise<OperationalStateResponse> {
+    return apiClient.get(
+      `/monitoring/assets/${encodeURIComponent(assetId)}/state`,
       signal,
     )
   },

@@ -276,3 +276,92 @@ def test_unknown_asset_timeline_returns_404(api_client: TestClient) -> None:
     assert response.status_code == 404
     assert response.json()["detail"] == "asset with id 'missing-asset' not found"
 
+
+def test_operational_state_endpoint_returns_current_state(
+    api_client: TestClient,
+) -> None:
+    asset_id = "asset-state"
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-state-1",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:00:00Z",
+            value=10.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-state-2",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:01:00Z",
+            value=10.0,
+        ),
+    )
+
+    response = api_client.get(f"/monitoring/assets/{asset_id}/state")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset_id"] == asset_id
+    assert 0 <= payload["health_score"] <= 100
+    assert payload["health_status"] in {"NORMAL", "WARNING", "CRITICAL"}
+    assert payload["risk_level"] in {"LOW", "MEDIUM", "HIGH"}
+    assert 0 <= payload["confidence"] <= 100
+    assert payload["primary_driver"]
+    assert payload["recommended_action"]
+    assert payload["last_updated"]
+
+
+def test_timeline_includes_health_and_risk_transitions(api_client: TestClient) -> None:
+    asset_id = "asset-state-transitions"
+
+    # Run 1: stable (LOW priority)
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-trans-1",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:00:00Z",
+            value=10.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-trans-2",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:01:00Z",
+            value=10.0,
+        ),
+    )
+
+    # Run 2: increasing trend (HIGH priority)
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-trans-3",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:02:00Z",
+            value=20.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-trans-4",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:03:00Z",
+            value=30.0,
+        ),
+    )
+
+    response = api_client.get(f"/monitoring/assets/{asset_id}/timeline")
+    assert response.status_code == 200
+    event_types = [item["event_type"] for item in response.json()]
+
+    # Only meaningful transitions should be emitted (at most once per run).
+    assert "health_changed" in event_types
+    assert "risk_changed" in event_types
+

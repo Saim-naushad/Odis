@@ -127,12 +127,25 @@ export interface TrendAnalysisResponse {
   summary: string
 }
 
+export interface OperationalStateResponse {
+  asset_id: string
+  health_score: number
+  health_status: 'NORMAL' | 'WARNING' | 'CRITICAL' | string
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | string
+  confidence: number
+  primary_driver: string
+  recommended_action: string
+  last_updated: string
+}
+
 export type TimelineEventType =
   | 'observation_received'
   | 'reasoning_started'
   | 'reasoning_completed'
   | 'recommendation_updated'
   | 'trend_changed'
+  | 'health_changed'
+  | 'risk_changed'
 
 export interface TimelineEventResponse {
   id: string

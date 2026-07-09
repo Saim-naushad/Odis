@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.structured_assessment import StructuredAssessment
 from backend.app.api.schemas.observation import ObservationResponse
+from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.reasoning import (
     AlternativeHypothesis,
     ConfidenceScore,
@@ -249,5 +250,29 @@ class TimelineEventResponse(BaseModel):
             title=event.title,
             description=event.description,
             metadata=event.metadata,
+        )
+
+
+class OperationalStateResponse(BaseModel):
+    asset_id: str
+    health_score: int
+    health_status: str
+    risk_level: str
+    confidence: int
+    primary_driver: str
+    recommended_action: str
+    last_updated: datetime
+
+    @classmethod
+    def from_domain(cls, state: OperationalState) -> Self:
+        return cls(
+            asset_id=state.asset_id,
+            health_score=state.health_score,
+            health_status=state.health_status,
+            risk_level=state.risk_level,
+            confidence=state.confidence,
+            primary_driver=state.primary_driver,
+            recommended_action=state.recommended_action,
+            last_updated=state.last_updated,
         )
 

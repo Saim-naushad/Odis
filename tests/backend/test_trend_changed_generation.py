@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import builtins
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import List
 
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service import ObservationService
@@ -38,10 +38,10 @@ class _FakeObservationRepository:
     def get(self, observation_id: str) -> Observation | None:  # pragma: no cover
         return next((o for o in self._observations if o.id == observation_id), None)
 
-    def list(self) -> List[Observation]:  # pragma: no cover
+    def list(self) -> builtins.list[Observation]:  # pragma: no cover
         return list(self._observations)
 
-    def list_by_asset(self, asset_id: str) -> List[Observation]:
+    def list_by_asset(self, asset_id: str) -> builtins.list[Observation]:
         return [o for o in self._observations if o.asset_id == asset_id]
 
 

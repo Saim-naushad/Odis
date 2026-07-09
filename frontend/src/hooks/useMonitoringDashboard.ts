@@ -7,6 +7,7 @@ import type {
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
+  OperationalStateResponse,
   TimelineEventResponse,
 } from '../types/monitoring'
 
@@ -42,6 +43,10 @@ export interface MonitoringDashboardState {
   timeline: TimelineEventResponse[]
   timelineLoading: boolean
   timelineError?: string
+
+  operationalState?: OperationalStateResponse
+  operationalStateLoading: boolean
+  operationalStateError?: string
 
   lastUpdatedAt?: Date
 }
@@ -82,6 +87,7 @@ export function useMonitoringDashboard(
   const hasLoadedHistoryRef = useRef(false)
   const hasLoadedRunDetailsRef = useRef(false)
   const hasLoadedTimelineRef = useRef(false)
+  const hasLoadedOperationalStateRef = useRef(false)
 
   // Keep track of current selection without forcing effect restarts.
   const selectedAssetIdRef = useRef<string | undefined>(selectedAssetId)
@@ -124,6 +130,7 @@ export function useMonitoringDashboard(
       hasLoadedHistoryRef.current = false
       hasLoadedRunDetailsRef.current = false
       hasLoadedTimelineRef.current = false
+      hasLoadedOperationalStateRef.current = false
       return
     }
 
@@ -133,6 +140,7 @@ export function useMonitoringDashboard(
     hasLoadedHistoryRef.current = false
     hasLoadedRunDetailsRef.current = false
     hasLoadedTimelineRef.current = false
+    hasLoadedOperationalStateRef.current = false
   }, [selectedAssetId])
 
   const platformQuery = useQuery({
@@ -187,6 +195,18 @@ export function useMonitoringDashboard(
     refetchIntervalInBackground: true,
   })
 
+  const operationalStateQuery = useQuery({
+    queryKey: ['monitoring', 'asset', selectedAssetId, 'state'],
+    enabled: Boolean(selectedAssetId),
+    queryFn: ({ signal }) =>
+      monitoringClient.getOperationalStateForAsset(
+        selectedAssetId as string,
+        signal,
+      ),
+    refetchInterval,
+    refetchIntervalInBackground: true,
+  })
+
   // Preserve selection behavior: auto-select first asset when assets load.
   useEffect(() => {
     if (!assetsQuery.data || assetsQuery.data.length === 0) return
@@ -223,6 +243,10 @@ export function useMonitoringDashboard(
   useEffect(() => {
     if (timelineQuery.isSuccess) hasLoadedTimelineRef.current = true
   }, [timelineQuery.isSuccess])
+
+  useEffect(() => {
+    if (operationalStateQuery.isSuccess) hasLoadedOperationalStateRef.current = true
+  }, [operationalStateQuery.isSuccess])
 
   async function retryAssetList(): Promise<void> {
     const result = await assetsQuery.refetch()
@@ -377,6 +401,19 @@ export function useMonitoringDashboard(
         )
       : undefined
 
+  const operationalState = selectedAssetId ? operationalStateQuery.data : undefined
+  const operationalStateLoading =
+    Boolean(selectedAssetId) && operationalStateQuery.isFetching
+  const operationalStateError =
+    selectedAssetId && operationalStateQuery.isError
+      ? formatPhaseError(
+          hasLoadedOperationalStateRef.current,
+          operationalStateQuery.error,
+          'Failed to load operational state',
+          'Failed to refresh operational state',
+        )
+      : undefined
+
   const lastUpdatedAt =
     selectedAssetId && latestAndHistoryQuery.data
       ? new Date(latestAndHistoryQuery.dataUpdatedAt)
@@ -405,6 +442,9 @@ export function useMonitoringDashboard(
     timeline,
     timelineLoading,
     timelineError,
+    operationalState,
+    operationalStateLoading,
+    operationalStateError,
     lastUpdatedAt,
     setSelectedAssetId,
     setSelectedRunId,

@@ -11,10 +11,12 @@ from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.exceptions import ObservationAlreadyExistsError
+from backend.app.application.operational_state_engine import OperationalStateEngine
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
 from backend.app.application.time_series_analysis import analyze_trend_diagnostics
 from backend.app.application.unit_of_work import UnitOfWork
+from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.outbox import OutboxEvent
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.observation_metrics import (
@@ -124,6 +126,7 @@ class ObservationService:
             asset_observations, key=lambda obs: (obs.timestamp, obs.id)
         )
         previous_recommendation = self._latest_recommendation_for_asset(asset_id)
+        previous_state = self._latest_operational_state_for_asset(asset_id)
         now = datetime.now(UTC)
 
         primary_measurement_type = asset_observations[0].measurement_type
@@ -216,6 +219,48 @@ class ObservationService:
                 )
                 self._uow.session.add(recommendation_event)
 
+            if previous_state is not None:
+                # Operational State transitions (meaningful only).
+                new_state = self._compute_operational_state_from_result(
+                    asset_id=asset_id,
+                    result=result,
+                    observations=asset_observations,
+                )
+                if previous_state.health_status != new_state.health_status:
+                    self._uow.session.add(
+                        OutboxEvent(
+                            id=str(uuid4()),
+                            event_type="HealthChanged",
+                            payload={
+                                "asset_id": asset_id,
+                                "run_id": result.run.id,
+                                "previous_health_status": previous_state.health_status,
+                                "new_health_status": new_state.health_status,
+                                "health_score": new_state.health_score,
+                                "timestamp": now.isoformat(),
+                            },
+                            created_at=now,
+                            dispatched_at=None,
+                        )
+                    )
+                if previous_state.risk_level != new_state.risk_level:
+                    self._uow.session.add(
+                        OutboxEvent(
+                            id=str(uuid4()),
+                            event_type="RiskChanged",
+                            payload={
+                                "asset_id": asset_id,
+                                "run_id": result.run.id,
+                                "previous_risk_level": previous_state.risk_level,
+                                "new_risk_level": new_state.risk_level,
+                                "health_score": new_state.health_score,
+                                "timestamp": now.isoformat(),
+                            },
+                            created_at=now,
+                            dispatched_at=None,
+                        )
+                    )
+
             outbox_event = OutboxEvent(
                 id=str(uuid4()),
                 event_type="ReasoningCompleted",
@@ -234,6 +279,118 @@ class ObservationService:
             run_id=result.run.id,
         )
         return True
+
+    def _compute_operational_state_from_result(
+        self,
+        *,
+        asset_id: str,
+        result: Any,
+        observations: list[Observation],
+    ) -> OperationalState:
+        # ReasoningResult is defined in src/application; we keep this method typed
+        # loosely to avoid coupling backend service signatures to that module.
+        assessment = str(getattr(getattr(result, "context", None), "assessment", ""))
+        structured_assessment = getattr(result, "structured_assessment", None)
+        decision_plan = result.plan
+        run = result.run
+        engine = OperationalStateEngine()
+        return engine.compute(
+            asset_id=asset_id,
+            last_updated=run.started_at,
+            assessment=assessment,
+            observations=observations,
+            decision_plan=decision_plan,
+            structured_assessment=structured_assessment,
+        )
+
+    def _latest_operational_state_for_asset(
+        self, asset_id: str
+    ) -> OperationalState | None:
+        if (
+            self._decision_plan_repository is None
+            or self._reasoning_run_index_repository is None
+            or self._reasoning_run_repository is None
+        ):
+            return None
+
+        latest_run_id = self._latest_run_id_for_asset(asset_id)
+        if latest_run_id is None:
+            return None
+        return self._compute_operational_state_for_run(
+            asset_id=asset_id,
+            run_id=latest_run_id,
+        )
+
+    def _latest_run_id_for_asset(self, asset_id: str) -> str | None:
+        if (
+            self._reasoning_run_index_repository is None
+            or self._reasoning_run_repository is None
+        ):
+            return None
+
+        asset_observation_ids = {
+            observation.id for observation in self._repository.list_by_asset(asset_id)
+        }
+        latest_run_id: str | None = None
+        latest_started_at: datetime | None = None
+        for index in self._reasoning_run_index_repository.list():
+            if not any(
+                observation_id in asset_observation_ids
+                for observation_id in index.observation_ids
+            ):
+                continue
+            run = self._reasoning_run_repository.get(index.run_id)
+            if run is None:
+                continue
+            if latest_started_at is None or run.started_at > latest_started_at:
+                latest_started_at = run.started_at
+                latest_run_id = index.run_id
+        return latest_run_id
+
+    def _compute_operational_state_for_run(
+        self,
+        *,
+        asset_id: str,
+        run_id: str,
+    ) -> OperationalState | None:
+        if (
+            self._decision_plan_repository is None
+            or self._reasoning_run_index_repository is None
+            or self._reasoning_run_repository is None
+        ):
+            return None
+
+        index = self._reasoning_run_index_repository.get(run_id)
+        run = self._reasoning_run_repository.get(run_id)
+        if index is None or run is None:
+            return None
+
+        plan = self._decision_plan_repository.get(index.plan_id)
+        if plan is None:
+            return None
+
+        observations: list[Observation] = []
+        for observation_id in index.observation_ids:
+            obs = self._repository.get(observation_id)
+            if obs is not None:
+                observations.append(obs)
+        observations.sort(key=lambda obs: (obs.timestamp, obs.id))
+
+        structured_assessment = (
+            self._structured_assessment_repository.get_by_run_id(run_id)
+            if self._structured_assessment_repository is not None
+            else None
+        )
+
+        engine = OperationalStateEngine()
+        return engine.compute(
+            asset_id=asset_id,
+            last_updated=run.started_at,
+            assessment="",
+            observations=observations,
+            decision_plan=plan,
+            structured_assessment=structured_assessment,
+        )
 
     def _latest_recommendation_for_asset(self, asset_id: str) -> str | None:
         if (

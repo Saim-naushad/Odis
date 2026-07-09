@@ -22,6 +22,7 @@ from backend.app.api.schemas.monitoring import (
     MonitoringAssetResponse,
     MonitoringRunDetailsResponse,
     OperationalSituationResponse,
+    OperationalStateResponse,
     ReasoningTraceResponse,
     StructuredAssessmentResponse,
     TimelineEventResponse,
@@ -181,6 +182,32 @@ def get_timeline_for_asset(
             detail=f"asset with id {asset_id!r} not found",
         )
     return [TimelineEventResponse.from_domain(event) for event in timeline]
+
+
+@router.get(
+    "/assets/{asset_id}/state",
+    response_model=OperationalStateResponse,
+    summary="Get current operational state for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Asset not found"}},
+)
+def get_operational_state_for_asset(
+    asset_id: str,
+    service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+) -> OperationalStateResponse:
+    state = service.get_operational_state(asset_id)
+    if state is None:
+        # Keep error semantics consistent with other asset-scoped endpoints.
+        history = service.get_history_for_asset(asset_id)
+        if history is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"asset with id {asset_id!r} not found",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} has no reasoning history",
+        )
+    return OperationalStateResponse.from_domain(state)
 
 
 @router.get(

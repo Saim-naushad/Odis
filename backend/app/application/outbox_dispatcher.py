@@ -10,10 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
+    HealthChanged,
     ObservationCreated,
     ReasoningCompleted,
     ReasoningStarted,
     RecommendationUpdated,
+    RiskChanged,
     TrendChanged,
 )
 from backend.app.application.events.event_bus import DomainEventBus
@@ -72,6 +74,24 @@ def _deserialize_domain_event(
             new_direction=str(payload["new_direction"]),
             stability_score=int(payload.get("stability_score", 0)),
             volatility_score=int(payload.get("volatility_score", 0)),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "HealthChanged":
+        return HealthChanged(
+            asset_id=str(payload["asset_id"]),
+            run_id=str(payload["run_id"]),
+            previous_health_status=str(payload["previous_health_status"]),
+            new_health_status=str(payload["new_health_status"]),
+            health_score=int(payload.get("health_score", 0)),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "RiskChanged":
+        return RiskChanged(
+            asset_id=str(payload["asset_id"]),
+            run_id=str(payload["run_id"]),
+            previous_risk_level=str(payload["previous_risk_level"]),
+            new_risk_level=str(payload["new_risk_level"]),
+            health_score=int(payload.get("health_score", 0)),
             timestamp=_parse_datetime(str(payload["timestamp"])),
         )
     return None
