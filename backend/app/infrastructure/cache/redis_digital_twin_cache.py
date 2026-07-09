@@ -93,9 +93,18 @@ def serialize(digital_twin: DigitalTwin) -> bytes:
     return json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
 
 
-def deserialize(raw: bytes) -> DigitalTwin:
-    """Deserialize UTF-8 JSON bytes into a DigitalTwin."""
-    obj = json.loads(raw.decode("utf-8"))
+def deserialize(raw: bytes | str) -> DigitalTwin:
+    """Deserialize a Redis cache payload into a DigitalTwin.
+
+    redis-py may return ``bytes`` or ``str`` depending on configuration
+    (e.g. ``decode_responses=True``). We normalize to UTF-8 bytes before JSON
+    parsing.
+    """
+    if isinstance(raw, str):
+        raw_bytes = raw.encode("utf-8")
+    else:
+        raw_bytes = raw
+    obj = json.loads(raw_bytes.decode("utf-8"))
     location = Location(identifier=obj["location"]["identifier"])
     operational_state = OperationalState(
         asset_id=obj["operational_state"]["asset_id"],
