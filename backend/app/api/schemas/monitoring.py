@@ -23,6 +23,7 @@ from backend.app.domain.timeline import TimelineEvent, TimelineEventType
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.operational_situation import OperationalSituation
+from domain.value_objects.location import Location
 
 
 class MonitoringAssetResponse(BaseModel):
@@ -329,3 +330,24 @@ class NotificationResponse(BaseModel):
             message=notification.message,
             created_at=notification.created_at,
         )
+
+
+class LocationResponse(BaseModel):
+    identifier: str
+
+    @classmethod
+    def from_domain(cls, location: Location) -> Self:
+        return cls(identifier=location.identifier)
+
+
+class DigitalTwinResponse(BaseModel):
+    asset_id: str
+    asset_name: str
+    asset_type: str
+    location: LocationResponse
+    operational_state: OperationalStateResponse
+    recommendation: RecommendationResponse
+    notification: NotificationResponse | None
+    latest_reasoning_run_id: str
+    timeline_preview: list[TimelineEventResponse]
+    last_updated: datetime

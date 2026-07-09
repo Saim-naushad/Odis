@@ -1,6 +1,7 @@
 import { apiClient } from './client'
 import type {
   HealthResponse,
+  DigitalTwinResponse,
   MonitoringAssetHistoryItemResponse,
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
@@ -51,6 +52,16 @@ export const monitoringClient = {
   ): Promise<MonitoringRunDetailsResponse> {
     return apiClient.get(
       `/monitoring/runs/${encodeURIComponent(runId)}`,
+      signal,
+    )
+  },
+
+  getDigitalTwinForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+  ): Promise<DigitalTwinResponse> {
+    return apiClient.get(
+      `/monitoring/assets/${encodeURIComponent(assetId)}/digital-twin`,
       signal,
     )
   },

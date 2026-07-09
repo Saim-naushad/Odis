@@ -9,14 +9,19 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from backend.app.api.dependencies.monitoring_events import MonitoringEventSourceDep
-from backend.app.api.dependencies.services import get_monitoring_service
+from backend.app.api.dependencies.services import (
+    get_digital_twin_service,
+    get_monitoring_service,
+)
 from backend.app.api.schemas.monitoring import (
     AlternativeHypothesisResponse,
     ConfidenceScoreResponse,
     DecisionContextResponse,
     DecisionPlanResponse,
     DecisionPlanSummaryResponse,
+    DigitalTwinResponse,
     EvidenceResponse,
+    LocationResponse,
     MonitoringAssetHistoryItemResponse,
     MonitoringAssetLatestResponse,
     MonitoringAssetResponse,
@@ -31,6 +36,11 @@ from backend.app.api.schemas.monitoring import (
     TrendAnalysisResponse,
 )
 from backend.app.api.schemas.observation import ObservationResponse
+from backend.app.application.digital_twin_service import (
+    DigitalTwinAssetNotFoundError,
+    DigitalTwinNoReasoningHistoryError,
+    DigitalTwinService,
+)
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.monitoring_sse_stream import stream_monitoring_sse_events
 from backend.app.infrastructure.logging import get_logger
@@ -260,6 +270,48 @@ def get_latest_notification_for_asset(
             detail=f"asset with id {asset_id!r} has no notification",
         )
     return NotificationResponse.from_domain(notification)
+
+
+@router.get(
+    "/assets/{asset_id}/digital-twin",
+    response_model=DigitalTwinResponse,
+    summary="Get unified Digital Twin for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Asset not found"}},
+)
+def get_digital_twin_for_asset(
+    asset_id: str,
+    service: Annotated[DigitalTwinService, Depends(get_digital_twin_service)],
+) -> DigitalTwinResponse:
+    try:
+        twin = service.get_for_asset(asset_id)
+    except DigitalTwinAssetNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} not found",
+        ) from None
+    except DigitalTwinNoReasoningHistoryError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} has no reasoning history",
+        ) from None
+    return DigitalTwinResponse(
+        asset_id=twin.asset_id,
+        asset_name=twin.asset_name,
+        asset_type=twin.asset_type,
+        location=LocationResponse.from_domain(twin.location),
+        operational_state=OperationalStateResponse.from_domain(twin.operational_state),
+        recommendation=RecommendationResponse.from_domain(twin.recommendation),
+        notification=(
+            NotificationResponse.from_domain(twin.notification)
+            if twin.notification is not None
+            else None
+        ),
+        latest_reasoning_run_id=twin.latest_reasoning_run_id,
+        timeline_preview=[
+            TimelineEventResponse.from_domain(event) for event in twin.timeline_preview
+        ],
+        last_updated=twin.last_updated,
+    )
 
 
 @router.get(

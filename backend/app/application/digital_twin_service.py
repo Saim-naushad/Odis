@@ -1,0 +1,106 @@
+"""Application service for assembling Digital Twins on demand."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from backend.app.application.monitoring_service import MonitoringService
+from backend.app.domain.digital_twin import DigitalTwin
+from backend.app.domain.timeline import TimelineEvent
+from domain.entities.asset import Asset
+from domain.value_objects.location import Location
+
+
+class DigitalTwinAssetNotFoundError(Exception):
+    pass
+
+
+class DigitalTwinNoReasoningHistoryError(Exception):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class AssetDescriptor:
+    """Non-persisted asset descriptor used for projections.
+
+    This is intentionally minimal and deterministic. It exists solely so the
+    Digital Twin can expose operator-facing identity fields without introducing
+    any new persistence or business rules.
+    """
+
+    asset: Asset
+
+
+def _default_asset_descriptor(asset_id: str) -> AssetDescriptor:
+    # With no persisted asset registry in this codebase, we derive a stable,
+    # deterministic descriptor from the identifier only.
+    derived_name = asset_id.replace("-", " ").strip() or asset_id
+    return AssetDescriptor(
+        asset=Asset(
+            id=asset_id,
+            name=derived_name,
+            type="unknown",
+            location=Location(identifier="unknown"),
+        )
+    )
+
+
+class DigitalTwinService:
+    """Single place responsible for assembling a Digital Twin.
+
+    It composes results from existing services/models. It must not recompute
+    Operational State, Recommendation, or Notification.
+    """
+
+    def __init__(
+        self,
+        *,
+        monitoring_service: MonitoringService,
+        timeline_preview_limit: int = 5,
+    ) -> None:
+        self._monitoring = monitoring_service
+        self._timeline_preview_limit = timeline_preview_limit
+
+    def get_for_asset(self, asset_id: str) -> DigitalTwin:
+        history = self._monitoring.get_history_for_asset(asset_id)
+        if history is None:
+            raise DigitalTwinAssetNotFoundError(asset_id)
+        if not history:
+            raise DigitalTwinNoReasoningHistoryError(asset_id)
+
+        latest = self._monitoring.get_latest_for_asset(asset_id)
+        assert latest is not None
+
+        operational_state = self._monitoring.get_operational_state(asset_id)
+        recommendation = self._monitoring.get_recommendation(asset_id)
+        # If the asset has a latest run, state and recommendation should exist;
+        # still guard to keep service defensive.
+        if operational_state is None or recommendation is None:
+            raise DigitalTwinNoReasoningHistoryError(asset_id)
+
+        notification = self._monitoring.get_latest_notification(asset_id)
+        timeline = self._monitoring.get_timeline_for_asset(asset_id) or []
+        timeline_preview = self._preview_timeline(timeline)
+
+        descriptor = _default_asset_descriptor(asset_id)
+
+        return DigitalTwin(
+            asset_id=descriptor.asset.id,
+            asset_name=descriptor.asset.name,
+            asset_type=descriptor.asset.type,
+            location=descriptor.asset.location,
+            operational_state=operational_state,
+            recommendation=recommendation,
+            notification=notification,
+            latest_reasoning_run_id=latest.run.id,
+            timeline_preview=tuple(timeline_preview),
+            last_updated=operational_state.last_updated,
+        )
+
+    def _preview_timeline(self, timeline: list[TimelineEvent]) -> list[TimelineEvent]:
+        if self._timeline_preview_limit <= 0:
+            return []
+        # Timeline is oldest → newest; preview should return the most recent N
+        # while preserving chronological order.
+        return timeline[-self._timeline_preview_limit :]
+

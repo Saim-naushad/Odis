@@ -116,11 +116,77 @@ def test_asset_latest_returns_404_when_no_reasoning_history(
 def test_unknown_asset_returns_404(api_client: TestClient) -> None:
     history = api_client.get("/monitoring/assets/missing-asset/history")
     latest = api_client.get("/monitoring/assets/missing-asset/latest")
+    twin = api_client.get("/monitoring/assets/missing-asset/digital-twin")
 
     assert history.status_code == 404
     assert latest.status_code == 404
+    assert twin.status_code == 404
     assert history.json()["detail"] == "asset with id 'missing-asset' not found"
     assert latest.json()["detail"] == "asset with id 'missing-asset' not found"
+    assert twin.json()["detail"] == "asset with id 'missing-asset' not found"
+
+
+def test_digital_twin_returns_404_when_no_reasoning_history(
+    api_client: TestClient,
+) -> None:
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-twin-empty-1",
+            asset_id="asset-twin-no-history",
+            timestamp="2026-01-01T10:00:00Z",
+            value=30.0,
+        ),
+    )
+
+    response = api_client.get("/monitoring/assets/asset-twin-no-history/digital-twin")
+
+    assert response.status_code == 404
+    assert (
+        response.json()["detail"]
+        == "asset with id 'asset-twin-no-history' has no reasoning history"
+    )
+
+
+def test_digital_twin_endpoint_returns_preview_latest_five_timeline_events(
+    api_client: TestClient,
+) -> None:
+    asset_id = "asset-digital-twin"
+
+    # Create enough observations to generate multiple runs/timeline events.
+    for index, value in enumerate((10.0, 10.5, 11.0, 20.0, 30.0, 40.0), start=1):
+        api_client.post(
+            "/observations",
+            json=_observation_payload(
+                observation_id=f"obs-dt-{index}",
+                asset_id=asset_id,
+                timestamp=f"2026-01-01T10:0{index}:00Z",
+                value=value,
+            ),
+        )
+
+    full_timeline = api_client.get(f"/monitoring/assets/{asset_id}/timeline")
+    assert full_timeline.status_code == 200
+    events = full_timeline.json()
+    assert len(events) >= 6
+
+    response = api_client.get(f"/monitoring/assets/{asset_id}/digital-twin")
+    assert response.status_code == 200
+    twin = response.json()
+
+    assert twin["asset_id"] == asset_id
+    assert twin["asset_name"]
+    assert twin["asset_type"]
+    assert twin["location"]["identifier"]
+    assert twin["latest_reasoning_run_id"]
+    assert twin["last_updated"]
+    assert twin["operational_state"]["asset_id"] == asset_id
+    assert twin["recommendation"]["asset_id"] == asset_id
+    assert "timeline_preview" in twin
+    assert len(twin["timeline_preview"]) == 5
+
+    # Preview should be the last 5 events from the full timeline, preserving order.
+    assert [e["id"] for e in twin["timeline_preview"]] == [e["id"] for e in events[-5:]]
 
 
 def test_latest_and_history_ordering(api_client: TestClient) -> None:

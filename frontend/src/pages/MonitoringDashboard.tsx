@@ -13,6 +13,7 @@ import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 export function MonitoringDashboard() {
   const { connectionState } = useMonitoringSse()
   const state = useMonitoringDashboard({ sseConnectionState: connectionState })
+  const twin = state.digitalTwin
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">
@@ -20,22 +21,22 @@ export function MonitoringDashboard() {
       <main className="flex flex-1 flex-col gap-4 p-4">
         <OperationalStateCard
           selectedAssetId={state.selectedAssetId}
-          operationalState={state.operationalState}
-          loading={state.operationalStateLoading}
-          error={state.operationalStateError}
+          operationalState={twin?.operational_state}
+          loading={state.digitalTwinLoading}
+          error={state.digitalTwinError}
         />
         <NotificationCard
           selectedAssetId={state.selectedAssetId}
-          notification={state.notification}
-          recommendation={state.recommendation}
-          loading={state.notificationLoading}
-          error={state.notificationError}
+          notification={twin?.notification ?? undefined}
+          recommendation={twin?.recommendation}
+          loading={state.digitalTwinLoading}
+          error={state.digitalTwinError}
         />
         <RecommendationCard
           selectedAssetId={state.selectedAssetId}
-          recommendation={state.recommendation}
-          loading={state.recommendationLoading}
-          error={state.recommendationError}
+          recommendation={twin?.recommendation}
+          loading={state.digitalTwinLoading}
+          error={state.digitalTwinError}
         />
         <section className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
           <div className="flex flex-col">
@@ -84,9 +85,9 @@ export function MonitoringDashboard() {
               onRetry={state.retryRunHistory}
             />
             <Timeline
-              events={state.timeline}
-              loading={state.timelineLoading}
-              error={state.timelineError}
+              events={twin?.timeline_preview ?? []}
+              loading={state.digitalTwinLoading}
+              error={state.digitalTwinError}
               onRetry={state.retryTimeline}
             />
           </div>

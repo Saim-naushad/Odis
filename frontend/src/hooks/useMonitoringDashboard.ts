@@ -3,14 +3,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { monitoringClient } from '../api/monitoringClient'
 import type { MonitoringSseConnectionState } from '../monitoring/useMonitoringSse'
 import type {
+  DigitalTwinResponse,
   MonitoringAssetHistoryItemResponse,
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
-  NotificationResponse,
-  OperationalStateResponse,
-  RecommendationResponse,
-  TimelineEventResponse,
 } from '../types/monitoring'
 
 /** Fallback poll interval when SSE is unavailable; SSE invalidation is primary. */
@@ -42,21 +39,9 @@ export interface MonitoringDashboardState {
   runDetailsLoading: boolean
   runDetailsError?: string
 
-  timeline: TimelineEventResponse[]
-  timelineLoading: boolean
-  timelineError?: string
-
-  operationalState?: OperationalStateResponse
-  operationalStateLoading: boolean
-  operationalStateError?: string
-
-  recommendation?: RecommendationResponse
-  recommendationLoading: boolean
-  recommendationError?: string
-
-  notification?: NotificationResponse
-  notificationLoading: boolean
-  notificationError?: string
+  digitalTwin?: DigitalTwinResponse
+  digitalTwinLoading: boolean
+  digitalTwinError?: string
 
   lastUpdatedAt?: Date
 }
@@ -96,10 +81,7 @@ export function useMonitoringDashboard(
   const hasLoadedLatestHistoryRef = useRef(false)
   const hasLoadedHistoryRef = useRef(false)
   const hasLoadedRunDetailsRef = useRef(false)
-  const hasLoadedTimelineRef = useRef(false)
-  const hasLoadedOperationalStateRef = useRef(false)
-  const hasLoadedRecommendationRef = useRef(false)
-  const hasLoadedNotificationRef = useRef(false)
+  const hasLoadedDigitalTwinRef = useRef(false)
 
   // Keep track of current selection without forcing effect restarts.
   const selectedAssetIdRef = useRef<string | undefined>(selectedAssetId)
@@ -141,10 +123,7 @@ export function useMonitoringDashboard(
       hasLoadedLatestHistoryRef.current = false
       hasLoadedHistoryRef.current = false
       hasLoadedRunDetailsRef.current = false
-      hasLoadedTimelineRef.current = false
-      hasLoadedOperationalStateRef.current = false
-      hasLoadedRecommendationRef.current = false
-      hasLoadedNotificationRef.current = false
+      hasLoadedDigitalTwinRef.current = false
       return
     }
 
@@ -153,10 +132,7 @@ export function useMonitoringDashboard(
     hasLoadedLatestHistoryRef.current = false
     hasLoadedHistoryRef.current = false
     hasLoadedRunDetailsRef.current = false
-    hasLoadedTimelineRef.current = false
-    hasLoadedOperationalStateRef.current = false
-    hasLoadedRecommendationRef.current = false
-    hasLoadedNotificationRef.current = false
+    hasLoadedDigitalTwinRef.current = false
   }, [selectedAssetId])
 
   const platformQuery = useQuery({
@@ -202,41 +178,11 @@ export function useMonitoringDashboard(
     refetchIntervalInBackground: true,
   })
 
-  const timelineQuery = useQuery({
-    queryKey: ['monitoring', 'asset', selectedAssetId, 'timeline'],
+  const digitalTwinQuery = useQuery({
+    queryKey: ['monitoring', 'asset', selectedAssetId, 'digital-twin'],
     enabled: Boolean(selectedAssetId),
     queryFn: ({ signal }) =>
-      monitoringClient.getTimelineForAsset(selectedAssetId as string, signal),
-    refetchInterval,
-    refetchIntervalInBackground: true,
-  })
-
-  const operationalStateQuery = useQuery({
-    queryKey: ['monitoring', 'asset', selectedAssetId, 'state'],
-    enabled: Boolean(selectedAssetId),
-    queryFn: ({ signal }) =>
-      monitoringClient.getOperationalStateForAsset(
-        selectedAssetId as string,
-        signal,
-      ),
-    refetchInterval,
-    refetchIntervalInBackground: true,
-  })
-
-  const recommendationQuery = useQuery({
-    queryKey: ['monitoring', 'asset', selectedAssetId, 'recommendation'],
-    enabled: Boolean(selectedAssetId),
-    queryFn: ({ signal }) =>
-      monitoringClient.getRecommendationForAsset(selectedAssetId as string, signal),
-    refetchInterval,
-    refetchIntervalInBackground: true,
-  })
-
-  const notificationQuery = useQuery<NotificationResponse | null>({
-    queryKey: ['monitoring', 'asset', selectedAssetId, 'notification'],
-    enabled: Boolean(selectedAssetId),
-    queryFn: ({ signal }) =>
-      monitoringClient.getNotificationForAsset(selectedAssetId as string, signal),
+      monitoringClient.getDigitalTwinForAsset(selectedAssetId as string, signal),
     refetchInterval,
     refetchIntervalInBackground: true,
   })
@@ -275,20 +221,8 @@ export function useMonitoringDashboard(
   }, [runDetailsQuery.isSuccess])
 
   useEffect(() => {
-    if (timelineQuery.isSuccess) hasLoadedTimelineRef.current = true
-  }, [timelineQuery.isSuccess])
-
-  useEffect(() => {
-    if (operationalStateQuery.isSuccess) hasLoadedOperationalStateRef.current = true
-  }, [operationalStateQuery.isSuccess])
-
-  useEffect(() => {
-    if (recommendationQuery.isSuccess) hasLoadedRecommendationRef.current = true
-  }, [recommendationQuery.isSuccess])
-
-  useEffect(() => {
-    if (notificationQuery.isSuccess) hasLoadedNotificationRef.current = true
-  }, [notificationQuery.isSuccess])
+    if (digitalTwinQuery.isSuccess) hasLoadedDigitalTwinRef.current = true
+  }, [digitalTwinQuery.isSuccess])
 
   async function retryAssetList(): Promise<void> {
     const result = await assetsQuery.refetch()
@@ -357,9 +291,9 @@ export function useMonitoringDashboard(
     }
   }
 
-  async function retryTimeline(): Promise<void> {
+  async function retryDigitalTwin(): Promise<void> {
     if (!selectedAssetIdRef.current) return
-    await timelineQuery.refetch()
+    await digitalTwinQuery.refetch()
   }
 
   const platformStatus: MonitoringDashboardState['platformStatus'] =
@@ -431,54 +365,15 @@ export function useMonitoringDashboard(
         )
       : undefined
 
-  const timeline = selectedAssetId ? timelineQuery.data ?? [] : []
-  const timelineLoading = Boolean(selectedAssetId) && timelineQuery.isFetching
-  const timelineError =
-    selectedAssetId && timelineQuery.isError
+  const digitalTwin = selectedAssetId ? digitalTwinQuery.data : undefined
+  const digitalTwinLoading = Boolean(selectedAssetId) && digitalTwinQuery.isFetching
+  const digitalTwinError =
+    selectedAssetId && digitalTwinQuery.isError
       ? formatPhaseError(
-          hasLoadedTimelineRef.current,
-          timelineQuery.error,
-          'Failed to load timeline',
-          'Failed to refresh timeline',
-        )
-      : undefined
-
-  const operationalState = selectedAssetId ? operationalStateQuery.data : undefined
-  const operationalStateLoading =
-    Boolean(selectedAssetId) && operationalStateQuery.isFetching
-  const operationalStateError =
-    selectedAssetId && operationalStateQuery.isError
-      ? formatPhaseError(
-          hasLoadedOperationalStateRef.current,
-          operationalStateQuery.error,
-          'Failed to load operational state',
-          'Failed to refresh operational state',
-        )
-      : undefined
-
-  const recommendation = selectedAssetId ? recommendationQuery.data : undefined
-  const recommendationLoading =
-    Boolean(selectedAssetId) && recommendationQuery.isFetching
-  const recommendationError =
-    selectedAssetId && recommendationQuery.isError
-      ? formatPhaseError(
-          hasLoadedRecommendationRef.current,
-          recommendationQuery.error,
-          'Failed to load recommendation',
-          'Failed to refresh recommendation',
-        )
-      : undefined
-
-  const notification = selectedAssetId ? notificationQuery.data ?? undefined : undefined
-  const notificationLoading =
-    Boolean(selectedAssetId) && notificationQuery.isFetching
-  const notificationError =
-    selectedAssetId && notificationQuery.isError
-      ? formatPhaseError(
-          hasLoadedNotificationRef.current,
-          notificationQuery.error,
-          'Failed to load notification',
-          'Failed to refresh notification',
+          hasLoadedDigitalTwinRef.current,
+          digitalTwinQuery.error,
+          'Failed to load digital twin',
+          'Failed to refresh digital twin',
         )
       : undefined
 
@@ -507,18 +402,9 @@ export function useMonitoringDashboard(
     runDetails,
     runDetailsLoading,
     runDetailsError,
-    timeline,
-    timelineLoading,
-    timelineError,
-    operationalState,
-    operationalStateLoading,
-    operationalStateError,
-    recommendation,
-    recommendationLoading,
-    recommendationError,
-    notification,
-    notificationLoading,
-    notificationError,
+    digitalTwin,
+    digitalTwinLoading,
+    digitalTwinError,
     lastUpdatedAt,
     setSelectedAssetId,
     setSelectedRunId,
@@ -526,7 +412,7 @@ export function useMonitoringDashboard(
     retryAssetDetails,
     retryRunHistory,
     retryReasoningTrace: () => retryRunDetails(),
-    retryTimeline,
+    retryTimeline: () => retryDigitalTwin(),
   }
 }
 

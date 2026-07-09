@@ -162,6 +162,10 @@ export interface NotificationResponse {
   created_at: string
 }
 
+export interface LocationResponse {
+  identifier: string
+}
+
 export type TimelineEventType =
   | 'observation_received'
   | 'reasoning_started'
@@ -180,5 +184,18 @@ export interface TimelineEventResponse {
   title: string
   description: string
   metadata: Record<string, unknown>
+}
+
+export interface DigitalTwinResponse {
+  asset_id: string
+  asset_name: string
+  asset_type: string
+  location: LocationResponse
+  operational_state: OperationalStateResponse
+  recommendation: RecommendationResponse
+  notification: NotificationResponse | null
+  latest_reasoning_run_id: string
+  timeline_preview: TimelineEventResponse[]
+  last_updated: string
 }
 
