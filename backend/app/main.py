@@ -23,6 +23,7 @@ from backend.app.application.events.domain_events import (
     ReasoningCompleted,
     ReasoningStarted,
     RecommendationUpdated,
+    TrendChanged,
 )
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.events.handlers.monitoring_event_handler import (
@@ -111,6 +112,10 @@ def _build_lifespan(
             domain_event_bus.subscribe(
                 RecommendationUpdated,
                 timeline_handler.on_recommendation_updated,
+            )
+            domain_event_bus.subscribe(
+                TrendChanged,
+                timeline_handler.on_trend_changed,
             )
         if app.state.session_factory is not None:
             outbox_dispatcher = OutboxDispatcher(

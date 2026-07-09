@@ -16,6 +16,7 @@ TimelineEventType = Literal[
     "reasoning_started",
     "reasoning_completed",
     "recommendation_updated",
+    "trend_changed",
 ]
 
 

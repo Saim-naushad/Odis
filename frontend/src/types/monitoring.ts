@@ -116,6 +116,15 @@ export interface MonitoringRunDetailsResponse {
   operational_situation: OperationalSituationResponse
   decision_context: DecisionContextResponse
   decision_plan: DecisionPlanResponse
+  trend_analysis?: TrendAnalysisResponse | null
+}
+
+export interface TrendAnalysisResponse {
+  direction: 'rising' | 'falling' | 'stable' | string
+  rate_of_change: number
+  stability_score: number
+  volatility_score: number
+  summary: string
 }
 
 export type TimelineEventType =
@@ -123,6 +132,7 @@ export type TimelineEventType =
   | 'reasoning_started'
   | 'reasoning_completed'
   | 'recommendation_updated'
+  | 'trend_changed'
 
 export interface TimelineEventResponse {
   id: string

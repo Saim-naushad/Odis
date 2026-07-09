@@ -211,6 +211,12 @@ def test_run_lookup_returns_complete_details(api_client: TestClient) -> None:
     assert payload["decision_plan"]["alternative_hypotheses"]
     assert 1 <= len(payload["decision_plan"]["alternative_hypotheses"]) <= 2
     assert payload["decision_plan"]["expected_outcome"]
+    assert payload["trend_analysis"] is not None
+    assert payload["trend_analysis"]["direction"] in {"rising", "falling", "stable"}
+    assert isinstance(payload["trend_analysis"]["rate_of_change"], (int, float))
+    assert 0 <= payload["trend_analysis"]["stability_score"] <= 100
+    assert 0 <= payload["trend_analysis"]["volatility_score"] <= 100
+    assert payload["trend_analysis"]["summary"]
 
 
 def test_unknown_run_returns_404(api_client: TestClient) -> None:

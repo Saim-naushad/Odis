@@ -15,6 +15,7 @@ from backend.app.domain.reasoning import (
     ConfidenceScore,
     Evidence,
 )
+from backend.app.domain.time_series import TrendAnalysis
 from backend.app.domain.timeline import TimelineEvent, TimelineEventType
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
@@ -167,6 +168,25 @@ class MonitoringRunDetailsResponse(BaseModel):
     operational_situation: OperationalSituationResponse
     decision_context: DecisionContextResponse
     decision_plan: DecisionPlanResponse
+    trend_analysis: TrendAnalysisResponse | None = None
+
+
+class TrendAnalysisResponse(BaseModel):
+    direction: str
+    rate_of_change: float
+    stability_score: int
+    volatility_score: int
+    summary: str
+
+    @classmethod
+    def from_domain(cls, analysis: TrendAnalysis) -> Self:
+        return cls(
+            direction=analysis.direction,
+            rate_of_change=analysis.rate_of_change,
+            stability_score=analysis.stability_score,
+            volatility_score=analysis.volatility_score,
+            summary=analysis.summary,
+        )
 
 
 class EvidenceResponse(BaseModel):

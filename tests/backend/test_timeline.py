@@ -14,6 +14,7 @@ from backend.app.application.events.domain_events import (
     ReasoningCompleted,
     ReasoningStarted,
     RecommendationUpdated,
+    TrendChanged,
 )
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.events.handlers.timeline_event_handler import (
@@ -147,11 +148,13 @@ def test_timeline_handler_records_domain_events(
     bus.subscribe(ReasoningStarted, handler.on_reasoning_started)
     bus.subscribe(ReasoningCompleted, handler.on_reasoning_completed)
     bus.subscribe(RecommendationUpdated, handler.on_recommendation_updated)
+    bus.subscribe(TrendChanged, handler.on_trend_changed)
 
     created_at = datetime(2026, 1, 1, 9, 0, tzinfo=UTC)
     started_at = datetime(2026, 1, 1, 9, 5, tzinfo=UTC)
     completed_at = datetime(2026, 1, 1, 9, 6, tzinfo=UTC)
     updated_at = datetime(2026, 1, 1, 9, 6, tzinfo=UTC)
+    trend_at = datetime(2026, 1, 1, 9, 6, tzinfo=UTC)
 
     bus.publish(
         ObservationCreated(
@@ -183,6 +186,17 @@ def test_timeline_handler_records_domain_events(
             timestamp=completed_at,
         )
     )
+    bus.publish(
+        TrendChanged(
+            asset_id="asset-1",
+            run_id="run-1",
+            previous_direction="stable",
+            new_direction="rising",
+            stability_score=80,
+            volatility_score=15,
+            timestamp=trend_at,
+        )
+    )
 
     with SqlAlchemyUnitOfWork(session_factory) as uow:
         events = SqlAlchemyTimelineRepository(uow.session).list_by_asset("asset-1")
@@ -190,6 +204,7 @@ def test_timeline_handler_records_domain_events(
     assert [event.event_type for event in events] == [
         "observation_received",
         "reasoning_started",
+        "trend_changed",
         "recommendation_updated",
         "reasoning_completed",
     ]

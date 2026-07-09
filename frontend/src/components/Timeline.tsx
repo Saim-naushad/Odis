@@ -12,6 +12,7 @@ const EVENT_ICONS: Record<TimelineEventType, string> = {
   reasoning_started: '▶',
   reasoning_completed: '✓',
   recommendation_updated: '↻',
+  trend_changed: '⇅',
 }
 
 export function Timeline({ events, loading, error, onRetry }: TimelineProps) {

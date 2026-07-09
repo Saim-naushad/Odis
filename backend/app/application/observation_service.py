@@ -13,6 +13,7 @@ from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.exceptions import ObservationAlreadyExistsError
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
+from backend.app.application.time_series_analysis import analyze_trend_diagnostics
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.outbox import OutboxEvent
 from backend.app.infrastructure.logging import get_logger
@@ -119,12 +120,34 @@ class ObservationService:
         if not _can_run_reasoning(asset_observations):
             return False
 
+        asset_observations = sorted(
+            asset_observations, key=lambda obs: (obs.timestamp, obs.id)
+        )
         previous_recommendation = self._latest_recommendation_for_asset(asset_id)
         now = datetime.now(UTC)
+
+        primary_measurement_type = asset_observations[0].measurement_type
+        primary_observations = [
+            obs
+            for obs in asset_observations
+            if obs.measurement_type == primary_measurement_type
+        ]
+        previous_primary = (
+            primary_observations[:-1] if len(primary_observations) >= 2 else []
+        )
+        prev_trend = analyze_trend_diagnostics(
+            previous_primary,
+            observation_window=5,
+        )
 
         result = self._reasoning_session.run(
             self._operational_goal,
             asset_observations,
+        )
+
+        new_trend = analyze_trend_diagnostics(
+            primary_observations,
+            observation_window=5,
         )
 
         if self._event_bus is not None:
@@ -150,6 +173,30 @@ class ObservationService:
             self._reasoning_trace_repository.save(result.run.id, result.trace)
 
         if self._event_bus is not None:
+            if (
+                prev_trend is not None
+                and new_trend is not None
+                and prev_trend.direction != new_trend.direction
+                and len(primary_observations) >= 4
+                and new_trend.stability_score >= 70
+                and new_trend.direction != "stable"
+            ):
+                trend_event = OutboxEvent(
+                    id=str(uuid4()),
+                    event_type="TrendChanged",
+                    payload={
+                        "asset_id": asset_id,
+                        "run_id": result.run.id,
+                        "previous_direction": prev_trend.direction,
+                        "new_direction": new_trend.direction,
+                        "stability_score": new_trend.stability_score,
+                        "volatility_score": new_trend.volatility_score,
+                        "timestamp": now.isoformat(),
+                    },
+                    created_at=now,
+                    dispatched_at=None,
+                )
+                self._uow.session.add(trend_event)
             if (
                 previous_recommendation is not None
                 and previous_recommendation != result.plan.recommendation

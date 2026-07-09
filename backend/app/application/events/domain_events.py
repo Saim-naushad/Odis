@@ -39,3 +39,14 @@ class RecommendationUpdated:
     new_recommendation: str
     timestamp: datetime
 
+
+@dataclass(frozen=True, slots=True)
+class TrendChanged:
+    asset_id: str
+    run_id: str
+    previous_direction: str
+    new_direction: str
+    stability_score: int
+    volatility_score: int
+    timestamp: datetime
+

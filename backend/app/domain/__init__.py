@@ -5,6 +5,7 @@ from backend.app.domain.reasoning import (
     ConfidenceScore,
     Evidence,
 )
+from backend.app.domain.time_series import TrendAnalysis, TrendDirection
 from backend.app.domain.timeline import TimelineEvent, TimelineEventType
 
 __all__ = [
@@ -13,5 +14,7 @@ __all__ = [
     "Evidence",
     "TimelineEvent",
     "TimelineEventType",
+    "TrendAnalysis",
+    "TrendDirection",
 ]
 

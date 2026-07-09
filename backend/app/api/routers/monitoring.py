@@ -25,6 +25,7 @@ from backend.app.api.schemas.monitoring import (
     ReasoningTraceResponse,
     StructuredAssessmentResponse,
     TimelineEventResponse,
+    TrendAnalysisResponse,
 )
 from backend.app.api.schemas.observation import ObservationResponse
 from backend.app.application.monitoring_service import MonitoringService
@@ -245,5 +246,6 @@ def get_run_details(
         ),
         decision_context=DecisionContextResponse.from_domain(details.decision_context),
         decision_plan=plan_response,
+        trend_analysis=TrendAnalysisResponse.from_domain(explainable.trend_analysis),
     )
 

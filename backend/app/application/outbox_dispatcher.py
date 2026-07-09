@@ -14,6 +14,7 @@ from backend.app.application.events.domain_events import (
     ReasoningCompleted,
     ReasoningStarted,
     RecommendationUpdated,
+    TrendChanged,
 )
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.unit_of_work import UnitOfWork
@@ -61,6 +62,16 @@ def _deserialize_domain_event(
                 str(previous) if previous is not None else None
             ),
             new_recommendation=str(payload["new_recommendation"]),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "TrendChanged":
+        return TrendChanged(
+            asset_id=str(payload["asset_id"]),
+            run_id=str(payload["run_id"]),
+            previous_direction=str(payload["previous_direction"]),
+            new_direction=str(payload["new_direction"]),
+            stability_score=int(payload.get("stability_score", 0)),
+            volatility_score=int(payload.get("volatility_score", 0)),
             timestamp=_parse_datetime(str(payload["timestamp"])),
         )
     return None

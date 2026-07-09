@@ -34,11 +34,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from backend.app.application.time_series_analysis import (
+    TrendDiagnostics,
+    analyze_trend,
+    analyze_trend_diagnostics,
+)
 from backend.app.domain.reasoning import (
     AlternativeHypothesis,
     ConfidenceScore,
     Evidence,
 )
+from backend.app.domain.time_series import TrendAnalysis
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.observation import Observation
 
@@ -46,6 +52,7 @@ from domain.entities.observation import Observation
 @dataclass(frozen=True, slots=True)
 class ExplainableDecision:
     assessment: str
+    trend_analysis: TrendAnalysis
     evidence: tuple[Evidence, ...]
     confidence: ConfidenceScore
     alternative_hypotheses: tuple[AlternativeHypothesis, ...]
@@ -61,14 +68,34 @@ def build_explainable_decision(
     structured_assessment: object | None,
 ) -> ExplainableDecision:
     primary_observations = _primary_measurement_observations(observations)
+    measurement_type = (
+        str(
+            getattr(
+                primary_observations[0].measurement_type,
+                "name",
+                primary_observations[0].measurement_type,
+            )
+        )
+        if primary_observations
+        else None
+    )
+    trend_analysis = analyze_trend(
+        primary_observations,
+        observation_window=5,
+        measurement_label=measurement_type,
+    )
+    diagnostics = analyze_trend_diagnostics(primary_observations, observation_window=5)
     evidence = _build_evidence(
         assessment=assessment,
+        trend_analysis=trend_analysis,
         primary_observations=primary_observations,
         structured_assessment=structured_assessment,
         decision_plan=decision_plan,
     )
     confidence = _calculate_confidence(
         assessment=assessment,
+        trend_analysis=trend_analysis,
+        trend_diagnostics=diagnostics,
         primary_observations=primary_observations,
         structured_assessment=structured_assessment,
         decision_plan=decision_plan,
@@ -86,6 +113,7 @@ def build_explainable_decision(
     )
     return ExplainableDecision(
         assessment=assessment,
+        trend_analysis=trend_analysis,
         evidence=evidence,
         confidence=confidence,
         alternative_hypotheses=alternatives,
@@ -112,6 +140,7 @@ def _format_observed_value(observation: Observation) -> str:
 def _build_evidence(
     *,
     assessment: str,
+    trend_analysis: TrendAnalysis,
     primary_observations: list[Observation],
     structured_assessment: object | None,
     decision_plan: DecisionPlan,
@@ -134,6 +163,26 @@ def _build_evidence(
                 contribution_weight=0.35,
             )
         )
+
+    evidences.append(
+        Evidence(
+            id="trend_analysis",
+            description="Recent time-series behavior contributes to the decision.",
+            measurement_type=(
+                str(
+                    getattr(
+                        primary_observations[0].measurement_type,
+                        "name",
+                        primary_observations[0].measurement_type,
+                    )
+                )
+                if primary_observations
+                else "unknown"
+            ),
+            observed_value=trend_analysis.summary,
+            contribution_weight=0.25,
+        )
+    )
 
     if len(primary_observations) >= 2:
         prev = primary_observations[-2]
@@ -188,6 +237,8 @@ def _build_evidence(
 def _calculate_confidence(
     *,
     assessment: str,
+    trend_analysis: TrendAnalysis,
+    trend_diagnostics: TrendDiagnostics | None,
     primary_observations: list[Observation],
     structured_assessment: object | None,
     decision_plan: DecisionPlan,
@@ -213,14 +264,40 @@ def _calculate_confidence(
     severity_map = {"high": 25, "medium": 15, "low": 5}
     severity = severity_map.get(decision_plan.priority.value.casefold(), 10)
 
-    stable_recent = _is_monotonic_recent(primary_observations)
-    stable = stable_recent and not variation_high
+    # Trend consistency: sustained direction + stable readings should increase
+    # confidence.
+    sustained = False
+    if trend_diagnostics is not None and trend_analysis.direction != "stable":
+        sustained = (
+            trend_diagnostics.monotonicity >= 0.85
+            and trend_analysis.stability_score >= 70
+        )
+
+    trend_consistency = 0
+    if trend_analysis.stability_score >= 75:
+        trend_consistency = 12
+    elif trend_analysis.stability_score >= 60:
+        trend_consistency = 8
+    elif trend_analysis.stability_score >= 45:
+        trend_consistency = 4
+
+    sustained_bonus = 6 if sustained else 0
+
+    stable = trend_analysis.stability_score >= 65 and not variation_high
     consistency = 15 if stable else 5
 
     penalties = -12 if contradictions else 0
 
     base = 35
-    raw = base + support + severity + consistency + penalties
+    raw = (
+        base
+        + support
+        + severity
+        + consistency
+        + trend_consistency
+        + sustained_bonus
+        + penalties
+    )
     value = max(0, min(100, int(raw)))
 
     penalty_clause = (
@@ -228,10 +305,18 @@ def _calculate_confidence(
         if contradictions
         else "No contradiction penalty."
     )
+    sustained_clause = (
+        "Sustained directional change observed."
+        if sustained
+        else "No sustained directional change."
+    )
     rationale = (
         f"Base {base}. Support {support} from {n_supporting} observations. "
         f"Severity {severity} from {decision_plan.priority.value} priority. "
         f"Consistency {consistency} ({'stable' if stable else 'mixed'}). "
+        f"Trend {trend_consistency} (stability {trend_analysis.stability_score}/100, "
+        f"direction {trend_analysis.direction}). "
+        f"{sustained_clause} "
         f"{penalty_clause} "
         f"Assessment: {assessment}"
     )

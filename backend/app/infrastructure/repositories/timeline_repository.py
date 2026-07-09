@@ -14,8 +14,9 @@ from backend.app.infrastructure.repositories.base import SqlAlchemyRepository
 _EVENT_TYPE_ORDER: dict[str, int] = {
     "observation_received": 0,
     "reasoning_started": 1,
-    "recommendation_updated": 2,
-    "reasoning_completed": 3,
+    "trend_changed": 2,
+    "recommendation_updated": 3,
+    "reasoning_completed": 4,
 }
 
 

@@ -175,6 +175,49 @@ export function AssetDetails({
                   No structured assessment available for this run.
                 </p>
               ) : null}
+
+              <h3 className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                Trend analysis
+              </h3>
+              {runDetails ? (
+                runDetails.trend_analysis ? (
+                  <div className="mt-1 rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                      <dt className="text-slate-500">Direction</dt>
+                      <dd className="text-slate-100">
+                        {runDetails.trend_analysis.direction}
+                      </dd>
+                      <dt className="text-slate-500">Rate of change</dt>
+                      <dd className="font-mono text-[10px] text-slate-100">
+                        {runDetails.trend_analysis.rate_of_change.toFixed(3)}
+                      </dd>
+                      <dt className="text-slate-500">Stability</dt>
+                      <dd className="text-slate-100">
+                        {runDetails.trend_analysis.stability_score}/100
+                      </dd>
+                      <dt className="text-slate-500">Volatility</dt>
+                      <dd className="text-slate-100">
+                        {runDetails.trend_analysis.volatility_score}/100
+                      </dd>
+                    </dl>
+                    <p className="mt-2 text-[10px] text-slate-400">
+                      {runDetails.trend_analysis.summary}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    No trend analysis available for this run.
+                  </p>
+                )
+              ) : loading ? (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Loading trend analysis…
+                </p>
+              ) : !error ? (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  No trend analysis available for this run.
+                </p>
+              ) : null}
             </div>
 
             <div>

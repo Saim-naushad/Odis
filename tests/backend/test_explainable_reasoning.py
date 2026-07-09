@@ -83,6 +83,7 @@ def test_evidence_is_deterministic_and_includes_recent_delta_when_available() ->
     evidence_ids = [item.id for item in decision.evidence]
     assert evidence_ids == [
         "latest_reading",
+        "trend_analysis",
         "recent_delta",
         "sample_support",
         "planner_alignment",

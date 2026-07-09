@@ -12,6 +12,7 @@ from backend.app.application.events.domain_events import (
     ReasoningCompleted,
     ReasoningStarted,
     RecommendationUpdated,
+    TrendChanged,
 )
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.timeline import TimelineEvent
@@ -87,6 +88,28 @@ class TimelineEventHandler:
                     "run_id": event.run_id,
                     "previous_recommendation": event.previous_recommendation,
                     "new_recommendation": event.new_recommendation,
+                },
+            )
+        )
+
+    def on_trend_changed(self, event: TrendChanged) -> None:
+        self._record(
+            TimelineEvent(
+                id=str(uuid4()),
+                asset_id=event.asset_id,
+                timestamp=event.timestamp,
+                event_type="trend_changed",
+                title="Trend changed",
+                description=(
+                    f"Trend changed from {event.previous_direction!r} to "
+                    f"{event.new_direction!r}."
+                ),
+                metadata={
+                    "run_id": event.run_id,
+                    "previous_direction": event.previous_direction,
+                    "new_direction": event.new_direction,
+                    "stability_score": event.stability_score,
+                    "volatility_score": event.volatility_score,
                 },
             )
         )
