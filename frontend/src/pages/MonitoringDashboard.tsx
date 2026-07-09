@@ -7,8 +7,8 @@ import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
 import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
 export function MonitoringDashboard() {
-  const state = useMonitoringDashboard()
-  useMonitoringSse()
+  const { connectionState } = useMonitoringSse()
+  const state = useMonitoringDashboard({ sseConnectionState: connectionState })
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">

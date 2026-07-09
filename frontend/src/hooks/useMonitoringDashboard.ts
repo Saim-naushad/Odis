@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { monitoringClient } from '../api/monitoringClient'
+import type { MonitoringSseConnectionState } from '../monitoring/useMonitoringSse'
 import type {
   MonitoringAssetHistoryItemResponse,
   MonitoringAssetLatestResponse,
@@ -42,6 +43,11 @@ export interface MonitoringDashboardState {
 
 export interface UseMonitoringDashboardOptions {
   pollIntervalMs?: number
+  /**
+   * SSE connection state from useMonitoringSse(). While 'connected', SSE
+   * invalidation drives freshness and fallback polling is disabled entirely.
+   */
+  sseConnectionState?: MonitoringSseConnectionState
 }
 
 type LatestAndHistoryData = {
@@ -76,10 +82,13 @@ export function useMonitoringDashboard(
   selectedAssetIdRef.current = selectedAssetId
   selectedRunIdRef.current = selectedRunId
 
-  const pollIntervalMs = useMemo(
-    () => options?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS,
-    [options?.pollIntervalMs],
-  )
+  const pollIntervalMs = options?.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
+
+  // Adaptive polling: while SSE is connected, event-driven invalidation keeps
+  // queries fresh, so interval polling is disabled. When SSE is connecting or
+  // disconnected, fall back to interval polling.
+  const refetchInterval: number | false =
+    options?.sseConnectionState === 'connected' ? false : pollIntervalMs
 
   function formatPhaseError(
     hasLoadedBefore: boolean,
@@ -126,14 +135,14 @@ export function useMonitoringDashboard(
       ])
       return { health, meta }
     },
-    refetchInterval: pollIntervalMs,
+    refetchInterval,
     refetchIntervalInBackground: true,
   })
 
   const assetsQuery = useQuery({
     queryKey: ['monitoring', 'assets'],
     queryFn: ({ signal }) => monitoringClient.listAssets(signal),
-    refetchInterval: pollIntervalMs,
+    refetchInterval,
     refetchIntervalInBackground: true,
   })
 
@@ -148,7 +157,7 @@ export function useMonitoringDashboard(
       ])
       return { latest, history }
     },
-    refetchInterval: pollIntervalMs,
+    refetchInterval,
     refetchIntervalInBackground: true,
   })
 
@@ -156,7 +165,7 @@ export function useMonitoringDashboard(
     queryKey: ['monitoring', 'run', selectedRunId],
     enabled: Boolean(selectedRunId),
     queryFn: ({ signal }) => monitoringClient.getRunDetails(selectedRunId as string, signal),
-    refetchInterval: pollIntervalMs,
+    refetchInterval,
     refetchIntervalInBackground: true,
   })
 
