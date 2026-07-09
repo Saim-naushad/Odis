@@ -1,0 +1,18 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "odis-backend"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "backend:8000"
+
+  # Needed for System panels (uptime/process metrics).
+  - job_name: "prometheus"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "prometheus:9090"
+

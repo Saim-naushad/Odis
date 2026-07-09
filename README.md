@@ -83,13 +83,14 @@ pip install -e ".[dev]"
 
 ## Local development (Monitoring Dashboard MVP)
 
-Start PostgreSQL:
+Start the full monitoring stack (PostgreSQL, ODIS backend, Prometheus, Grafana):
 
 ```bash
 docker compose up -d
 ```
 
-Set `DATABASE_URL` (copy `.env.example` to `.env`, or export it in your shell):
+ODIS backend is already configured to use PostgreSQL in Docker.
+If you run migrations from your host environment, export `DATABASE_URL` for `alembic`:
 
 ```bash
 export DATABASE_URL=postgresql+psycopg://odis:odis@localhost:5432/odis
@@ -101,18 +102,37 @@ Run migrations:
 alembic upgrade head
 ```
 
-Start backend:
-
-```bash
-python -m uvicorn backend.app.main:app --reload
-```
-
 Start frontend:
 
 ```bash
 cd frontend
 npm install
 npm run dev
+```
+
+### Observability (Prometheus + Grafana)
+
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3000`
+- Default Grafana credentials: `admin` / `admin`
+- Grafana dashboard: `ODIS Monitoring` (auto-provisioned on startup)
+
+Metrics flow through the system like this:
+
+```
+Browser
+      │
+      ▼
+ Grafana
+      │
+      ▼
+ Prometheus
+      │
+      ▼
+ /metrics
+      │
+      ▼
+ ODIS Backend
 ```
 
 ## Versioning
