@@ -1,42 +1,14 @@
-import { useEffect } from 'react'
 import { Header } from '../components/Header'
 import { AssetList } from '../components/AssetList'
 import { AssetDetails } from '../components/AssetDetails'
 import { ReasoningTrace } from '../components/ReasoningTrace'
 import { RunHistory } from '../components/RunHistory'
 import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
-import { createSseClient } from '../api/sseClient'
+import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
 export function MonitoringDashboard() {
   const state = useMonitoringDashboard()
-
-  useEffect(() => {
-    const client = createSseClient({
-      url: '/api/monitoring/events',
-      onOpen: () => {
-        console.info('[monitoring:sse] connected')
-      },
-      onError: (error) => {
-        console.warn('[monitoring:sse] error', error)
-      },
-    })
-
-    client.addEventListener('heartbeat', (event) => {
-      const data = client.parse(event.data) as unknown
-      console.debug('[monitoring:sse] heartbeat', data)
-    })
-
-    // Placeholder for future monitoring events (no behavior changes yet).
-    client.addEventListener('monitoring', (event) => {
-      const data = client.parse(event.data) as unknown
-      console.debug('[monitoring:sse] monitoring event', data)
-    })
-
-    return () => {
-      client.close()
-      console.info('[monitoring:sse] disconnected')
-    }
-  }, [])
+  useMonitoringSse()
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">
@@ -94,4 +66,3 @@ export function MonitoringDashboard() {
     </div>
   )
 }
-

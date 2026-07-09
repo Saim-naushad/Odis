@@ -17,6 +17,9 @@ from backend.app.api.routers import (
     observations_router,
     platform_router,
 )
+from backend.app.application.monitoring_event_source import (
+    InMemoryMonitoringEventSource,
+)
 from backend.app.infrastructure.config.settings import Settings, get_settings
 from backend.app.infrastructure.database.session import (
     create_db_engine,
@@ -53,6 +56,7 @@ def _build_lifespan(
             started_at=datetime.now(UTC),
             settings=active_settings,
         )
+        app.state.monitoring_event_source = InMemoryMonitoringEventSource()
         logger.info(
             "Starting %s v%s (%s)",
             active_settings.app_name,
