@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import ObservationCreated
 from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.integration_events import IntegrationEvent
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.domain.outbox import OutboxEvent
 from backend.app.infrastructure.config.settings import Settings
@@ -24,6 +25,14 @@ from backend.app.infrastructure.database.session import (
 from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork,
 )
+
+
+class _CapturingIntegrationPublisher:
+    def __init__(self) -> None:
+        self.published: list[IntegrationEvent] = []
+
+    def publish(self, event: IntegrationEvent) -> None:
+        self.published.append(event)
 
 
 @pytest.fixture
@@ -134,4 +143,71 @@ def test_unknown_events_are_safely_skipped(
     with SqlAlchemyUnitOfWork(session_factory) as uow:
         row = uow.session.scalars(select(OutboxEvent)).one()
         assert row.dispatched_at is None
+
+
+def test_outbox_dispatcher_publishes_mapped_integration_events(
+    session_factory: Callable[[], Session],
+) -> None:
+    bus = DomainEventBus()
+    integration_publisher = _CapturingIntegrationPublisher()
+    dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        bus,
+        integration_publisher,
+    )
+
+    created_at = datetime.now(UTC)
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.session.add(
+            OutboxEvent(
+                id=str(uuid4()),
+                event_type="ReasoningCompleted",
+                payload={
+                    "asset_id": "asset-1",
+                    "run_id": "run-1",
+                    "timestamp": created_at.isoformat(),
+                },
+                created_at=created_at,
+                dispatched_at=None,
+            )
+        )
+        uow.commit()
+
+    dispatcher.dispatch()
+
+    assert len(integration_publisher.published) == 1
+    assert integration_publisher.published[0].type == "DigitalTwinUpdated"
+
+
+def test_outbox_dispatcher_skips_unmapped_integration_events(
+    session_factory: Callable[[], Session],
+) -> None:
+    bus = DomainEventBus()
+    integration_publisher = _CapturingIntegrationPublisher()
+    dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        bus,
+        integration_publisher,
+    )
+
+    created_at = datetime.now(UTC)
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.session.add(
+            OutboxEvent(
+                id=str(uuid4()),
+                event_type="ObservationCreated",
+                payload={
+                    "asset_id": "asset-1",
+                    "observation_id": "obs-1",
+                    "timestamp": created_at.isoformat(),
+                },
+                created_at=created_at,
+                dispatched_at=None,
+            )
+        )
+        uow.commit()
+
+    dispatcher.dispatch()
+
+    assert integration_publisher.published == []
 

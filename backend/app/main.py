@@ -49,6 +49,9 @@ from backend.app.infrastructure.database.session import (
     create_db_engine,
     create_session_factory,
 )
+from backend.app.infrastructure.events.kafka_integration_event_publisher import (
+    KafkaIntegrationEventPublisher,
+)
 from backend.app.infrastructure.logging import configure_logging, get_logger
 from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork,
@@ -165,9 +168,15 @@ def _build_lifespan(
                 timeline_handler.on_notification_created,
             )
         if app.state.session_factory is not None:
+            integration_publisher = None
+            if active_settings.kafka_bootstrap_servers:
+                integration_publisher = KafkaIntegrationEventPublisher(
+                    bootstrap_servers=active_settings.kafka_bootstrap_servers,
+                )
             outbox_dispatcher = OutboxDispatcher(
                 lambda: SqlAlchemyUnitOfWork(app.state.session_factory),
                 domain_event_bus,
+                integration_publisher,
             )
             app.state.outbox_dispatcher = outbox_dispatcher
             app.state.reasoning_task_runner = ReasoningTaskRunner(

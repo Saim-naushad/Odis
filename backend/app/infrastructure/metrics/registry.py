@@ -8,6 +8,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, generate_latest
 from backend.app.infrastructure.metrics import (  # noqa: F401
     cache_metrics,
     http_metrics,
+    integration_event_metrics,
     monitoring_metrics,
     observation_metrics,
     reasoning_metrics,

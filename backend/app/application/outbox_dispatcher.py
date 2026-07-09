@@ -20,6 +20,12 @@ from backend.app.application.events.domain_events import (
     TrendChanged,
 )
 from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.integration_event_mapping import (
+    map_domain_event_to_integration_event,
+)
+from backend.app.application.integration_event_publisher import (
+    IntegrationEventPublisher,
+)
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.outbox import OutboxEvent
 from backend.app.infrastructure.logging import get_logger
@@ -118,9 +124,11 @@ class OutboxDispatcher:
         self,
         unit_of_work_factory: Callable[[], UnitOfWork[Session]],
         event_bus: DomainEventBus,
+        integration_event_publisher: IntegrationEventPublisher | None = None,
     ) -> None:
         self._unit_of_work_factory = unit_of_work_factory
         self._event_bus = event_bus
+        self._integration_event_publisher = integration_event_publisher
 
     def dispatch(self) -> None:
         """Publish any undispatched events and mark them dispatched."""
@@ -145,8 +153,28 @@ class OutboxDispatcher:
                     )
                     continue
                 self._event_bus.publish(domain_event)
+                self._publish_integration_event(domain_event)
                 row.dispatched_at = now
                 published_any = True
             if published_any:
                 uow.commit()
+
+    def _publish_integration_event(self, domain_event: object) -> None:
+        publisher = self._integration_event_publisher
+        if publisher is None:
+            return
+        integration_event = map_domain_event_to_integration_event(domain_event)
+        if integration_event is None:
+            return
+        try:
+            publisher.publish(integration_event)
+        except Exception:
+            # Integration boundary must never fail requests.
+            logger.warning(
+                "integration_event_publish_failed",
+                domain_event_type=type(domain_event).__name__,
+                integration_event_type=integration_event.type,
+                integration_event_id=integration_event.id,
+                exc_info=True,
+            )
 
