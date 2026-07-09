@@ -29,11 +29,28 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://odis:odis@postgres:5432/odis
       LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      CACHE_TTL_SECONDS: 300
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    container_name: odis-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   prometheus:
     image: prom/prometheus:latest

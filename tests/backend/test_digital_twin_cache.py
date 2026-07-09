@@ -24,6 +24,11 @@ from backend.app.domain.timeline import TimelineEvent
 from backend.app.infrastructure.cache.memory_digital_twin_cache import (
     MemoryDigitalTwinCache,
 )
+from backend.app.infrastructure.cache.redis_digital_twin_cache import (
+    RedisDigitalTwinCache,
+    deserialize,
+    serialize,
+ )
 from domain.value_objects.location import Location
 
 
@@ -280,4 +285,66 @@ def test_invalidation_handler_clears_cache(
 
     getattr(handler, handler_name)(event)
 
+    assert cache.get("asset-1") is None
+
+
+def test_redis_cache_miss_and_hit(monkeypatch: pytest.MonkeyPatch) -> None:
+    fakeredis = pytest.importorskip("fakeredis")
+    fake = fakeredis.FakeRedis()
+
+    monkeypatch.setattr(
+        "backend.app.infrastructure.cache.redis_digital_twin_cache.redis.Redis.from_url",
+        lambda _url: fake,
+    )
+
+    cache = RedisDigitalTwinCache(redis_url="redis://unused", ttl_seconds=300)
+    assert cache.get("asset-1") is None
+
+    twin = _sample_twin()
+    cache.set(twin)
+
+    loaded = cache.get("asset-1")
+    assert loaded is not None
+    assert loaded.asset_id == twin.asset_id
+    assert loaded.latest_reasoning_run_id == twin.latest_reasoning_run_id
+
+
+def test_redis_cache_serialization_roundtrip() -> None:
+    twin = _sample_twin()
+    raw = serialize(twin)
+    loaded = deserialize(raw)
+
+    assert loaded == twin
+
+
+def test_redis_cache_invalidate_removes_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    fakeredis = pytest.importorskip("fakeredis")
+    fake = fakeredis.FakeRedis()
+    monkeypatch.setattr(
+        "backend.app.infrastructure.cache.redis_digital_twin_cache.redis.Redis.from_url",
+        lambda _url: fake,
+    )
+
+    cache = RedisDigitalTwinCache(redis_url="redis://unused", ttl_seconds=300)
+    cache.set(_sample_twin())
+    cache.invalidate("asset-1")
+    assert cache.get("asset-1") is None
+
+
+def test_redis_cache_ttl_expires_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    fakeredis = pytest.importorskip("fakeredis")
+    fake = fakeredis.FakeRedis()
+    monkeypatch.setattr(
+        "backend.app.infrastructure.cache.redis_digital_twin_cache.redis.Redis.from_url",
+        lambda _url: fake,
+    )
+
+    cache = RedisDigitalTwinCache(redis_url="redis://unused", ttl_seconds=1)
+    cache.set(_sample_twin())
+
+    assert cache.get("asset-1") is not None
+
+    import time
+
+    time.sleep(1.1)
     assert cache.get("asset-1") is None

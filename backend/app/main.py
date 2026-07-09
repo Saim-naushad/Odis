@@ -41,8 +41,8 @@ from backend.app.application.monitoring_event_source import (
 )
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_task_runner import ReasoningTaskRunner
-from backend.app.infrastructure.cache.memory_digital_twin_cache import (
-    MemoryDigitalTwinCache,
+from backend.app.infrastructure.cache.redis_digital_twin_cache import (
+    RedisDigitalTwinCache,
 )
 from backend.app.infrastructure.config.settings import Settings, get_settings
 from backend.app.infrastructure.database.session import (
@@ -89,7 +89,10 @@ def _build_lifespan(
         )
         monitoring_event_source = InMemoryMonitoringEventSource()
         app.state.monitoring_event_source = monitoring_event_source
-        digital_twin_cache = MemoryDigitalTwinCache()
+        digital_twin_cache = RedisDigitalTwinCache(
+            redis_url=active_settings.redis_url,
+            ttl_seconds=active_settings.cache_ttl_seconds,
+        )
         app.state.digital_twin_cache = digital_twin_cache
         domain_event_bus = DomainEventBus()
         app.state.domain_event_bus = domain_event_bus

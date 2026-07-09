@@ -31,6 +31,15 @@ class Settings(BaseSettings):
         validation_alias="KAFKA_BOOTSTRAP_SERVERS",
     )
 
+    redis_url: str = Field(
+        default="redis://redis:6379/0",
+        validation_alias="REDIS_URL",
+    )
+    cache_ttl_seconds: int = Field(
+        default=300,
+        validation_alias="CACHE_TTL_SECONDS",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:
