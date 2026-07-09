@@ -24,6 +24,7 @@ from backend.app.api.schemas.monitoring import (
     OperationalSituationResponse,
     OperationalStateResponse,
     ReasoningTraceResponse,
+    RecommendationResponse,
     StructuredAssessmentResponse,
     TimelineEventResponse,
     TrendAnalysisResponse,
@@ -208,6 +209,31 @@ def get_operational_state_for_asset(
             detail=f"asset with id {asset_id!r} has no reasoning history",
         )
     return OperationalStateResponse.from_domain(state)
+
+
+@router.get(
+    "/assets/{asset_id}/recommendation",
+    response_model=RecommendationResponse,
+    summary="Get current recommendation for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Asset not found"}},
+)
+def get_recommendation_for_asset(
+    asset_id: str,
+    service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+) -> RecommendationResponse:
+    recommendation = service.get_recommendation(asset_id)
+    if recommendation is None:
+        history = service.get_history_for_asset(asset_id)
+        if history is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"asset with id {asset_id!r} not found",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} has no reasoning history",
+        )
+    return RecommendationResponse.from_domain(recommendation)
 
 
 @router.get(

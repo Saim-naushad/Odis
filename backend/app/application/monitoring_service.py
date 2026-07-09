@@ -10,7 +10,9 @@ from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment import StructuredAssessment
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.application.operational_state_engine import OperationalStateEngine
+from backend.app.application.recommendation_engine import RecommendationEngine
 from backend.app.domain.operational_state import OperationalState
+from backend.app.domain.recommendation import Recommendation
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.domain.timeline import TimelineEvent
 from domain.entities.decision_context import DecisionContext
@@ -151,6 +153,14 @@ class MonitoringService:
             decision_plan=run_details.decision_plan,
             structured_assessment=run_details.structured_assessment,
         )
+
+    def get_recommendation(self, asset_id: str) -> Recommendation | None:
+        """Return the current Recommendation for an asset when state exists."""
+        state = self.get_operational_state(asset_id)
+        if state is None:
+            return None
+        engine = RecommendationEngine()
+        return engine.compute(state)
 
     def get_run_details(self, run_id: str) -> MonitoringRunDetails | None:
         """Return the complete persisted reasoning run for debugging."""

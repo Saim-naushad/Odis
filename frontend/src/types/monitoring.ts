@@ -138,6 +138,19 @@ export interface OperationalStateResponse {
   last_updated: string
 }
 
+export interface RecommendationResponse {
+  id: string
+  asset_id: string
+  category: 'investigate' | 'mitigate' | 'monitor' | string
+  priority: 'P0' | 'P1' | 'P2' | 'P3' | string
+  urgency: 'IMMEDIATE' | 'SOON' | 'SCHEDULED' | string
+  title: string
+  description: string
+  recommended_steps: string[]
+  estimated_impact: string
+  created_at: string
+}
+
 export type TimelineEventType =
   | 'observation_received'
   | 'reasoning_started'

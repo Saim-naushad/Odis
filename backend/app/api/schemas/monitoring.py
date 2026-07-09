@@ -16,6 +16,7 @@ from backend.app.domain.reasoning import (
     ConfidenceScore,
     Evidence,
 )
+from backend.app.domain.recommendation import Recommendation
 from backend.app.domain.time_series import TrendAnalysis
 from backend.app.domain.timeline import TimelineEvent, TimelineEventType
 from domain.entities.decision_context import DecisionContext
@@ -276,3 +277,30 @@ class OperationalStateResponse(BaseModel):
             last_updated=state.last_updated,
         )
 
+
+class RecommendationResponse(BaseModel):
+    id: str
+    asset_id: str
+    category: str
+    priority: str
+    urgency: str
+    title: str
+    description: str
+    recommended_steps: list[str]
+    estimated_impact: str
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, recommendation: Recommendation) -> Self:
+        return cls(
+            id=recommendation.id,
+            asset_id=recommendation.asset_id,
+            category=recommendation.category,
+            priority=recommendation.priority,
+            urgency=recommendation.urgency,
+            title=recommendation.title,
+            description=recommendation.description,
+            recommended_steps=list(recommendation.recommended_steps),
+            estimated_impact=recommendation.estimated_impact,
+            created_at=recommendation.created_at,
+        )

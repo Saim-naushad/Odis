@@ -5,6 +5,7 @@ import { ReasoningTrace } from '../components/ReasoningTrace'
 import { RunHistory } from '../components/RunHistory'
 import { Timeline } from '../components/Timeline'
 import { OperationalStateCard } from '../components/OperationalStateCard'
+import { RecommendationCard } from '../components/RecommendationCard'
 import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
 import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
@@ -21,6 +22,12 @@ export function MonitoringDashboard() {
           operationalState={state.operationalState}
           loading={state.operationalStateLoading}
           error={state.operationalStateError}
+        />
+        <RecommendationCard
+          selectedAssetId={state.selectedAssetId}
+          recommendation={state.recommendation}
+          loading={state.recommendationLoading}
+          error={state.recommendationError}
         />
         <section className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
           <div className="flex flex-col">

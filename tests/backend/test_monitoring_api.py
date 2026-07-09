@@ -314,6 +314,46 @@ def test_operational_state_endpoint_returns_current_state(
     assert payload["last_updated"]
 
 
+def test_recommendation_endpoint_returns_current_recommendation(
+    api_client: TestClient,
+) -> None:
+    asset_id = "asset-recommendation"
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-rec-1",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:00:00Z",
+            value=10.0,
+        ),
+    )
+    api_client.post(
+        "/observations",
+        json=_observation_payload(
+            observation_id="obs-rec-2",
+            asset_id=asset_id,
+            timestamp="2026-01-01T10:01:00Z",
+            value=30.0,
+        ),
+    )
+
+    response = api_client.get(f"/monitoring/assets/{asset_id}/recommendation")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["asset_id"] == asset_id
+    assert payload["id"]
+    assert payload["category"] in {"investigate", "mitigate", "monitor"}
+    assert payload["priority"] in {"P0", "P1", "P2", "P3"}
+    assert payload["urgency"] in {"IMMEDIATE", "SOON", "SCHEDULED"}
+    assert payload["title"]
+    assert payload["description"]
+    assert isinstance(payload["recommended_steps"], list)
+    assert len(payload["recommended_steps"]) >= 1
+    assert payload["estimated_impact"]
+    assert payload["created_at"]
+
+
 def test_timeline_includes_health_and_risk_transitions(api_client: TestClient) -> None:
     asset_id = "asset-state-transitions"
 

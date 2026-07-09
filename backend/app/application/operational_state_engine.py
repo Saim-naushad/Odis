@@ -44,7 +44,11 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from backend.app.application.explainable_reasoning import build_explainable_decision
-from backend.app.domain.operational_state import HealthStatus, OperationalState, RiskLevel
+from backend.app.domain.operational_state import (
+    HealthStatus,
+    OperationalState,
+    RiskLevel,
+)
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.observation import Observation
 

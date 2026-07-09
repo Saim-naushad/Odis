@@ -8,6 +8,7 @@ import type {
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
   OperationalStateResponse,
+  RecommendationResponse,
   TimelineEventResponse,
 } from '../types/monitoring'
 
@@ -47,6 +48,10 @@ export interface MonitoringDashboardState {
   operationalState?: OperationalStateResponse
   operationalStateLoading: boolean
   operationalStateError?: string
+
+  recommendation?: RecommendationResponse
+  recommendationLoading: boolean
+  recommendationError?: string
 
   lastUpdatedAt?: Date
 }
@@ -88,6 +93,7 @@ export function useMonitoringDashboard(
   const hasLoadedRunDetailsRef = useRef(false)
   const hasLoadedTimelineRef = useRef(false)
   const hasLoadedOperationalStateRef = useRef(false)
+  const hasLoadedRecommendationRef = useRef(false)
 
   // Keep track of current selection without forcing effect restarts.
   const selectedAssetIdRef = useRef<string | undefined>(selectedAssetId)
@@ -131,6 +137,7 @@ export function useMonitoringDashboard(
       hasLoadedRunDetailsRef.current = false
       hasLoadedTimelineRef.current = false
       hasLoadedOperationalStateRef.current = false
+      hasLoadedRecommendationRef.current = false
       return
     }
 
@@ -141,6 +148,7 @@ export function useMonitoringDashboard(
     hasLoadedRunDetailsRef.current = false
     hasLoadedTimelineRef.current = false
     hasLoadedOperationalStateRef.current = false
+    hasLoadedRecommendationRef.current = false
   }, [selectedAssetId])
 
   const platformQuery = useQuery({
@@ -207,6 +215,15 @@ export function useMonitoringDashboard(
     refetchIntervalInBackground: true,
   })
 
+  const recommendationQuery = useQuery({
+    queryKey: ['monitoring', 'asset', selectedAssetId, 'recommendation'],
+    enabled: Boolean(selectedAssetId),
+    queryFn: ({ signal }) =>
+      monitoringClient.getRecommendationForAsset(selectedAssetId as string, signal),
+    refetchInterval,
+    refetchIntervalInBackground: true,
+  })
+
   // Preserve selection behavior: auto-select first asset when assets load.
   useEffect(() => {
     if (!assetsQuery.data || assetsQuery.data.length === 0) return
@@ -247,6 +264,10 @@ export function useMonitoringDashboard(
   useEffect(() => {
     if (operationalStateQuery.isSuccess) hasLoadedOperationalStateRef.current = true
   }, [operationalStateQuery.isSuccess])
+
+  useEffect(() => {
+    if (recommendationQuery.isSuccess) hasLoadedRecommendationRef.current = true
+  }, [recommendationQuery.isSuccess])
 
   async function retryAssetList(): Promise<void> {
     const result = await assetsQuery.refetch()
@@ -414,6 +435,19 @@ export function useMonitoringDashboard(
         )
       : undefined
 
+  const recommendation = selectedAssetId ? recommendationQuery.data : undefined
+  const recommendationLoading =
+    Boolean(selectedAssetId) && recommendationQuery.isFetching
+  const recommendationError =
+    selectedAssetId && recommendationQuery.isError
+      ? formatPhaseError(
+          hasLoadedRecommendationRef.current,
+          recommendationQuery.error,
+          'Failed to load recommendation',
+          'Failed to refresh recommendation',
+        )
+      : undefined
+
   const lastUpdatedAt =
     selectedAssetId && latestAndHistoryQuery.data
       ? new Date(latestAndHistoryQuery.dataUpdatedAt)
@@ -445,6 +479,9 @@ export function useMonitoringDashboard(
     operationalState,
     operationalStateLoading,
     operationalStateError,
+    recommendation,
+    recommendationLoading,
+    recommendationError,
     lastUpdatedAt,
     setSelectedAssetId,
     setSelectedRunId,
