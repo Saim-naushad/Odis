@@ -213,10 +213,18 @@ pytest
 
 ```bash
 ruff check .
-mypy src tests
+mypy src backend tests
 ```
 
-These checks run automatically on every push and pull request via GitHub Actions.
+**Frontend checks:**
+
+```bash
+npm --prefix frontend ci
+npm --prefix frontend run lint
+npm --prefix frontend run build
+```
+
+Backend and frontend validation run automatically on every push and pull request. Pushes to `main` also build and publish Docker images (`odis-api`, `odis-worker`, `odis-frontend`) to GitHub Container Registry. See [CI/CD and Container Registry](docs/platform/ci-cd.md) for workflow details, required secrets, and image tagging.
 
 For a single suite:
 
