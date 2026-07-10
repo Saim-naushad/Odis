@@ -5,6 +5,7 @@ import { ReasoningTrace } from '../components/ReasoningTrace'
 import { RunHistory } from '../components/RunHistory'
 import { Timeline } from '../components/Timeline'
 import { TelemetryHistoryPanel } from '../components/TelemetryHistoryPanel'
+import { AggregateSummaryPanel } from '../components/AggregateSummaryPanel'
 import { OperationalStateCard } from '../components/OperationalStateCard'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { NotificationCard } from '../components/NotificationCard'
@@ -96,6 +97,15 @@ export function MonitoringDashboard() {
               loading={state.telemetryHistoryLoading}
               error={state.telemetryHistoryError}
               onRetry={state.retryTelemetryHistory}
+            />
+            <AggregateSummaryPanel
+              hourlySeries={state.telemetryAggregatesHourly}
+              dailySeries={state.telemetryAggregatesDaily}
+              selectedBucket={state.telemetryAggregateBucket}
+              onBucketChange={state.setTelemetryAggregateBucket}
+              loading={state.telemetryAggregatesLoading}
+              error={state.telemetryAggregatesError}
+              onRetry={state.retryTelemetryAggregates}
             />
           </div>
         </section>

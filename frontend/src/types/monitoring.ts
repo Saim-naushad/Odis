@@ -92,6 +92,22 @@ export interface TelemetrySeriesResponse {
   samples: TelemetrySampleResponse[]
 }
 
+export interface TelemetryAggregateSampleResponse {
+  timestamp: string
+  avg_value: number
+  min_value: number
+  max_value: number
+  sample_count: number
+}
+
+export interface TelemetryAggregateSeriesResponse {
+  asset_id: string
+  measurement_type: string
+  unit: string
+  bucket: '1h' | '1d' | string
+  samples: TelemetryAggregateSampleResponse[]
+}
+
 export interface TraceStepResponse {
   name: string
   description: string

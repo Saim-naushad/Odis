@@ -7,6 +7,8 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from domain.value_objects.telemetry_aggregate import TelemetryAggregatePoint
+from domain.value_objects.telemetry_bucket import TelemetryBucket
 from domain.value_objects.telemetry_series import TelemetrySample, TelemetrySeries
 
 
@@ -65,5 +67,54 @@ class TelemetrySeriesResponse(BaseModel):
             samples=[
                 TelemetrySampleResponse.from_domain(sample)
                 for sample in series.samples
+            ],
+        )
+
+
+class TelemetryAggregateSampleResponse(BaseModel):
+    """One downsampled bucket with aggregate statistics."""
+
+    timestamp: datetime
+    avg_value: float
+    min_value: float
+    max_value: float
+    sample_count: int
+
+
+class TelemetryAggregateSeriesResponse(BaseModel):
+    """Downsampled telemetry for one asset metric."""
+
+    asset_id: str
+    measurement_type: str
+    unit: str
+    bucket: str = Field(description="Aggregate bucket width (1h or 1d)")
+    samples: list[TelemetryAggregateSampleResponse] = Field(
+        description="Chronological aggregate buckets, oldest first",
+    )
+
+    @classmethod
+    def from_points(
+        cls,
+        *,
+        asset_id: str,
+        bucket: TelemetryBucket,
+        measurement_type: str,
+        unit: str,
+        points: list[TelemetryAggregatePoint],
+    ) -> Self:
+        return cls(
+            asset_id=asset_id,
+            measurement_type=measurement_type,
+            unit=unit,
+            bucket=bucket.value,
+            samples=[
+                TelemetryAggregateSampleResponse(
+                    timestamp=point.bucket,
+                    avg_value=point.avg_value,
+                    min_value=point.min_value,
+                    max_value=point.max_value,
+                    sample_count=point.sample_count,
+                )
+                for point in points
             ],
         )

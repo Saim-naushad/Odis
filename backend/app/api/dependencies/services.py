@@ -19,9 +19,13 @@ from backend.app.api.dependencies.repositories import (
     get_reasoning_trace_repository,
     get_situation_repository,
     get_structured_assessment_repository,
+    get_telemetry_aggregate_repository,
     get_timeline_repository,
 )
 from backend.app.api.routers.platform import REASONING_ENGINE_VERSION
+from backend.app.application.continuous_aggregate_service import (
+    ContinuousAggregateService,
+)
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.digital_twin_service import DigitalTwinService
 from backend.app.application.events.event_bus import DomainEventBus
@@ -41,6 +45,9 @@ from domain.repositories.decision_plan_repository import DecisionPlanRepository
 from domain.repositories.observation_repository import ObservationRepository
 from domain.repositories.reasoning_run_repository import ReasoningRunRepository
 from domain.repositories.situation_repository import SituationRepository
+from domain.repositories.telemetry_aggregate_repository import (
+    TelemetryAggregateRepository,
+)
 
 
 def get_domain_event_bus(request: Request) -> DomainEventBus:
@@ -118,6 +125,21 @@ def get_telemetry_history_service(
 ) -> TelemetryHistoryService:
     """Provide a request-scoped telemetry history service."""
     return TelemetryHistoryService(observation_repository=observation_repository)
+
+
+def get_continuous_aggregate_service(
+    observation_repository: Annotated[
+        ObservationRepository, Depends(get_observation_repository)
+    ],
+    telemetry_aggregate_repository: Annotated[
+        TelemetryAggregateRepository, Depends(get_telemetry_aggregate_repository)
+    ],
+) -> ContinuousAggregateService:
+    """Provide a request-scoped continuous aggregate service."""
+    return ContinuousAggregateService(
+        observation_repository=observation_repository,
+        telemetry_aggregate_repository=telemetry_aggregate_repository,
+    )
 
 
 def get_digital_twin_cache(request: Request) -> DigitalTwinCache:

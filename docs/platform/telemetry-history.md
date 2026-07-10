@@ -145,18 +145,25 @@ SQLAlchemy uses standard `WHERE` + `ORDER BY` + `LIMIT` against indexes defined 
 
 The monitoring dashboard includes a **Telemetry History** panel that lists recent measurements per metric (no charts yet). It calls `GET /monitoring/assets/{id}/telemetry` with a configurable limit.
 
-Charts will arrive after continuous aggregates provide downsampled rollups suitable for rendering at scale.
+Charts can build on continuous aggregate endpoints for downsampled rollups; see [Continuous Aggregates](continuous-aggregates.md).
 
 ---
 
-## Future: Continuous Aggregates and ONNX
+## Continuous Aggregates
+
+Downsampled telemetry is available via `ContinuousAggregateService` and `GET /monitoring/assets/{id}/telemetry/aggregate`. See [Continuous Aggregates](continuous-aggregates.md) for view definitions, refresh policies, and the relationship to raw history.
+
+The monitoring dashboard includes an **Aggregate Summary** panel (hourly/daily toggles, no charts).
+
+---
+
+## Future: ONNX
 
 | Capability | Relationship to telemetry APIs |
 |------------|-------------------------------|
-| **Continuous aggregates** | Dashboard charts will query pre-computed `time_bucket()` rollups (for example hourly averages) while raw history endpoints remain for drill-down |
 | **ONNX inference** | Forecasting models will consume aggregated or windowed telemetry; inference stays out of historical retrieval APIs |
 
-Raw `TelemetrySeries` responses stay stable. Aggregates and ONNX add parallel read paths without changing the domain contract.
+Raw `TelemetrySeries` responses stay stable. ONNX adds a parallel read path without changing the domain contract.
 
 ---
 

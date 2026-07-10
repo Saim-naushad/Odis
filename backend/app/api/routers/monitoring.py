@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from backend.app.api.dependencies.monitoring_events import MonitoringEventSourceDep
 from backend.app.api.dependencies.services import (
+    get_continuous_aggregate_service,
     get_digital_twin_service,
     get_monitoring_service,
     get_telemetry_history_service,
@@ -38,7 +39,13 @@ from backend.app.api.schemas.monitoring import (
     TrendAnalysisResponse,
 )
 from backend.app.api.schemas.observation import ObservationResponse
-from backend.app.api.schemas.telemetry import TelemetrySeriesResponse
+from backend.app.api.schemas.telemetry import (
+    TelemetryAggregateSeriesResponse,
+    TelemetrySeriesResponse,
+)
+from backend.app.application.continuous_aggregate_service import (
+    ContinuousAggregateService,
+)
 from backend.app.application.digital_twin_service import (
     DigitalTwinAssetNotFoundError,
     DigitalTwinNoReasoningHistoryError,
@@ -54,6 +61,8 @@ from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.monitoring_metrics import (
     monitoring_sse_connections,
 )
+from domain.value_objects.telemetry_aggregate import TelemetryAggregatePoint
+from domain.value_objects.telemetry_bucket import TelemetryBucket
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 logger = get_logger(__name__)
@@ -252,6 +261,88 @@ def get_telemetry_history_for_asset(
         limit=limit,
     )
     return [TelemetrySeriesResponse.from_domain(item) for item in series]
+
+
+@router.get(
+    "/assets/{asset_id}/telemetry/aggregate",
+    response_model=list[TelemetryAggregateSeriesResponse],
+    summary="Get downsampled telemetry aggregates for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Asset not found"}},
+)
+def get_telemetry_aggregates_for_asset(
+    asset_id: str,
+    service: Annotated[
+        ContinuousAggregateService, Depends(get_continuous_aggregate_service)
+    ],
+    bucket: Annotated[
+        str,
+        Query(description="Aggregate bucket width", pattern="^(1h|1d)$"),
+    ],
+    start: Annotated[
+        datetime | None,
+        Query(description="Inclusive start of the query window (ISO 8601)"),
+    ] = None,
+    end: Annotated[
+        datetime | None,
+        Query(description="Inclusive end of the query window (ISO 8601)"),
+    ] = None,
+    measurement_type: Annotated[
+        str | None,
+        Query(min_length=1, description="Optional measurement type filter"),
+    ] = None,
+) -> list[TelemetryAggregateSeriesResponse]:
+    if not service.asset_exists(asset_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} not found",
+        )
+    if start is not None and end is not None and start > end:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="start must not be after end",
+        )
+
+    try:
+        bucket_granularity = TelemetryBucket.from_query(bucket)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+
+    resolved_bucket = ContinuousAggregateService.resolve_bucket(
+        bucket_granularity,
+        start=start,
+        end=end,
+    )
+    points = service.list_aggregate_points(
+        asset_id,
+        bucket=resolved_bucket,
+        start=start,
+        end=end,
+        measurement_type=measurement_type,
+    )
+
+    grouped: dict[str, list[TelemetryAggregatePoint]] = {}
+    units: dict[str, str] = {}
+    for point in points:
+        grouped.setdefault(point.measurement_type, []).append(point)
+        units[point.measurement_type] = point.unit
+
+    responses: list[TelemetryAggregateSeriesResponse] = []
+    for metric in sorted(grouped):
+        metric_points = grouped[metric]
+        metric_points.sort(key=lambda item: item.bucket)
+        responses.append(
+            TelemetryAggregateSeriesResponse.from_points(
+                asset_id=asset_id,
+                bucket=resolved_bucket,
+                measurement_type=metric,
+                unit=units[metric],
+                points=metric_points,
+            )
+        )
+    return responses
 
 
 @router.get(

@@ -34,6 +34,9 @@ from backend.app.infrastructure.repositories.situation_repository import (
 from backend.app.infrastructure.repositories.structured_assessment_repository import (
     SqlAlchemyStructuredAssessmentRepository,
 )
+from backend.app.infrastructure.repositories.telemetry_aggregate_repository import (
+    SqlAlchemyTelemetryAggregateRepository,
+)
 from backend.app.infrastructure.repositories.timeline_repository import (
     SqlAlchemyTimelineRepository,
 )
@@ -42,6 +45,9 @@ from domain.repositories.decision_plan_repository import DecisionPlanRepository
 from domain.repositories.observation_repository import ObservationRepository
 from domain.repositories.reasoning_run_repository import ReasoningRunRepository
 from domain.repositories.situation_repository import SituationRepository
+from domain.repositories.telemetry_aggregate_repository import (
+    TelemetryAggregateRepository,
+)
 
 
 def get_observation_repository(
@@ -49,6 +55,13 @@ def get_observation_repository(
 ) -> ObservationRepository:
     """Provide a request-scoped observation repository."""
     return SqlAlchemyObservationRepository(session)
+
+
+def get_telemetry_aggregate_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> TelemetryAggregateRepository:
+    """Provide a request-scoped telemetry aggregate repository."""
+    return SqlAlchemyTelemetryAggregateRepository(session)
 
 
 def get_reasoning_run_repository(

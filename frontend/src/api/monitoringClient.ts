@@ -11,6 +11,7 @@ import type {
   NotificationResponse,
   RecommendationResponse,
   TelemetrySeriesResponse,
+  TelemetryAggregateSeriesResponse,
   TimelineEventResponse,
 } from '../types/monitoring'
 
@@ -155,6 +156,28 @@ export const monitoringClient = {
     const path = `/monitoring/assets/${encodeURIComponent(assetId)}/telemetry/latest${
       query ? `?${query}` : ''
     }`
+    return apiClient.get(path, signal)
+  },
+
+  getTelemetryAggregatesForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+    params?: {
+      bucket: '1h' | '1d'
+      start?: string
+      end?: string
+      measurement_type?: string
+    },
+  ): Promise<TelemetryAggregateSeriesResponse[]> {
+    const search = new URLSearchParams()
+    search.set('bucket', params?.bucket ?? '1h')
+    if (params?.start) search.set('start', params.start)
+    if (params?.end) search.set('end', params.end)
+    if (params?.measurement_type) {
+      search.set('measurement_type', params.measurement_type)
+    }
+    const query = search.toString()
+    const path = `/monitoring/assets/${encodeURIComponent(assetId)}/telemetry/aggregate?${query}`
     return apiClient.get(path, signal)
   },
 }

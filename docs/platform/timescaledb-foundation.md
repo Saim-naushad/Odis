@@ -128,11 +128,11 @@ The schema and indexes are prepared for later capabilities. None are enabled in 
 
 | Capability | Fit in ODIS | Planned trigger |
 |------------|-------------|-----------------|
-| **Continuous aggregates** | Pre-computed `time_bucket()` rollups for monitoring dashboards (hourly/daily asset metrics) | Dashboard latency or query cost justifies materialized rollups |
+| **Continuous aggregates** | Pre-computed `time_bucket()` rollups for monitoring dashboards (hourly/daily asset metrics) | Enabled — see [Continuous Aggregates](continuous-aggregates.md) |
 | **Compression** | Segment by `asset_id`, order by `timestamp DESC` on historical chunks | Storage growth after warm data ages out |
 | **Retention policies** | Drop raw telemetry beyond operational window; keep reasoning artifacts | Agreed data lifecycle / compliance window |
 
-Example future continuous aggregate (documentation only):
+Example continuous aggregate (see [Continuous Aggregates](continuous-aggregates.md) for full definitions and refresh policies):
 
 ```sql
 CREATE MATERIALIZED VIEW observations_hourly
@@ -226,5 +226,6 @@ Alembic migrations enable the `timescaledb` extension and convert `observations`
 | Document | Topic |
 |----------|-------|
 | [Platform Architecture](platform-architecture.md) | Overall platform design and persistence layout |
+| [Continuous Aggregates](continuous-aggregates.md) | Rollup views, refresh policies, and aggregate APIs |
 | [Docker Runtime](docker-runtime.md) | Compose service topology |
 | [Kubernetes Deployment](kubernetes-deployment.md) | Cluster manifests and operations |
