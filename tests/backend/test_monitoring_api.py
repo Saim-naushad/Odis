@@ -32,7 +32,10 @@ def auto_process_reasoning_jobs(api_client: TestClient) -> Generator[None, None,
 @pytest.fixture
 def sqlite_settings(tmp_path: Path) -> Settings:
     database_path = tmp_path / "monitoring_api.db"
-    return Settings(database_url=f"sqlite:///{database_path}")
+    return Settings(
+        database_url=f"sqlite:///{database_path}",
+        forecast_enabled=False,
+    )
 
 
 @pytest.fixture

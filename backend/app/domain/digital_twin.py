@@ -15,6 +15,7 @@ from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
 from backend.app.domain.timeline import TimelineEvent
 from domain.value_objects.location import Location
+from domain.value_objects.telemetry_forecast import TelemetryForecast
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ class DigitalTwin:
     notification: Notification | None
     latest_reasoning_run_id: str
     timeline_preview: tuple[TimelineEvent, ...]
+    telemetry_forecasts: tuple[TelemetryForecast, ...]
     last_updated: datetime
 
     def __post_init__(self) -> None:

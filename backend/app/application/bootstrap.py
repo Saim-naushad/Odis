@@ -26,6 +26,7 @@ from backend.app.application.events.handlers.monitoring_event_handler import (
 from backend.app.application.events.handlers.timeline_event_handler import (
     TimelineEventHandler,
 )
+from backend.app.application.forecast_inference_engine import ForecastInferenceEngine
 from backend.app.application.integration_event_publisher import (
     IntegrationEventPublisher,
 )
@@ -41,6 +42,7 @@ from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.events.kafka_integration_event_publisher import (
     KafkaIntegrationEventPublisher,
 )
+from backend.app.infrastructure.inference.factory import create_forecast_inference_engine
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +53,7 @@ class ApplicationRuntime:
     monitoring_event_source: InMemoryMonitoringEventSource
     digital_twin_cache: DigitalTwinCache
     outbox_dispatcher: OutboxDispatcher | None
+    forecast_inference_engine: ForecastInferenceEngine | None
 
 
 def create_integration_event_publisher(
@@ -169,9 +172,12 @@ def bootstrap_application_runtime(
             create_integration_event_publisher(settings),
         )
 
+    forecast_inference_engine = create_forecast_inference_engine(settings)
+
     return ApplicationRuntime(
         domain_event_bus=domain_event_bus,
         monitoring_event_source=monitoring_event_source,
         digital_twin_cache=digital_twin_cache,
         outbox_dispatcher=outbox_dispatcher,
+        forecast_inference_engine=forecast_inference_engine,
     )

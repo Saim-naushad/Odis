@@ -40,7 +40,7 @@ from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
 
 @pytest.fixture
 def sqlite_settings() -> Settings:
-    return Settings(database_url="sqlite://")
+    return Settings(database_url="sqlite://", forecast_enabled=False)
 
 
 @pytest.fixture

@@ -13,6 +13,7 @@ from backend.app.api.dependencies.monitoring_events import MonitoringEventSource
 from backend.app.api.dependencies.services import (
     get_continuous_aggregate_service,
     get_digital_twin_service,
+    get_forecast_inference_service,
     get_monitoring_service,
     get_telemetry_history_service,
 )
@@ -41,6 +42,7 @@ from backend.app.api.schemas.monitoring import (
 from backend.app.api.schemas.observation import ObservationResponse
 from backend.app.api.schemas.telemetry import (
     TelemetryAggregateSeriesResponse,
+    TelemetryForecastResponse,
     TelemetrySeriesResponse,
 )
 from backend.app.application.continuous_aggregate_service import (
@@ -51,6 +53,7 @@ from backend.app.application.digital_twin_service import (
     DigitalTwinNoReasoningHistoryError,
     DigitalTwinService,
 )
+from backend.app.application.forecast_inference_service import ForecastInferenceService
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.monitoring_sse_stream import stream_monitoring_sse_events
 from backend.app.application.telemetry_history_service import (
@@ -382,6 +385,97 @@ def get_latest_telemetry_for_asset(
 
 
 @router.get(
+    "/assets/{asset_id}/telemetry/forecast",
+    response_model=list[TelemetryForecastResponse],
+    summary="Get ONNX-backed telemetry forecasts for an asset",
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Asset not found"},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "Forecasting is disabled",
+        },
+    },
+)
+def get_telemetry_forecasts_for_asset(
+    asset_id: str,
+    service: Annotated[
+        ForecastInferenceService | None,
+        Depends(get_forecast_inference_service),
+    ],
+    bucket: Annotated[
+        str,
+        Query(description="Aggregate bucket width used for model context", pattern="^(1h|1d)$"),
+    ] = "1h",
+    start: Annotated[
+        datetime | None,
+        Query(description="Inclusive start of the context window (ISO 8601)"),
+    ] = None,
+    end: Annotated[
+        datetime | None,
+        Query(description="Inclusive end of the context window (ISO 8601)"),
+    ] = None,
+    measurement_type: Annotated[
+        str | None,
+        Query(min_length=1, description="Optional measurement type filter"),
+    ] = None,
+    horizon_steps: Annotated[
+        int | None,
+        Query(ge=1, le=48, description="Optional forecast horizon override"),
+    ] = None,
+) -> list[TelemetryForecastResponse]:
+    if service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="forecasting is disabled",
+        )
+    if not service.asset_exists(asset_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} not found",
+        )
+    if start is not None and end is not None and start > end:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="start must not be after end",
+        )
+
+    try:
+        bucket_granularity = TelemetryBucket.from_query(bucket)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+
+    if measurement_type is not None:
+        try:
+            forecasts = [
+                service.get_forecast(
+                    asset_id,
+                    measurement_type=measurement_type,
+                    bucket=bucket_granularity,
+                    start=start,
+                    end=end,
+                    horizon_steps=horizon_steps,
+                )
+            ]
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error),
+            ) from error
+    else:
+        forecasts = service.get_forecasts_for_asset(
+            asset_id,
+            bucket=bucket_granularity,
+            start=start,
+            end=end,
+            horizon_steps=horizon_steps,
+        )
+
+    return [TelemetryForecastResponse.from_domain(item) for item in forecasts]
+
+
+@router.get(
     "/assets/{asset_id}/state",
     response_model=OperationalStateResponse,
     summary="Get current operational state for an asset",
@@ -494,6 +588,10 @@ def get_digital_twin_for_asset(
         latest_reasoning_run_id=twin.latest_reasoning_run_id,
         timeline_preview=[
             TimelineEventResponse.from_domain(event) for event in twin.timeline_preview
+        ],
+        telemetry_forecasts=[
+            TelemetryForecastResponse.from_domain(forecast)
+            for forecast in twin.telemetry_forecasts
         ],
         last_updated=twin.last_updated,
     )

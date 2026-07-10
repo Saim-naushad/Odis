@@ -82,6 +82,9 @@ def _build_lifespan(
         app.state.digital_twin_cache = application_runtime.digital_twin_cache
         app.state.domain_event_bus = application_runtime.domain_event_bus
         app.state.outbox_dispatcher = application_runtime.outbox_dispatcher
+        app.state.forecast_inference_engine = (
+            application_runtime.forecast_inference_engine
+        )
 
         logger.info(
             "application_starting",

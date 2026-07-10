@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 
 from backend.app.application.digital_twin_cache import DigitalTwinCache
+from backend.app.application.forecast_inference_service import ForecastInferenceService
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.domain.digital_twin import DigitalTwin
 from backend.app.domain.timeline import TimelineEvent
@@ -15,6 +16,8 @@ from backend.app.infrastructure.metrics.reasoning_metrics import (
 from backend.app.infrastructure.tracing import business_span
 from domain.entities.asset import Asset
 from domain.value_objects.location import Location
+from domain.value_objects.telemetry_bucket import TelemetryBucket
+from domain.value_objects.telemetry_forecast import TelemetryForecast
 
 
 class DigitalTwinAssetNotFoundError(Exception):
@@ -63,10 +66,12 @@ class DigitalTwinService:
         *,
         monitoring_service: MonitoringService,
         cache: DigitalTwinCache,
+        forecast_inference_service: ForecastInferenceService | None = None,
         timeline_preview_limit: int = 5,
     ) -> None:
         self._monitoring = monitoring_service
         self._cache = cache
+        self._forecast_inference_service = forecast_inference_service
         self._timeline_preview_limit = timeline_preview_limit
 
     def get_for_asset(self, asset_id: str) -> DigitalTwin:
@@ -102,6 +107,7 @@ class DigitalTwinService:
             timeline_preview = self._preview_timeline(timeline)
 
             descriptor = _default_asset_descriptor(asset_id)
+            telemetry_forecasts = self._load_telemetry_forecasts(asset_id)
 
             twin = DigitalTwin(
                 asset_id=descriptor.asset.id,
@@ -113,6 +119,7 @@ class DigitalTwinService:
                 notification=notification,
                 latest_reasoning_run_id=latest.run.id,
                 timeline_preview=tuple(timeline_preview),
+                telemetry_forecasts=tuple(telemetry_forecasts),
                 last_updated=operational_state.last_updated,
             )
             record_digital_twin_build_duration(time.perf_counter() - build_start)
@@ -124,4 +131,17 @@ class DigitalTwinService:
         # Timeline is oldest → newest; preview should return the most recent N
         # while preserving chronological order.
         return timeline[-self._timeline_preview_limit :]
+
+    def _load_telemetry_forecasts(self, asset_id: str) -> list[TelemetryForecast]:
+        if self._forecast_inference_service is None:
+            return []
+        if not self._forecast_inference_service.asset_exists(asset_id):
+            return []
+        try:
+            return self._forecast_inference_service.get_forecasts_for_asset(
+                asset_id,
+                bucket=TelemetryBucket.ONE_HOUR,
+            )
+        except ValueError:
+            return []
 

@@ -181,11 +181,13 @@ Downsampled telemetry is available via `ContinuousAggregateService` and `GET /mo
 
 ## Future: ONNX
 
+Forecasting is documented in [Telemetry Forecasting](telemetry-forecasting.md).
+
 | Capability | Relationship to telemetry APIs |
 |------------|-------------------------------|
-| **ONNX inference** | Forecasting models will consume aggregated or windowed telemetry; inference stays out of historical retrieval APIs |
+| **ONNX inference** | Parallel read path via `/telemetry/forecast`; overlays on charts |
 
-Raw `TelemetrySeries` responses stay stable. ONNX adds a parallel read path without changing the domain contract.
+Raw `TelemetrySeries` responses stay stable. ONNX adds forecasts without changing the historical domain contract.
 
 ---
 

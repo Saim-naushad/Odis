@@ -62,6 +62,27 @@ class Settings(BaseSettings):
         validation_alias="OTEL_SERVICE_NAME",
     )
 
+    forecast_enabled: bool = Field(
+        default=True,
+        validation_alias="FORECAST_ENABLED",
+    )
+    onnx_model_path: str | None = Field(
+        default=None,
+        validation_alias="ONNX_MODEL_PATH",
+    )
+    onnx_model_id: str = Field(
+        default="persistence_drift_v1",
+        validation_alias="ONNX_MODEL_ID",
+    )
+    forecast_context_length: int = Field(
+        default=24,
+        validation_alias="FORECAST_CONTEXT_LENGTH",
+    )
+    forecast_horizon_steps: int = Field(
+        default=12,
+        validation_alias="FORECAST_HORIZON_STEPS",
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

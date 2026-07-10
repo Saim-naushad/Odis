@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.structured_assessment import StructuredAssessment
 from backend.app.api.schemas.observation import ObservationResponse
+from backend.app.api.schemas.telemetry import TelemetryForecastResponse
 from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.reasoning import (
@@ -350,4 +351,8 @@ class DigitalTwinResponse(BaseModel):
     notification: NotificationResponse | None
     latest_reasoning_run_id: str
     timeline_preview: list[TimelineEventResponse]
+    telemetry_forecasts: list[TelemetryForecastResponse] = Field(
+        default_factory=list,
+        description="Optional ONNX-backed telemetry forecasts; does not affect reasoning",
+    )
     last_updated: datetime

@@ -89,6 +89,11 @@ def run_worker(*, poll_interval_seconds: float = 1.0) -> None:
     )
 
     worker = create_reasoning_worker(session_factory, application_runtime)
+    if application_runtime.forecast_inference_engine is not None:
+        logger.info(
+            "forecast_inference_engine_ready",
+            model_id=application_runtime.forecast_inference_engine.model_spec.model_id,
+        )
     heartbeat_service = WorkerHeartbeatService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
         worker_id=build_worker_id(),

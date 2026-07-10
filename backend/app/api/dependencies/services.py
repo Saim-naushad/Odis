@@ -29,6 +29,9 @@ from backend.app.application.continuous_aggregate_service import (
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.digital_twin_service import DigitalTwinService
 from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.feature_builder import FeatureBuilder
+from backend.app.application.forecast_inference_engine import ForecastInferenceEngine
+from backend.app.application.forecast_inference_service import ForecastInferenceService
 from backend.app.application.health_service import HealthService
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.observation_service import ObservationService
@@ -142,6 +145,39 @@ def get_continuous_aggregate_service(
     )
 
 
+def get_forecast_inference_engine(request: Request) -> ForecastInferenceEngine | None:
+    engine = getattr(request.app.state, "forecast_inference_engine", None)
+    if engine is None:
+        return None
+    return cast(ForecastInferenceEngine, engine)
+
+
+def get_forecast_inference_service(
+    observation_repository: Annotated[
+        ObservationRepository, Depends(get_observation_repository)
+    ],
+    telemetry_aggregate_repository: Annotated[
+        TelemetryAggregateRepository, Depends(get_telemetry_aggregate_repository)
+    ],
+    inference_engine: Annotated[
+        ForecastInferenceEngine | None,
+        Depends(get_forecast_inference_engine),
+    ],
+) -> ForecastInferenceService | None:
+    """Provide a request-scoped forecast inference service when enabled."""
+    if inference_engine is None:
+        return None
+
+    settings = get_settings()
+    feature_builder = FeatureBuilder(context_length=settings.forecast_context_length)
+    return ForecastInferenceService(
+        observation_repository=observation_repository,
+        telemetry_aggregate_repository=telemetry_aggregate_repository,
+        feature_builder=feature_builder,
+        inference_engine=inference_engine,
+    )
+
+
 def get_digital_twin_cache(request: Request) -> DigitalTwinCache:
     cache = getattr(request.app.state, "digital_twin_cache", None)
     if cache is None:
@@ -153,9 +189,17 @@ def get_digital_twin_cache(request: Request) -> DigitalTwinCache:
 def get_digital_twin_service(
     monitoring_service: Annotated[MonitoringService, Depends(get_monitoring_service)],
     cache: Annotated[DigitalTwinCache, Depends(get_digital_twin_cache)],
+    forecast_inference_service: Annotated[
+        ForecastInferenceService | None,
+        Depends(get_forecast_inference_service),
+    ],
 ) -> DigitalTwinService:
     """Provide a request-scoped digital twin assembly service."""
-    return DigitalTwinService(monitoring_service=monitoring_service, cache=cache)
+    return DigitalTwinService(
+        monitoring_service=monitoring_service,
+        cache=cache,
+        forecast_inference_service=forecast_inference_service,
+    )
 
 
 def get_health_service(request: Request) -> HealthService:

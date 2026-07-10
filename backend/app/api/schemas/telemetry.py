@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from domain.value_objects.telemetry_aggregate import TelemetryAggregatePoint
 from domain.value_objects.telemetry_bucket import TelemetryBucket
+from domain.value_objects.telemetry_forecast import ForecastSample, TelemetryForecast
 from domain.value_objects.telemetry_series import TelemetrySample, TelemetrySeries
 
 
@@ -116,5 +117,45 @@ class TelemetryAggregateSeriesResponse(BaseModel):
                     sample_count=point.sample_count,
                 )
                 for point in points
+            ],
+        )
+
+
+class ForecastSampleResponse(BaseModel):
+    """A single predicted measurement value."""
+
+    timestamp: datetime
+    value: float
+
+    @classmethod
+    def from_domain(cls, sample: ForecastSample) -> Self:
+        return cls(timestamp=sample.timestamp, value=sample.value)
+
+
+class TelemetryForecastResponse(BaseModel):
+    """Forecasted measurements for one asset metric."""
+
+    asset_id: str
+    measurement_type: str
+    unit: str
+    model_id: str
+    horizon_start: datetime
+    generated_at: datetime
+    samples: list[ForecastSampleResponse] = Field(
+        description="Chronological forecast points, oldest first",
+    )
+
+    @classmethod
+    def from_domain(cls, forecast: TelemetryForecast) -> Self:
+        return cls(
+            asset_id=forecast.asset_id,
+            measurement_type=forecast.measurement_type,
+            unit=forecast.unit,
+            model_id=forecast.model_id,
+            horizon_start=forecast.horizon_start,
+            generated_at=forecast.generated_at,
+            samples=[
+                ForecastSampleResponse.from_domain(sample)
+                for sample in forecast.samples
             ],
         )

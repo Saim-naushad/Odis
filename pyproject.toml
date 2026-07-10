@@ -28,6 +28,11 @@ dependencies = [
 odis = "odis.cli:main"
 
 [project.optional-dependencies]
+forecast = [
+    "numpy>=2.0",
+    "onnx>=1.17",
+    "onnxruntime>=1.20",
+]
 dev = [
     "httpx>=0.28",
     "pytest>=8.0",
@@ -35,6 +40,9 @@ dev = [
     "mypy>=1.13",
     "pre-commit>=4.0",
     "fakeredis>=2.0",
+    "numpy>=2.0",
+    "onnx>=1.17",
+    "onnxruntime>=1.20",
 ]
 
 [build-system]
@@ -132,4 +140,8 @@ module = [
     "opentelemetry",
     "opentelemetry.*",
 ]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["numpy", "numpy.*", "onnx", "onnx.*", "onnxruntime", "onnxruntime.*"]
 ignore_missing_imports = true
