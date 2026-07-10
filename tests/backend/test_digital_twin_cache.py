@@ -134,6 +134,7 @@ def _sample_twin(asset_id: str = "asset-1") -> DigitalTwin:
         notification=None,
         latest_reasoning_run_id="run-1",
         timeline_preview=(),
+        telemetry_forecasts=(),
         last_updated=state.last_updated,
     )
 

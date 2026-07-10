@@ -76,6 +76,7 @@ src/domain/repositories/decision_plan_repository.py
 src/domain/repositories/observation_repository.py
 src/domain/repositories/reasoning_run_repository.py
 src/domain/repositories/situation_repository.py
+src/domain/repositories/telemetry_aggregate_repository.py
 src/domain/value_objects/__init__.py
 src/domain/value_objects/confidence.py
 src/domain/value_objects/constraint.py
@@ -86,6 +87,10 @@ src/domain/value_objects/measurement_type.py
 src/domain/value_objects/policy.py
 src/domain/value_objects/priority.py
 src/domain/value_objects/severity.py
+src/domain/value_objects/telemetry_aggregate.py
+src/domain/value_objects/telemetry_bucket.py
+src/domain/value_objects/telemetry_forecast.py
+src/domain/value_objects/telemetry_series.py
 src/domain/value_objects/time_range.py
 src/domain/value_objects/trend_direction.py
 src/domain/value_objects/variation_level.py
@@ -100,6 +105,7 @@ src/infrastructure/repositories/reasoning_run_repository.py
 src/infrastructure/repositories/reasoning_trace_repository.py
 src/infrastructure/repositories/situation_repository.py
 src/infrastructure/repositories/structured_assessment_repository.py
+src/infrastructure/repositories/telemetry_aggregate_repository.py
 src/infrastructure/sources/__init__.py
 src/infrastructure/sources/csv_observation_source.py
 src/infrastructure/sources/static_observation_source.py

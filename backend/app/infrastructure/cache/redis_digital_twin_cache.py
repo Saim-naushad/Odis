@@ -164,6 +164,7 @@ def deserialize(raw: bytes | str) -> DigitalTwin:
         notification=notification,
         latest_reasoning_run_id=obj["latest_reasoning_run_id"],
         timeline_preview=timeline_preview,
+        telemetry_forecasts=(),
         last_updated=_dt_from_str(obj["last_updated"]),
     )
 

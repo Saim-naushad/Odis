@@ -22,7 +22,10 @@ from tests.backend.helpers import drain_reasoning_jobs
 @pytest.fixture
 def sqlite_settings(tmp_path: Path) -> Settings:
     database_path = tmp_path / "metrics_api.db"
-    return Settings(database_url=f"sqlite:///{database_path}")
+    return Settings(
+        database_url=f"sqlite:///{database_path}",
+        forecast_enabled=False,
+    )
 
 
 @pytest.fixture

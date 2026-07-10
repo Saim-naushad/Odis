@@ -403,7 +403,10 @@ def get_telemetry_forecasts_for_asset(
     ],
     bucket: Annotated[
         str,
-        Query(description="Aggregate bucket width used for model context", pattern="^(1h|1d)$"),
+        Query(
+            description="Aggregate bucket width used for model context",
+            pattern="^(1h|1d)$",
+        ),
     ] = "1h",
     start: Annotated[
         datetime | None,

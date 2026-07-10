@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { useMonitoringDashboard } from './useMonitoringDashboard'
 
 vi.mock('../api/monitoringClient', () => {
@@ -84,6 +84,7 @@ vi.mock('../api/monitoringClient', () => {
             metadata: {},
           },
         ],
+        telemetry_forecasts: [],
         last_updated: '2026-01-01T10:00:00Z',
       })),
       // Legacy endpoints should not be called by the dashboard model.
@@ -118,6 +119,10 @@ function Harness() {
 }
 
 describe('useMonitoringDashboard (Digital Twin)', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   it('uses Digital Twin as the page model', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: 0 } },
@@ -129,14 +134,14 @@ describe('useMonitoringDashboard (Digital Twin)', () => {
       </QueryClientProvider>,
     )
 
-    const asset = await screen.findByTestId('asset')
-    const twin = await screen.findByTestId('twin')
-    const preview = await screen.findByTestId('preview')
+    await waitFor(() => {
+      expect(screen.getByTestId('asset')).toHaveTextContent('asset-1')
+      expect(screen.getByTestId('twin')).toHaveTextContent('asset-1')
+      expect(screen.getByTestId('preview')).toHaveTextContent('1')
+    })
 
-    await Promise.resolve()
-    expect(asset).toHaveTextContent('asset-1')
-    expect(twin).toHaveTextContent('asset-1')
-    expect(preview).toHaveTextContent('1')
+    await queryClient.cancelQueries()
+    queryClient.clear()
   })
 })
 

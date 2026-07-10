@@ -42,7 +42,9 @@ from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.events.kafka_integration_event_publisher import (
     KafkaIntegrationEventPublisher,
 )
-from backend.app.infrastructure.inference.factory import create_forecast_inference_engine
+from backend.app.infrastructure.inference.factory import (
+    create_forecast_inference_engine,
+)
 
 
 @dataclass(frozen=True, slots=True)

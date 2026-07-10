@@ -7,6 +7,7 @@ Requires-Dist: alembic>=1.14
 Requires-Dist: fastapi>=0.115
 Requires-Dist: httpx>=0.28
 Requires-Dist: kafka-python>=2.0
+Requires-Dist: paho-mqtt>=2.1
 Requires-Dist: psycopg[binary]>=3.2
 Requires-Dist: pydantic-settings>=2.0
 Requires-Dist: sqlalchemy>=2.0
@@ -21,6 +22,10 @@ Requires-Dist: opentelemetry-instrumentation-fastapi>=0.49b0
 Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.49b0
 Requires-Dist: opentelemetry-instrumentation-redis>=0.49b0
 Requires-Dist: opentelemetry-instrumentation-kafka-python>=0.49b0
+Provides-Extra: forecast
+Requires-Dist: numpy>=2.0; extra == "forecast"
+Requires-Dist: onnx>=1.17; extra == "forecast"
+Requires-Dist: onnxruntime>=1.20; extra == "forecast"
 Provides-Extra: dev
 Requires-Dist: httpx>=0.28; extra == "dev"
 Requires-Dist: pytest>=8.0; extra == "dev"
@@ -28,3 +33,6 @@ Requires-Dist: ruff>=0.8; extra == "dev"
 Requires-Dist: mypy>=1.13; extra == "dev"
 Requires-Dist: pre-commit>=4.0; extra == "dev"
 Requires-Dist: fakeredis>=2.0; extra == "dev"
+Requires-Dist: numpy>=2.0; extra == "dev"
+Requires-Dist: onnx>=1.17; extra == "dev"
+Requires-Dist: onnxruntime>=1.20; extra == "dev"

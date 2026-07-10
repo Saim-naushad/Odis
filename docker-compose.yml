@@ -19,6 +19,12 @@ x-odis-environment: &odis-environment
   REDIS_URL: redis://redis:6379/0
   CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://mosquitto:1883}
+  MQTT_API_BASE_URL: http://api:8000
+  MQTT_SUBSCRIBE_PATTERN: ${MQTT_SUBSCRIBE_PATTERN:-odis/v1/+/+/telemetry/+}
+  MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-odis-mqtt-bridge}
+  MQTT_QOS: ${MQTT_QOS:-1}
+  MQTT_CLEAN_SESSION: ${MQTT_CLEAN_SESSION:-false}
   WORKER_HEARTBEAT_TIMEOUT_SECONDS: ${WORKER_HEARTBEAT_TIMEOUT_SECONDS:-30}
   WORKER_HEARTBEAT_INTERVAL_SECONDS: ${WORKER_HEARTBEAT_INTERVAL_SECONDS:-10}
   HEALTH_CHECK_TIMEOUT_SECONDS: ${HEALTH_CHECK_TIMEOUT_SECONDS:-2.0}
@@ -92,6 +98,21 @@ services:
       retries: 15
       start_period: 20s
 
+  mosquitto:
+    image: eclipse-mosquitto:2.0.20
+    restart: unless-stopped
+    networks:
+      - odis-internal
+    volumes:
+      - ./infra/docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - odis-mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/version' -C 1 -W 3"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   api:
     build:
       context: .
@@ -139,6 +160,28 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'backend.app.worker_main' >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  mqtt-bridge:
+    build:
+      context: .
+      dockerfile: infra/docker/mqtt-bridge/Dockerfile
+    restart: unless-stopped
+    networks:
+      - odis-internal
+    environment:
+      <<: *odis-environment
+      OTEL_SERVICE_NAME: odis-mqtt-bridge
+    depends_on:
+      api:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'backend.mqtt_bridge' >/dev/null || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -210,5 +253,6 @@ services:
 volumes:
   odis-postgres-data:
   odis-kafka-data:
+  odis-mosquitto-data:
   odis-prometheus-data:
   odis-grafana-data:

@@ -353,6 +353,8 @@ class DigitalTwinResponse(BaseModel):
     timeline_preview: list[TimelineEventResponse]
     telemetry_forecasts: list[TelemetryForecastResponse] = Field(
         default_factory=list,
-        description="Optional ONNX-backed telemetry forecasts; does not affect reasoning",
+        description=(
+            "Optional ONNX-backed telemetry forecasts; does not affect reasoning"
+        ),
     )
     last_updated: datetime

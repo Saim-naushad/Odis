@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.115",
     "httpx>=0.28",
     "kafka-python>=2.0",
+    "paho-mqtt>=2.1",
     "psycopg[binary]>=3.2",
     "pydantic-settings>=2.0",
     "sqlalchemy>=2.0",
@@ -133,6 +134,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["kafka"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["paho", "paho.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
