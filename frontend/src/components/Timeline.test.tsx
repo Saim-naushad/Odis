@@ -41,7 +41,7 @@ describe('Timeline', () => {
       <Timeline events={sampleEvents} loading={false} />,
     )
 
-    const highlighted = container.querySelector('.border-sky-500')
+    const highlighted = container.querySelector('.border-l-slate-400')
     expect(highlighted).not.toBeNull()
     expect(highlighted?.textContent).toContain('Reasoning completed')
   })

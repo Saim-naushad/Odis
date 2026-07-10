@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { TelemetryEmptyState } from './monitoring/TelemetryEmptyState'
 import type {
   AggregateChartPoint,
   RawChartPoint,
@@ -112,7 +113,7 @@ export function TelemetryChart({
     : 'Telemetry'
 
   return (
-    <div className="flex min-h-[220px] flex-1 flex-col">
+    <div className="flex min-h-[280px] flex-1 flex-col">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[11px] font-medium text-slate-200" aria-live="polite">
           {chartLabel}
@@ -146,20 +147,20 @@ export function TelemetryChart({
         </div>
       )}
 
-      <div
-        className="flex flex-1 items-center justify-center rounded border border-slate-800 bg-slate-950/60 p-2"
-        aria-label={chartLabel}
-      >
+      <div className="flex flex-1 flex-col" aria-label={chartLabel}>
         {!error && loading && !hasData ? (
-          <p className="text-xs text-slate-500" role="status">
-            Loading telemetry chart…
-          </p>
+          <TelemetryEmptyState variant="loading" />
         ) : !error && !hasData ? (
-          <p className="text-xs text-slate-500">
-            No telemetry data for the selected measurement and time range.
-          </p>
+          <TelemetryEmptyState variant="no-data" />
         ) : !error && hasData ? (
-          <ResponsiveContainer width="100%" height={220}>
+          <div
+            className="flex flex-1 items-center justify-center rounded border p-2"
+            style={{
+              borderColor: 'var(--surface-border)',
+              background: 'var(--surface-base)',
+            }}
+          >
+            <ResponsiveContainer width="100%" height={280}>
             {mode === 'raw' ? (
               <LineChart
                 data={rawData}
@@ -230,6 +231,7 @@ export function TelemetryChart({
               </LineChart>
             )}
           </ResponsiveContainer>
+          </div>
         ) : null}
       </div>
 

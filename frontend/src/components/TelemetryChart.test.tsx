@@ -87,7 +87,7 @@ describe('TelemetryChart', () => {
       />,
     )
 
-    expect(screen.getByText('Loading telemetry chart…')).toBeInTheDocument()
+    expect(screen.getByText('Loading telemetry')).toBeInTheDocument()
   })
 
   it('shows empty state', () => {
@@ -100,11 +100,7 @@ describe('TelemetryChart', () => {
       />,
     )
 
-    expect(
-      screen.getByText(
-        'No telemetry data for the selected measurement and time range.',
-      ),
-    ).toBeInTheDocument()
+    expect(screen.getByText('No measurements in range')).toBeInTheDocument()
   })
 
   it('shows API error state with retry', () => {

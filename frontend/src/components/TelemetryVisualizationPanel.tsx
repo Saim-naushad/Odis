@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react'
 import { TelemetryChart } from './TelemetryChart'
+import { TelemetryEmptyState } from './monitoring/TelemetryEmptyState'
 import { useTelemetryVisualization } from '../hooks/useTelemetryVisualization'
 import type { MonitoringSseConnectionState } from '../monitoring/useMonitoringSse'
 import {
@@ -34,10 +36,16 @@ const RESOLUTION_OPTIONS: Array<{
 
 function controlButtonClass(isActive: boolean): string {
   return `rounded border px-2 py-0.5 text-[10px] uppercase tracking-wide transition-colors ${
-    isActive
-      ? 'border-sky-500 text-sky-300'
-      : 'border-slate-700 text-slate-400 hover:border-slate-500'
+    isActive ? 'focus-ring-active' : 'hover:opacity-80'
   }`
+}
+
+function controlButtonStyle(isActive: boolean): CSSProperties {
+  return {
+    borderColor: isActive ? 'var(--focus-ring)' : 'var(--surface-border)',
+    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+    background: isActive ? 'var(--surface-raised)' : 'transparent',
+  }
 }
 
 export function TelemetryVisualizationPanel({
@@ -60,23 +68,39 @@ export function TelemetryVisualizationPanel({
       : viz.selectedAggregateSeries?.unit
 
   return (
-    <section className="flex h-full flex-col rounded border border-slate-800 bg-slate-900/40 p-4">
+    <section
+      className="flex h-full min-h-[360px] flex-col rounded border p-4"
+      style={{
+        borderColor: 'var(--surface-border)',
+        background: 'var(--surface-raised)',
+      }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-          Telemetry
-        </h2>
-        {!assetId && (
-          <span className="text-[10px] text-slate-500" role="status">
-            Select an asset to view telemetry.
-          </span>
-        )}
+        <div>
+          <h2
+            className="text-xs font-semibold uppercase tracking-wide"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Telemetry
+          </h2>
+          <p className="mt-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            Measurement history and trend investigation
+          </p>
+        </div>
       </div>
 
-      {assetId && (
-        <div className="mt-3 flex flex-col gap-3">
+      {!assetId ? (
+        <div className="mt-4 flex flex-1 flex-col">
+          <TelemetryEmptyState variant="no-asset" />
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-1 flex-col gap-3">
           <div className="flex flex-wrap items-end gap-3">
             <fieldset className="min-w-0">
-              <legend className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">
+              <legend
+                className="mb-1 text-[10px] uppercase tracking-wide"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 Measurement
               </legend>
               {viz.availableMeasurements.length > 1 ? (
@@ -87,7 +111,12 @@ export function TelemetryVisualizationPanel({
               {viz.availableMeasurements.length > 1 ? (
                 <select
                   id="telemetry-measurement"
-                  className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
+                  className="rounded border px-2 py-1 text-[11px]"
+                  style={{
+                    borderColor: 'var(--surface-border)',
+                    background: 'var(--surface-base)',
+                    color: 'var(--text-primary)',
+                  }}
                   value={viz.selectedMeasurement ?? ''}
                   onChange={(event) =>
                     viz.setSelectedMeasurement(event.target.value)
@@ -100,14 +129,17 @@ export function TelemetryVisualizationPanel({
                   ))}
                 </select>
               ) : (
-                <p className="text-[11px] text-slate-300">
+                <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
                   {viz.selectedMeasurement ?? 'No measurements available'}
                 </p>
               )}
             </fieldset>
 
             <fieldset>
-              <legend className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">
+              <legend
+                className="mb-1 text-[10px] uppercase tracking-wide"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 Time range
               </legend>
               <div className="flex flex-wrap gap-1" role="group" aria-label="Time range">
@@ -116,6 +148,7 @@ export function TelemetryVisualizationPanel({
                     key={option.value}
                     type="button"
                     className={controlButtonClass(viz.timeRange === option.value)}
+                    style={controlButtonStyle(viz.timeRange === option.value)}
                     aria-pressed={viz.timeRange === option.value}
                     onClick={() => viz.setTimeRange(option.value)}
                   >
@@ -126,7 +159,10 @@ export function TelemetryVisualizationPanel({
             </fieldset>
 
             <fieldset>
-              <legend className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">
+              <legend
+                className="mb-1 text-[10px] uppercase tracking-wide"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 Resolution
               </legend>
               <div
@@ -141,6 +177,7 @@ export function TelemetryVisualizationPanel({
                     className={controlButtonClass(
                       viz.resolution === option.value,
                     )}
+                    style={controlButtonStyle(viz.resolution === option.value)}
                     aria-pressed={viz.resolution === option.value}
                     onClick={() => viz.setResolution(option.value)}
                   >
@@ -152,7 +189,7 @@ export function TelemetryVisualizationPanel({
           </div>
 
           {viz.availableMeasurements.length > 1 && unit && (
-            <p className="text-[10px] text-slate-500">
+            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
               Metrics with different units are shown one at a time so values stay
               comparable on a single axis.
             </p>

@@ -187,9 +187,7 @@ describe('TelemetryVisualizationPanel', () => {
   it('shows empty asset prompt when no asset is selected', () => {
     renderPanel()
 
-    expect(
-      screen.getByText('Select an asset to view telemetry.'),
-    ).toBeInTheDocument()
+    expect(screen.getByText('Telemetry trends')).toBeInTheDocument()
   })
 
   it('surfaces API errors', async () => {

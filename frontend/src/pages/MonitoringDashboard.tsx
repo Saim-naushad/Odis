@@ -1,13 +1,13 @@
-import { Header } from '../components/Header'
-import { AssetList } from '../components/AssetList'
-import { AssetDetails } from '../components/AssetDetails'
-import { ReasoningTrace } from '../components/ReasoningTrace'
-import { RunHistory } from '../components/RunHistory'
-import { Timeline } from '../components/Timeline'
+import { useState } from 'react'
+import { ActionPlaybook } from '../components/monitoring/ActionPlaybook'
+import { ActiveAlertBanner } from '../components/monitoring/ActiveAlertBanner'
+import { AssetStatusBar } from '../components/monitoring/AssetStatusBar'
+import { ExpertDetailsDrawer } from '../components/monitoring/ExpertDetailsDrawer'
+import { FleetAttentionStrip } from '../components/monitoring/FleetAttentionStrip'
+import { ProductHeader } from '../components/monitoring/ProductHeader'
+import { SystemFooter } from '../components/monitoring/SystemFooter'
+import { InvestigationRail } from '../components/monitoring/InvestigationRail'
 import { TelemetryVisualizationPanel } from '../components/TelemetryVisualizationPanel'
-import { OperationalStateCard } from '../components/OperationalStateCard'
-import { RecommendationCard } from '../components/RecommendationCard'
-import { NotificationCard } from '../components/NotificationCard'
 import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
 import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
@@ -15,89 +15,80 @@ export function MonitoringDashboard() {
   const { connectionState } = useMonitoringSse()
   const state = useMonitoringDashboard({ sseConnectionState: connectionState })
   const twin = state.digitalTwin
+  const [expertOpen, setExpertOpen] = useState(false)
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-50">
-      <Header state={state} />
-      <main className="flex flex-1 flex-col gap-4 p-4">
-        <OperationalStateCard
-          selectedAssetId={state.selectedAssetId}
-          operationalState={twin?.operational_state}
-          loading={state.digitalTwinLoading}
-          error={state.digitalTwinError}
+    <div
+      className="flex min-h-screen flex-col"
+      style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}
+    >
+      <div className="flex flex-col gap-2">
+        <ProductHeader
+          platformName={state.platformName}
+          platformStatus={state.platformStatus}
+          platformErrorMessage={state.platformErrorMessage}
+          sseConnectionState={connectionState}
+          lastUpdatedAt={state.lastUpdatedAt}
         />
-        <NotificationCard
+        <FleetAttentionStrip
+          assets={state.assets}
           selectedAssetId={state.selectedAssetId}
-          notification={twin?.notification ?? undefined}
-          recommendation={twin?.recommendation}
-          loading={state.digitalTwinLoading}
-          error={state.digitalTwinError}
+          selectedDigitalTwin={twin}
+          loading={state.assetsLoading || state.digitalTwinLoading}
+          error={state.assetsError ?? state.digitalTwinError}
+          onSelectAsset={state.setSelectedAssetId}
+          onRetry={state.retryAssetList}
         />
-        <RecommendationCard
-          selectedAssetId={state.selectedAssetId}
-          recommendation={twin?.recommendation}
-          loading={state.digitalTwinLoading}
-          error={state.digitalTwinError}
-        />
-        <section className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)_minmax(0,1.3fr)]">
-          <div className="flex flex-col">
-            <AssetList
-              assets={state.assets}
-              selectedAssetId={state.selectedAssetId}
-              onSelectAsset={state.setSelectedAssetId}
-              selectedRunId={state.selectedRunId}
-              latest={state.latestForAsset}
-              history={state.history}
-              loading={state.assetsLoading || state.latestLoading}
-              error={state.assetsError ?? state.latestError ?? state.historyError}
-              onRetry={state.retryAssetList}
-            />
-          </div>
-          <div className="flex flex-col">
-            <AssetDetails
-              latest={state.latestForAsset}
-              runDetails={state.runDetails}
-              loading={
-                state.latestLoading ||
-                state.runDetailsLoading ||
-                state.historyLoading
-              }
-              error={
-                state.latestError ??
-                state.runDetailsError ??
-                state.historyError
-              }
-              onRetry={state.retryAssetDetails}
-            />
-          </div>
-          <div className="flex flex-col gap-4">
-            <ReasoningTrace
-              trace={state.runDetails?.reasoning_trace}
-              loading={state.runDetailsLoading}
-              error={state.runDetailsError}
-              onRetry={state.retryReasoningTrace}
-            />
-            <RunHistory
-              history={state.history}
-              selectedRunId={state.selectedRunId}
-              onSelectRun={state.setSelectedRunId}
-              loading={state.historyLoading}
-              error={state.historyError}
-              onRetry={state.retryRunHistory}
-            />
-            <Timeline
-              events={twin?.timeline_preview ?? []}
-              loading={state.digitalTwinLoading}
-              error={state.digitalTwinError}
-              onRetry={state.retryTimeline}
-            />
+      </div>
+
+      <AssetStatusBar
+        selectedAssetId={state.selectedAssetId}
+        digitalTwin={twin}
+        loading={state.digitalTwinLoading}
+        error={state.digitalTwinError}
+      />
+
+      {twin?.notification && <ActiveAlertBanner notification={twin.notification} />}
+
+      <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)]">
+        {/* Primary operational workspace */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <ActionPlaybook
+            selectedAssetId={state.selectedAssetId}
+            recommendation={twin?.recommendation}
+            loading={state.digitalTwinLoading}
+            error={state.digitalTwinError}
+          />
+          <div className="flex-1">
             <TelemetryVisualizationPanel
               assetId={state.selectedAssetId}
               sseConnectionState={connectionState}
             />
           </div>
-        </section>
+        </div>
+
+        <InvestigationRail
+          events={twin?.timeline_preview ?? []}
+          loading={state.digitalTwinLoading}
+          error={state.digitalTwinError}
+          onRetryTimeline={state.retryTimeline}
+          onOpenExpert={() => setExpertOpen(true)}
+          expertDisabled={!state.selectedAssetId}
+        />
       </main>
+
+      <SystemFooter
+        sseConnectionState={connectionState}
+        lastUpdatedAt={state.lastUpdatedAt}
+        reasoningEngineVersion={state.reasoningEngineVersion}
+        platformPhase={state.platformPhase}
+      />
+
+      <ExpertDetailsDrawer
+        open={expertOpen}
+        onClose={() => setExpertOpen(false)}
+        state={state}
+      />
     </div>
   )
 }

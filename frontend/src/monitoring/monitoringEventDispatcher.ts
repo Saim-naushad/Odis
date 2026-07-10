@@ -24,11 +24,7 @@ export function createMonitoringEventDispatcher(queryClient: QueryClient) {
               exact: true,
             })
             void queryClient.invalidateQueries({
-              queryKey: ['monitoring', 'asset', payload.asset_id, 'timeline'],
-              exact: true,
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ['monitoring', 'asset', payload.asset_id, 'state'],
+              queryKey: ['monitoring', 'asset', payload.asset_id, 'digital-twin'],
               exact: true,
             })
           }

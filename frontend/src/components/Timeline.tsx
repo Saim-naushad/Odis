@@ -59,17 +59,13 @@ export function Timeline({ events, loading, error, onRetry }: TimelineProps) {
                   key={event.id}
                   className={
                     isNewest
-                      ? 'border-l-2 border-sky-500 bg-sky-950/30'
+                      ? 'border-l-2 border-l-slate-400'
                       : 'border-l-2 border-transparent'
                   }
                 >
                   <div className="flex items-start gap-3 px-3 py-2">
                     <span
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${
-                        isNewest
-                          ? 'bg-sky-900 text-sky-200'
-                          : 'bg-slate-800 text-slate-300'
-                      }`}
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-slate-300"
                       aria-hidden="true"
                     >
                       {EVENT_ICONS[event.event_type]}
@@ -77,8 +73,10 @@ export function Timeline({ events, loading, error, onRetry }: TimelineProps) {
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span
-                          className={`text-[11px] font-semibold ${
-                            isNewest ? 'text-sky-100' : 'text-slate-100'
+                          className={`text-[11px] ${
+                            isNewest
+                              ? 'font-semibold text-slate-50'
+                              : 'font-medium text-slate-100'
                           }`}
                         >
                           {event.title}

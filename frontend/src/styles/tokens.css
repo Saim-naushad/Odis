@@ -1,0 +1,91 @@
+:root {
+  /* Semantic status */
+  --status-normal: #34d399;
+  --status-normal-bg: rgb(6 78 59 / 0.35);
+  --status-normal-border: rgb(6 95 70 / 0.6);
+  --status-normal-text: #a7f3d0;
+
+  --status-warning: #fbbf24;
+  --status-warning-bg: rgb(120 53 15 / 0.35);
+  --status-warning-border: rgb(146 64 14 / 0.6);
+  --status-warning-text: #fde68a;
+
+  --status-critical: #f87171;
+  --status-critical-bg: rgb(127 29 29 / 0.35);
+  --status-critical-border: rgb(153 27 27 / 0.6);
+  --status-critical-text: #fecaca;
+
+  --status-info: #94a3b8;
+  --status-info-bg: rgb(30 41 59 / 0.5);
+  --status-info-border: rgb(51 65 85 / 0.6);
+  --status-info-text: #cbd5e1;
+
+  /* Surfaces */
+  --surface-base: #020617;
+  --surface-raised: rgb(15 23 42 / 0.6);
+  --surface-border: #1e293b;
+
+  /* Typography */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  /* Focus (selection, active controls — not alarm state) */
+  --focus-ring: #cbd5e1;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.25rem;
+  border-width: 1px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.status-badge-normal {
+  border-color: var(--status-normal-border);
+  background: var(--status-normal-bg);
+  color: var(--status-normal-text);
+}
+
+.status-badge-warning {
+  border-color: var(--status-warning-border);
+  background: var(--status-warning-bg);
+  color: var(--status-warning-text);
+}
+
+.status-badge-critical {
+  border-color: var(--status-critical-border);
+  background: var(--status-critical-bg);
+  color: var(--status-critical-text);
+}
+
+.status-badge-info {
+  border-color: var(--status-info-border);
+  background: var(--status-info-bg);
+  color: var(--status-info-text);
+}
+
+.status-dot-normal {
+  background-color: var(--status-normal);
+}
+
+.status-dot-warning {
+  background-color: var(--status-warning);
+}
+
+.status-dot-critical {
+  background-color: var(--status-critical);
+}
+
+.status-dot-muted {
+  background-color: var(--text-muted);
+}
+
+.focus-ring-active {
+  border-color: var(--focus-ring);
+}
