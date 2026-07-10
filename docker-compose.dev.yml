@@ -1,0 +1,23 @@
+# Optional overlay for hybrid local development (apps on host, infra in Docker).
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis kafka
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  kafka:
+    ports:
+      - "9092:9092"
+
+  prometheus:
+    ports:
+      - "9090:9090"
+
+  grafana:
+    ports:
+      - "3000:3000"

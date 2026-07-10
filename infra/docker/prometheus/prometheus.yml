@@ -7,7 +7,7 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets:
-          - "backend:8000"
+          - "api:8000"
 
   # Needed for System panels (uptime/process metrics).
   - job_name: "prometheus"
