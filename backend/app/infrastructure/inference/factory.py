@@ -9,9 +9,6 @@ from backend.app.application.forecast_inference_engine import (
     ForecastModelSpec,
 )
 from backend.app.infrastructure.config.settings import Settings
-from backend.app.infrastructure.inference.onnx_forecast_engine import (
-    OnnxForecastInferenceEngine,
-)
 
 DEFAULT_MODEL_SPEC = ForecastModelSpec(
     model_id="persistence_drift_v1",
@@ -33,6 +30,12 @@ def create_forecast_inference_engine(
     """Load the configured ONNX model once per process."""
     if not settings.forecast_enabled:
         return None
+
+    # Import the ONNX adapter lazily so processes with forecasting disabled do
+    # not require the optional forecast dependencies (numpy, onnx, onnxruntime).
+    from backend.app.infrastructure.inference.onnx_forecast_engine import (
+        OnnxForecastInferenceEngine,
+    )
 
     model_path = Path(settings.onnx_model_path or default_model_path())
     model_spec = ForecastModelSpec(

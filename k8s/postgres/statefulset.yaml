@@ -24,6 +24,12 @@ spec:
         - name: postgres
           image: timescale/timescaledb:2.17.2-pg16
           imagePullPolicy: IfNotPresent
+          # TimescaleDB requires the extension library at PostgreSQL startup.
+          # See https://docs.tigerdata.com/self-hosted/latest/configuration/docker-config
+          args:
+            - postgres
+            - -c
+            - shared_preload_libraries=timescaledb
           ports:
             - name: postgres
               containerPort: 5432

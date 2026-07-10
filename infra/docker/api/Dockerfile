@@ -16,7 +16,9 @@ COPY src ./src
 COPY backend ./backend
 COPY alembic ./alembic
 
-RUN pip install .
+# The API serves telemetry forecasting, so it needs the optional forecast
+# extra (numpy, onnx, onnxruntime). Other services install the base package.
+RUN pip install ".[forecast]"
 
 COPY infra/docker/api/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

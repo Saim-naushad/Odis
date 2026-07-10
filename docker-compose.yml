@@ -42,6 +42,9 @@ services:
     restart: unless-stopped
     networks:
       - odis-internal
+    # TimescaleDB requires the extension library at PostgreSQL startup.
+    # See https://docs.tigerdata.com/self-hosted/latest/configuration/docker-config
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     environment:
       POSTGRES_DB: odis
       POSTGRES_USER: odis
@@ -155,6 +158,9 @@ services:
     environment:
       <<: *odis-environment
       OTEL_SERVICE_NAME: odis-worker
+      # Worker constructs the ONNX forecast engine during bootstrap but never
+      # serves forecasts. Disable it so the base image needs no forecast deps.
+      FORECAST_ENABLED: "false"
     depends_on:
       api:
         condition: service_healthy

@@ -41,6 +41,11 @@ spec:
                   key: DATABASE_URL
             - name: OTEL_SERVICE_NAME
               value: odis-worker
+            # Worker constructs the ONNX forecast engine during bootstrap but
+            # never serves forecasts. Disable it so the base image needs no
+            # forecast deps (numpy, onnx, onnxruntime).
+            - name: FORECAST_ENABLED
+              value: "false"
           resources:
             requests:
               cpu: 250m
