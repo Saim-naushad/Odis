@@ -1,6 +1,7 @@
 """SQLAlchemy-backed observation repository."""
 
 import builtins
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -46,13 +47,44 @@ class SqlAlchemyObservationRepository(SqlAlchemyRepository, ObservationRepositor
         return [observation_to_domain(model) for model in models]
 
     def list_by_asset(self, asset_id: str) -> builtins.list[Observation]:
-        statement = (
-            select(ObservationModel)
-            .where(ObservationModel.asset_id == asset_id)
-            .order_by(
+        return self.list_by_asset_in_time_range(asset_id)
+
+    def list_by_asset_in_time_range(
+        self,
+        asset_id: str,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        measurement_type: str | None = None,
+        limit: int | None = None,
+        newest_first: bool = False,
+    ) -> builtins.list[Observation]:
+        statement = select(ObservationModel).where(
+            ObservationModel.asset_id == asset_id
+        )
+
+        if start is not None:
+            statement = statement.where(ObservationModel.timestamp >= start)
+        if end is not None:
+            statement = statement.where(ObservationModel.timestamp <= end)
+        if measurement_type is not None:
+            statement = statement.where(
+                ObservationModel.measurement_type_name == measurement_type
+            )
+
+        if newest_first:
+            statement = statement.order_by(
+                ObservationModel.timestamp.desc(),
+                ObservationModel.id.desc(),
+            )
+        else:
+            statement = statement.order_by(
                 ObservationModel.timestamp,
                 ObservationModel.id,
             )
-        )
+
+        if limit is not None:
+            statement = statement.limit(limit)
+
         models = self._session.scalars(statement).all()
         return [observation_to_domain(model) for model in models]

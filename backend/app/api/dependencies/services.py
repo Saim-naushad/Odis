@@ -32,6 +32,7 @@ from backend.app.application.observation_service_factory import (
     create_observation_service,
 )
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
+from backend.app.application.telemetry_history_service import TelemetryHistoryService
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.infrastructure.config.settings import get_settings
@@ -108,6 +109,15 @@ def get_monitoring_service(
         decision_plan_repository=decision_plan_repository,
         timeline_repository=timeline_repository,
     )
+
+
+def get_telemetry_history_service(
+    observation_repository: Annotated[
+        ObservationRepository, Depends(get_observation_repository)
+    ],
+) -> TelemetryHistoryService:
+    """Provide a request-scoped telemetry history service."""
+    return TelemetryHistoryService(observation_repository=observation_repository)
 
 
 def get_digital_twin_cache(request: Request) -> DigitalTwinCache:

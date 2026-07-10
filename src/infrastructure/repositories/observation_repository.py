@@ -1,4 +1,5 @@
 import builtins
+from datetime import datetime
 
 from domain.entities.observation import Observation
 from domain.repositories.observation_repository import ObservationRepository
@@ -23,8 +24,49 @@ class InMemoryObservationRepository(ObservationRepository):
         )
 
     def list_by_asset(self, asset_id: str) -> builtins.list[Observation]:
-        return [
+        return self.list_by_asset_in_time_range(asset_id)
+
+    def list_by_asset_in_time_range(
+        self,
+        asset_id: str,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        measurement_type: str | None = None,
+        limit: int | None = None,
+        newest_first: bool = False,
+    ) -> builtins.list[Observation]:
+        observations = [
             observation
             for observation in self.list()
             if observation.asset_id == asset_id
         ]
+
+        if start is not None:
+            observations = [
+                observation
+                for observation in observations
+                if observation.timestamp >= start
+            ]
+        if end is not None:
+            observations = [
+                observation
+                for observation in observations
+                if observation.timestamp <= end
+            ]
+        if measurement_type is not None:
+            observations = [
+                observation
+                for observation in observations
+                if observation.measurement_type.name == measurement_type
+            ]
+
+        observations.sort(
+            key=lambda observation: (observation.timestamp, observation.id),
+            reverse=newest_first,
+        )
+
+        if limit is not None:
+            observations = observations[:limit]
+
+        return observations

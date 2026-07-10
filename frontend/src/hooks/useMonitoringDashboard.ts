@@ -8,6 +8,7 @@ import type {
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
+  TelemetrySeriesResponse,
 } from '../types/monitoring'
 
 /** Fallback poll interval when SSE is unavailable; SSE invalidation is primary. */
@@ -43,6 +44,10 @@ export interface MonitoringDashboardState {
   digitalTwinLoading: boolean
   digitalTwinError?: string
 
+  telemetryHistory: TelemetrySeriesResponse[]
+  telemetryHistoryLoading: boolean
+  telemetryHistoryError?: string
+
   lastUpdatedAt?: Date
 }
 
@@ -70,6 +75,7 @@ export function useMonitoringDashboard(
   retryRunHistory: () => Promise<void>
   retryReasoningTrace: () => Promise<void>
   retryTimeline: () => Promise<void>
+  retryTelemetryHistory: () => Promise<void>
 } {
   const queryClient = useQueryClient()
   const [selectedAssetId, setSelectedAssetId] = useState<string>()
@@ -82,6 +88,7 @@ export function useMonitoringDashboard(
   const hasLoadedHistoryRef = useRef(false)
   const hasLoadedRunDetailsRef = useRef(false)
   const hasLoadedDigitalTwinRef = useRef(false)
+  const hasLoadedTelemetryHistoryRef = useRef(false)
 
   // Keep track of current selection without forcing effect restarts.
   const selectedAssetIdRef = useRef<string | undefined>(selectedAssetId)
@@ -124,6 +131,7 @@ export function useMonitoringDashboard(
       hasLoadedHistoryRef.current = false
       hasLoadedRunDetailsRef.current = false
       hasLoadedDigitalTwinRef.current = false
+      hasLoadedTelemetryHistoryRef.current = false
       return
     }
 
@@ -133,6 +141,7 @@ export function useMonitoringDashboard(
     hasLoadedHistoryRef.current = false
     hasLoadedRunDetailsRef.current = false
     hasLoadedDigitalTwinRef.current = false
+    hasLoadedTelemetryHistoryRef.current = false
   }, [selectedAssetId])
 
   const platformQuery = useQuery({
@@ -187,6 +196,19 @@ export function useMonitoringDashboard(
     refetchIntervalInBackground: true,
   })
 
+  const telemetryHistoryQuery = useQuery({
+    queryKey: ['monitoring', 'asset', selectedAssetId, 'telemetry-history'],
+    enabled: Boolean(selectedAssetId),
+    queryFn: ({ signal }) =>
+      monitoringClient.getTelemetryHistoryForAsset(
+        selectedAssetId as string,
+        signal,
+        { limit: 500 },
+      ),
+    refetchInterval,
+    refetchIntervalInBackground: true,
+  })
+
   // Preserve selection behavior: auto-select first asset when assets load.
   useEffect(() => {
     if (!assetsQuery.data || assetsQuery.data.length === 0) return
@@ -223,6 +245,12 @@ export function useMonitoringDashboard(
   useEffect(() => {
     if (digitalTwinQuery.isSuccess) hasLoadedDigitalTwinRef.current = true
   }, [digitalTwinQuery.isSuccess])
+
+  useEffect(() => {
+    if (telemetryHistoryQuery.isSuccess) {
+      hasLoadedTelemetryHistoryRef.current = true
+    }
+  }, [telemetryHistoryQuery.isSuccess])
 
   async function retryAssetList(): Promise<void> {
     const result = await assetsQuery.refetch()
@@ -294,6 +322,11 @@ export function useMonitoringDashboard(
   async function retryDigitalTwin(): Promise<void> {
     if (!selectedAssetIdRef.current) return
     await digitalTwinQuery.refetch()
+  }
+
+  async function retryTelemetryHistory(): Promise<void> {
+    if (!selectedAssetIdRef.current) return
+    await telemetryHistoryQuery.refetch()
   }
 
   const platformStatus: MonitoringDashboardState['platformStatus'] =
@@ -377,6 +410,21 @@ export function useMonitoringDashboard(
         )
       : undefined
 
+  const telemetryHistory = selectedAssetId
+    ? telemetryHistoryQuery.data ?? []
+    : []
+  const telemetryHistoryLoading =
+    Boolean(selectedAssetId) && telemetryHistoryQuery.isFetching
+  const telemetryHistoryError =
+    selectedAssetId && telemetryHistoryQuery.isError
+      ? formatPhaseError(
+          hasLoadedTelemetryHistoryRef.current,
+          telemetryHistoryQuery.error,
+          'Failed to load telemetry history',
+          'Failed to refresh telemetry history',
+        )
+      : undefined
+
   const lastUpdatedAt =
     selectedAssetId && latestAndHistoryQuery.data
       ? new Date(latestAndHistoryQuery.dataUpdatedAt)
@@ -405,6 +453,9 @@ export function useMonitoringDashboard(
     digitalTwin,
     digitalTwinLoading,
     digitalTwinError,
+    telemetryHistory,
+    telemetryHistoryLoading,
+    telemetryHistoryError,
     lastUpdatedAt,
     setSelectedAssetId,
     setSelectedRunId,
@@ -413,6 +464,7 @@ export function useMonitoringDashboard(
     retryRunHistory,
     retryReasoningTrace: () => retryRunDetails(),
     retryTimeline: () => retryDigitalTwin(),
+    retryTelemetryHistory,
   }
 }
 

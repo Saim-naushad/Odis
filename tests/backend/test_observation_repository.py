@@ -139,6 +139,65 @@ def test_duplicate_id_is_rejected(
         observation_repository.save(build_observation(id="entity-1", value=20.0))
 
 
+def test_list_by_asset_in_time_range_filters_and_orders(
+    observation_repository: SqlAlchemyObservationRepository,
+) -> None:
+    from datetime import UTC, datetime
+
+    observation_repository.save(
+        build_observation(
+            id="obs-early",
+            timestamp=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            value=10.0,
+        )
+    )
+    observation_repository.save(
+        build_observation(
+            id="obs-mid",
+            timestamp=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+            value=11.0,
+        )
+    )
+    observation_repository.save(
+        build_observation(
+            id="obs-late",
+            timestamp=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            value=12.0,
+        )
+    )
+
+    observations = observation_repository.list_by_asset_in_time_range(
+        "asset-1",
+        start=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
+        end=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
+    )
+
+    assert [observation.id for observation in observations] == ["obs-mid"]
+
+
+def test_list_by_asset_in_time_range_supports_newest_first_limit(
+    observation_repository: SqlAlchemyObservationRepository,
+) -> None:
+    from datetime import UTC, datetime
+
+    for index, hour in enumerate((10, 11, 12)):
+        observation_repository.save(
+            build_observation(
+                id=f"obs-limit-{index}",
+                timestamp=datetime(2026, 1, 1, hour, 0, tzinfo=UTC),
+                value=float(hour),
+            )
+        )
+
+    observations = observation_repository.list_by_asset_in_time_range(
+        "asset-1",
+        newest_first=True,
+        limit=2,
+    )
+
+    assert [observation.value for observation in observations] == [12.0, 11.0]
+
+
 def test_observation_to_model_maps_all_fields() -> None:
     observation = build_observation(
         id="obs-map",

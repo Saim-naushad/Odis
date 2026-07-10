@@ -80,6 +80,18 @@ export interface ObservationResponse {
   unit: string
 }
 
+export interface TelemetrySampleResponse {
+  timestamp: string
+  value: number
+}
+
+export interface TelemetrySeriesResponse {
+  asset_id: string
+  measurement_type: string
+  unit: string
+  samples: TelemetrySampleResponse[]
+}
+
 export interface TraceStepResponse {
   name: string
   description: string

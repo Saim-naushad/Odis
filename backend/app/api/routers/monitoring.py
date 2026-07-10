@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from backend.app.api.dependencies.monitoring_events import MonitoringEventSourceDep
 from backend.app.api.dependencies.services import (
     get_digital_twin_service,
     get_monitoring_service,
+    get_telemetry_history_service,
 )
 from backend.app.api.schemas.monitoring import (
     AlternativeHypothesisResponse,
@@ -36,6 +38,7 @@ from backend.app.api.schemas.monitoring import (
     TrendAnalysisResponse,
 )
 from backend.app.api.schemas.observation import ObservationResponse
+from backend.app.api.schemas.telemetry import TelemetrySeriesResponse
 from backend.app.application.digital_twin_service import (
     DigitalTwinAssetNotFoundError,
     DigitalTwinNoReasoningHistoryError,
@@ -43,6 +46,10 @@ from backend.app.application.digital_twin_service import (
 )
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.monitoring_sse_stream import stream_monitoring_sse_events
+from backend.app.application.telemetry_history_service import (
+    MAX_TELEMETRY_LIMIT,
+    TelemetryHistoryService,
+)
 from backend.app.infrastructure.logging import get_logger
 from backend.app.infrastructure.metrics.monitoring_metrics import (
     monitoring_sse_connections,
@@ -194,6 +201,93 @@ def get_timeline_for_asset(
             detail=f"asset with id {asset_id!r} not found",
         )
     return [TimelineEventResponse.from_domain(event) for event in timeline]
+
+
+@router.get(
+    "/assets/{asset_id}/telemetry",
+    response_model=list[TelemetrySeriesResponse],
+    summary="Get historical telemetry for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Asset not found"}},
+)
+def get_telemetry_history_for_asset(
+    asset_id: str,
+    service: Annotated[TelemetryHistoryService, Depends(get_telemetry_history_service)],
+    start: Annotated[
+        datetime | None,
+        Query(description="Inclusive start of the query window (ISO 8601)"),
+    ] = None,
+    end: Annotated[
+        datetime | None,
+        Query(description="Inclusive end of the query window (ISO 8601)"),
+    ] = None,
+    measurement_type: Annotated[
+        str | None,
+        Query(min_length=1, description="Optional measurement type filter"),
+    ] = None,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=MAX_TELEMETRY_LIMIT,
+            description="Maximum number of raw observations to retrieve",
+        ),
+    ] = 1000,
+) -> list[TelemetrySeriesResponse]:
+    if not service.asset_exists(asset_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} not found",
+        )
+    if start is not None and end is not None and start > end:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="start must not be after end",
+        )
+
+    series = service.get_history(
+        asset_id,
+        start=start,
+        end=end,
+        measurement_type=measurement_type,
+        limit=limit,
+    )
+    return [TelemetrySeriesResponse.from_domain(item) for item in series]
+
+
+@router.get(
+    "/assets/{asset_id}/telemetry/latest",
+    response_model=list[TelemetrySeriesResponse],
+    summary="Get latest telemetry samples for an asset",
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Asset not found"}},
+)
+def get_latest_telemetry_for_asset(
+    asset_id: str,
+    service: Annotated[TelemetryHistoryService, Depends(get_telemetry_history_service)],
+    measurement_type: Annotated[
+        str | None,
+        Query(min_length=1, description="Optional measurement type filter"),
+    ] = None,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=MAX_TELEMETRY_LIMIT,
+            description="Maximum samples per measurement type",
+        ),
+    ] = 1,
+) -> list[TelemetrySeriesResponse]:
+    if not service.asset_exists(asset_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} not found",
+        )
+
+    series = service.get_latest(
+        asset_id,
+        measurement_type=measurement_type,
+        limit=limit,
+    )
+    return [TelemetrySeriesResponse.from_domain(item) for item in series]
 
 
 @router.get(

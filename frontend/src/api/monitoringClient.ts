@@ -10,6 +10,7 @@ import type {
   PlatformMetadataResponse,
   NotificationResponse,
   RecommendationResponse,
+  TelemetrySeriesResponse,
   TimelineEventResponse,
 } from '../types/monitoring'
 
@@ -107,6 +108,54 @@ export const monitoringClient = {
       }
       throw error
     })
+  },
+
+  getTelemetryHistoryForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+    params?: {
+      start?: string
+      end?: string
+      measurement_type?: string
+      limit?: number
+    },
+  ): Promise<TelemetrySeriesResponse[]> {
+    const search = new URLSearchParams()
+    if (params?.start) search.set('start', params.start)
+    if (params?.end) search.set('end', params.end)
+    if (params?.measurement_type) {
+      search.set('measurement_type', params.measurement_type)
+    }
+    if (params?.limit !== undefined) {
+      search.set('limit', String(params.limit))
+    }
+    const query = search.toString()
+    const path = `/monitoring/assets/${encodeURIComponent(assetId)}/telemetry${
+      query ? `?${query}` : ''
+    }`
+    return apiClient.get(path, signal)
+  },
+
+  getLatestTelemetryForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+    params?: {
+      measurement_type?: string
+      limit?: number
+    },
+  ): Promise<TelemetrySeriesResponse[]> {
+    const search = new URLSearchParams()
+    if (params?.measurement_type) {
+      search.set('measurement_type', params.measurement_type)
+    }
+    if (params?.limit !== undefined) {
+      search.set('limit', String(params.limit))
+    }
+    const query = search.toString()
+    const path = `/monitoring/assets/${encodeURIComponent(assetId)}/telemetry/latest${
+      query ? `?${query}` : ''
+    }`
+    return apiClient.get(path, signal)
   },
 }
 

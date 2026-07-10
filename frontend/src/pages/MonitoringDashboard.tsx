@@ -4,6 +4,7 @@ import { AssetDetails } from '../components/AssetDetails'
 import { ReasoningTrace } from '../components/ReasoningTrace'
 import { RunHistory } from '../components/RunHistory'
 import { Timeline } from '../components/Timeline'
+import { TelemetryHistoryPanel } from '../components/TelemetryHistoryPanel'
 import { OperationalStateCard } from '../components/OperationalStateCard'
 import { RecommendationCard } from '../components/RecommendationCard'
 import { NotificationCard } from '../components/NotificationCard'
@@ -89,6 +90,12 @@ export function MonitoringDashboard() {
               loading={state.digitalTwinLoading}
               error={state.digitalTwinError}
               onRetry={state.retryTimeline}
+            />
+            <TelemetryHistoryPanel
+              series={state.telemetryHistory}
+              loading={state.telemetryHistoryLoading}
+              error={state.telemetryHistoryError}
+              onRetry={state.retryTelemetryHistory}
             />
           </div>
         </section>
