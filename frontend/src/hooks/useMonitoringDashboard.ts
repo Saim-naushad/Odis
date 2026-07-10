@@ -8,8 +8,6 @@ import type {
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
   MonitoringRunDetailsResponse,
-  TelemetryAggregateSeriesResponse,
-  TelemetrySeriesResponse,
 } from '../types/monitoring'
 
 /** Fallback poll interval when SSE is unavailable; SSE invalidation is primary. */
@@ -45,16 +43,6 @@ export interface MonitoringDashboardState {
   digitalTwinLoading: boolean
   digitalTwinError?: string
 
-  telemetryHistory: TelemetrySeriesResponse[]
-  telemetryHistoryLoading: boolean
-  telemetryHistoryError?: string
-
-  telemetryAggregatesHourly: TelemetryAggregateSeriesResponse[]
-  telemetryAggregatesDaily: TelemetryAggregateSeriesResponse[]
-  telemetryAggregateBucket: '1h' | '1d'
-  telemetryAggregatesLoading: boolean
-  telemetryAggregatesError?: string
-
   lastUpdatedAt?: Date
 }
 
@@ -82,17 +70,10 @@ export function useMonitoringDashboard(
   retryRunHistory: () => Promise<void>
   retryReasoningTrace: () => Promise<void>
   retryTimeline: () => Promise<void>
-  retryTelemetryHistory: () => Promise<void>
-  retryTelemetryAggregates: () => Promise<void>
-  setTelemetryAggregateBucket: (bucket: '1h' | '1d') => void
 } {
   const queryClient = useQueryClient()
   const [selectedAssetId, setSelectedAssetId] = useState<string>()
   const [selectedRunId, setSelectedRunId] = useState<string>()
-  const [telemetryAggregateBucket, setTelemetryAggregateBucket] = useState<
-    '1h' | '1d'
-  >('1h')
-
   // Tracks whether we have ever successfully loaded data for the current panel.
   // Used only to differentiate initial load failures vs refresh failures in UX.
   const hasLoadedAssetsRef = useRef(false)
@@ -100,9 +81,6 @@ export function useMonitoringDashboard(
   const hasLoadedHistoryRef = useRef(false)
   const hasLoadedRunDetailsRef = useRef(false)
   const hasLoadedDigitalTwinRef = useRef(false)
-  const hasLoadedTelemetryHistoryRef = useRef(false)
-  const hasLoadedTelemetryAggregatesRef = useRef(false)
-
   // Keep track of current selection without forcing effect restarts.
   const selectedAssetIdRef = useRef<string | undefined>(selectedAssetId)
   const selectedRunIdRef = useRef<string | undefined>(selectedRunId)
@@ -144,8 +122,6 @@ export function useMonitoringDashboard(
       hasLoadedHistoryRef.current = false
       hasLoadedRunDetailsRef.current = false
       hasLoadedDigitalTwinRef.current = false
-      hasLoadedTelemetryHistoryRef.current = false
-      hasLoadedTelemetryAggregatesRef.current = false
       return
     }
 
@@ -155,8 +131,6 @@ export function useMonitoringDashboard(
     hasLoadedHistoryRef.current = false
     hasLoadedRunDetailsRef.current = false
     hasLoadedDigitalTwinRef.current = false
-    hasLoadedTelemetryHistoryRef.current = false
-    hasLoadedTelemetryAggregatesRef.current = false
   }, [selectedAssetId])
 
   const platformQuery = useQuery({
@@ -211,38 +185,6 @@ export function useMonitoringDashboard(
     refetchIntervalInBackground: true,
   })
 
-  const telemetryHistoryQuery = useQuery({
-    queryKey: ['monitoring', 'asset', selectedAssetId, 'telemetry-history'],
-    enabled: Boolean(selectedAssetId),
-    queryFn: ({ signal }) =>
-      monitoringClient.getTelemetryHistoryForAsset(
-        selectedAssetId as string,
-        signal,
-        { limit: 500 },
-      ),
-    refetchInterval,
-    refetchIntervalInBackground: true,
-  })
-
-  const telemetryAggregatesQuery = useQuery({
-    queryKey: ['monitoring', 'asset', selectedAssetId, 'telemetry-aggregates'],
-    enabled: Boolean(selectedAssetId),
-    queryFn: async ({ signal }) => {
-      const assetId = selectedAssetId as string
-      const [hourly, daily] = await Promise.all([
-        monitoringClient.getTelemetryAggregatesForAsset(assetId, signal, {
-          bucket: '1h',
-        }),
-        monitoringClient.getTelemetryAggregatesForAsset(assetId, signal, {
-          bucket: '1d',
-        }),
-      ])
-      return { hourly, daily }
-    },
-    refetchInterval,
-    refetchIntervalInBackground: true,
-  })
-
   // Preserve selection behavior: auto-select first asset when assets load.
   useEffect(() => {
     if (!assetsQuery.data || assetsQuery.data.length === 0) return
@@ -279,18 +221,6 @@ export function useMonitoringDashboard(
   useEffect(() => {
     if (digitalTwinQuery.isSuccess) hasLoadedDigitalTwinRef.current = true
   }, [digitalTwinQuery.isSuccess])
-
-  useEffect(() => {
-    if (telemetryHistoryQuery.isSuccess) {
-      hasLoadedTelemetryHistoryRef.current = true
-    }
-  }, [telemetryHistoryQuery.isSuccess])
-
-  useEffect(() => {
-    if (telemetryAggregatesQuery.isSuccess) {
-      hasLoadedTelemetryAggregatesRef.current = true
-    }
-  }, [telemetryAggregatesQuery.isSuccess])
 
   async function retryAssetList(): Promise<void> {
     const result = await assetsQuery.refetch()
@@ -362,16 +292,6 @@ export function useMonitoringDashboard(
   async function retryDigitalTwin(): Promise<void> {
     if (!selectedAssetIdRef.current) return
     await digitalTwinQuery.refetch()
-  }
-
-  async function retryTelemetryHistory(): Promise<void> {
-    if (!selectedAssetIdRef.current) return
-    await telemetryHistoryQuery.refetch()
-  }
-
-  async function retryTelemetryAggregates(): Promise<void> {
-    if (!selectedAssetIdRef.current) return
-    await telemetryAggregatesQuery.refetch()
   }
 
   const platformStatus: MonitoringDashboardState['platformStatus'] =
@@ -455,39 +375,6 @@ export function useMonitoringDashboard(
         )
       : undefined
 
-  const telemetryHistory = selectedAssetId
-    ? telemetryHistoryQuery.data ?? []
-    : []
-  const telemetryHistoryLoading =
-    Boolean(selectedAssetId) && telemetryHistoryQuery.isFetching
-  const telemetryHistoryError =
-    selectedAssetId && telemetryHistoryQuery.isError
-      ? formatPhaseError(
-          hasLoadedTelemetryHistoryRef.current,
-          telemetryHistoryQuery.error,
-          'Failed to load telemetry history',
-          'Failed to refresh telemetry history',
-        )
-      : undefined
-
-  const telemetryAggregatesHourly = selectedAssetId
-    ? telemetryAggregatesQuery.data?.hourly ?? []
-    : []
-  const telemetryAggregatesDaily = selectedAssetId
-    ? telemetryAggregatesQuery.data?.daily ?? []
-    : []
-  const telemetryAggregatesLoading =
-    Boolean(selectedAssetId) && telemetryAggregatesQuery.isFetching
-  const telemetryAggregatesError =
-    selectedAssetId && telemetryAggregatesQuery.isError
-      ? formatPhaseError(
-          hasLoadedTelemetryAggregatesRef.current,
-          telemetryAggregatesQuery.error,
-          'Failed to load telemetry aggregates',
-          'Failed to refresh telemetry aggregates',
-        )
-      : undefined
-
   const lastUpdatedAt =
     selectedAssetId && latestAndHistoryQuery.data
       ? new Date(latestAndHistoryQuery.dataUpdatedAt)
@@ -516,14 +403,6 @@ export function useMonitoringDashboard(
     digitalTwin,
     digitalTwinLoading,
     digitalTwinError,
-    telemetryHistory,
-    telemetryHistoryLoading,
-    telemetryHistoryError,
-    telemetryAggregatesHourly,
-    telemetryAggregatesDaily,
-    telemetryAggregateBucket,
-    telemetryAggregatesLoading,
-    telemetryAggregatesError,
     lastUpdatedAt,
     setSelectedAssetId,
     setSelectedRunId,
@@ -532,9 +411,6 @@ export function useMonitoringDashboard(
     retryRunHistory,
     retryReasoningTrace: () => retryRunDetails(),
     retryTimeline: () => retryDigitalTwin(),
-    retryTelemetryHistory,
-    retryTelemetryAggregates,
-    setTelemetryAggregateBucket,
   }
 }
 

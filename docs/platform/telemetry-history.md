@@ -143,17 +143,39 @@ SQLAlchemy uses standard `WHERE` + `ORDER BY` + `LIMIT` against indexes defined 
 
 ## Frontend Integration
 
-The monitoring dashboard includes a **Telemetry History** panel that lists recent measurements per metric (no charts yet). It calls `GET /monitoring/assets/{id}/telemetry` with a configurable limit.
+The monitoring dashboard includes a **Telemetry** panel with operator-friendly time-series charts. Operators choose:
 
-Charts can build on continuous aggregate endpoints for downsampled rollups; see [Continuous Aggregates](continuous-aggregates.md).
+| Control | Options | Default behavior |
+|---------|---------|------------------|
+| **Time range** | Last hour, 24 hours, 7 days, 30 days | Last 24 hours |
+| **Resolution** | Raw, hourly, daily | Raw for 1 hour; hourly for 24 hours and 7 days; daily for 30 days |
+| **Measurement** | One metric at a time | First available metric for the asset |
+
+### Raw versus aggregate visualization
+
+| Resolution | API | Chart behavior |
+|------------|-----|----------------|
+| **Raw** | `GET /monitoring/assets/{id}/telemetry` | Line chart of timestamp/value samples in the selected time window |
+| **Hourly** | `GET /monitoring/assets/{id}/telemetry/aggregate?bucket=1h` | Line chart of `avg_value` per hour; tooltip shows avg, min, max, and `sample_count` |
+| **Daily** | `GET /monitoring/assets/{id}/telemetry/aggregate?bucket=1d` | Line chart of `avg_value` per day; tooltip shows avg, min, max, and `sample_count` |
+
+The UI fetches **only the selected resolution** for the active time window. It does not load raw, hourly, and daily datasets on every selection change.
+
+Samples are rendered in chronological order (oldest → newest).
+
+### Why metrics are not combined
+
+Each `TelemetrySeries` carries its own `unit` (for example `C` versus `%`). The dashboard charts **one measurement type at a time** so the y-axis always represents a single unit. Mixing unlike units on one axis would be misleading for operators.
+
+### Forecast overlay preparation (PR138)
+
+The chart component is intentionally measurement-scoped and time-range aware. PR138 can overlay forecast lines on the same axis without changing historical retrieval APIs: forecasts will attach to the selected measurement and resolution, reusing the existing x/y layout and tooltip patterns.
 
 ---
 
 ## Continuous Aggregates
 
 Downsampled telemetry is available via `ContinuousAggregateService` and `GET /monitoring/assets/{id}/telemetry/aggregate`. See [Continuous Aggregates](continuous-aggregates.md) for view definitions, refresh policies, and the relationship to raw history.
-
-The monitoring dashboard includes an **Aggregate Summary** panel (hourly/daily toggles, no charts).
 
 ---
 
@@ -173,16 +195,19 @@ Raw `TelemetrySeries` responses stay stable. ONNX adds a parallel read path with
 flowchart TB
     subgraph presentation["Presentation"]
         DASH["Monitoring Dashboard"]
-        PANEL["Telemetry History Panel"]
+        PANEL["Telemetry Visualization Panel"]
+        CHART["TelemetryChart (Recharts)"]
     end
 
     subgraph api["API Layer"]
         ROUTER["/monitoring/assets/{id}/telemetry"]
+        AGG["/monitoring/assets/{id}/telemetry/aggregate"]
         SCHEMA["TelemetrySeriesResponse"]
     end
 
     subgraph application["Application"]
         SVC["TelemetryHistoryService"]
+        CASVC["ContinuousAggregateService"]
         SERIES["TelemetrySeries"]
     end
 
@@ -197,8 +222,11 @@ flowchart TB
     end
 
     DASH --> PANEL
-    PANEL --> ROUTER
+    PANEL --> CHART
+    PANEL -->|"raw"| ROUTER
+    PANEL -->|"hourly/daily"| AGG
     ROUTER --> SVC
+    AGG --> CASVC
     SVC --> SERIES
     SVC --> REPO
     REPO --> OBS
