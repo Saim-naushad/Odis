@@ -1,0 +1,305 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-odis
+  namespace: odis
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: odis
+    app.kubernetes.io/component: grafana
+data:
+  odis-monitoring.json: "{\n  \"annotations\": {\n    \"list\": [\n      {\n     \
+    \   \"builtIn\": 1,\n        \"datasource\": {\n          \"type\": \"grafana\"\
+    ,\n          \"uid\": \"-- Grafana --\"\n        },\n        \"enable\": true,\n\
+    \        \"hide\": true,\n        \"iconColor\": \"rgba(0, 211, 255, 1)\",\n \
+    \       \"name\": \"Dashboard\",\n        \"type\": \"dashboard\"\n      }\n \
+    \   ]\n  },\n  \"editable\": true,\n  \"fiscalYearStartMonth\": 0,\n  \"graphTooltip\"\
+    : 1,\n  \"id\": null,\n  \"links\": [],\n  \"liveNow\": false,\n  \"panels\":\
+    \ [\n    {\n      \"collapsed\": false,\n      \"gridPos\": {\n        \"h\":\
+    \ 1,\n        \"w\": 24,\n        \"x\": 0,\n        \"y\": 0\n      },\n    \
+    \  \"id\": 1,\n      \"panels\": [],\n      \"title\": \"HTTP\",\n      \"type\"\
+    : \"row\"\n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\"\
+    ,\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n     \
+    \   \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n     \
+    \       \"mode\": \"palette-classic\"\n          },\n          \"thresholds\"\
+    : {\n            \"mode\": \"absolute\",\n            \"steps\": [\n         \
+    \     {\n                \"color\": \"green\",\n                \"value\": null\n\
+    \              },\n              {\n                \"color\": \"red\",\n    \
+    \            \"value\": 80\n              }\n            ]\n          }\n    \
+    \    },\n        \"overrides\": []\n      },\n      \"gridPos\": {\n        \"\
+    h\": 8,\n        \"w\": 12,\n        \"x\": 0,\n        \"y\": 1\n      },\n \
+    \     \"id\": 2,\n      \"options\": {\n        \"legend\": {\n          \"calcs\"\
+    : [],\n          \"displayMode\": \"list\",\n          \"placement\": \"bottom\"\
+    \n        },\n        \"tooltip\": {\n          \"mode\": \"single\"\n       \
+    \ }\n      },\n      \"targets\": [\n        {\n          \"expr\": \"sum(rate(http_requests_total{job=\\\
+    \"odis-backend\\\"}[5m]))\",\n          \"refId\": \"A\"\n        }\n      ],\n\
+    \      \"title\": \"Request rate\",\n      \"type\": \"timeseries\"\n    },\n\
+    \    {\n      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"\
+    uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n        \"defaults\"\
+    : {\n          \"custom\": {},\n          \"color\": {\n            \"mode\":\
+    \ \"palette-classic\"\n          }\n        },\n        \"overrides\": []\n  \
+    \    },\n      \"gridPos\": {\n        \"h\": 8,\n        \"w\": 12,\n       \
+    \ \"x\": 12,\n        \"y\": 1\n      },\n      \"id\": 3,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"1000 * histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\\\
+    \"odis-backend\\\"}[5m])) by (le))\",\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Request duration P50 (ms)\",\n      \"type\": \"\
+    timeseries\"\n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\"\
+    ,\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n     \
+    \   \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n     \
+    \       \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 8,\n        \"w\": 12,\n\
+    \        \"x\": 0,\n        \"y\": 9\n      },\n      \"id\": 4,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"1000 * histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\\\
+    \"odis-backend\\\"}[5m])) by (le))\",\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Request duration P95 (ms)\",\n      \"type\": \"\
+    timeseries\"\n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\"\
+    ,\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n     \
+    \   \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n     \
+    \       \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 8,\n        \"w\": 12,\n\
+    \        \"x\": 12,\n        \"y\": 9\n      },\n      \"id\": 5,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"sum(http_requests_in_progress{job=\\\"odis-backend\\\
+    \"})\",\n          \"refId\": \"A\"\n        }\n      ],\n      \"title\": \"\
+    Requests in progress\",\n      \"type\": \"timeseries\"\n    },\n    {\n     \
+    \ \"collapsed\": false,\n      \"gridPos\": {\n        \"h\": 1,\n        \"w\"\
+    : 24,\n        \"x\": 0,\n        \"y\": 17\n      },\n      \"id\": 6,\n    \
+    \  \"panels\": [],\n      \"title\": \"Reasoning Engine\",\n      \"type\": \"\
+    row\"\n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\"\
+    ,\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n     \
+    \   \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n     \
+    \       \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 7,\n        \"w\": 12,\n\
+    \        \"x\": 0,\n        \"y\": 18\n      },\n      \"id\": 7,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"sum(reasoning_runs_total{job=\\\"odis-backend\\\
+    \"})\",\n          \"instant\": true,\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Total reasoning runs\",\n      \"type\": \"timeseries\"\
+    \n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\",\n\
+    \        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n       \
+    \ \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n       \
+    \     \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 7,\n        \"w\": 12,\n\
+    \        \"x\": 12,\n        \"y\": 18\n      },\n      \"id\": 8,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"sum(reasoning_failures_total{job=\\\"odis-backend\\\
+    \"})\",\n          \"instant\": true,\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Reasoning failures\",\n      \"type\": \"timeseries\"\
+    \n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\",\n\
+    \        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n       \
+    \ \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n       \
+    \     \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 8,\n        \"w\": 12,\n\
+    \        \"x\": 0,\n        \"y\": 25\n      },\n      \"id\": 9,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"1000 * (rate(reasoning_duration_seconds_sum{job=\\\
+    \"odis-backend\\\"}[$__rate_interval]) / rate(reasoning_duration_seconds_count{job=\\\
+    \"odis-backend\\\"}[$__rate_interval]))\",\n          \"refId\": \"A\"\n     \
+    \   }\n      ],\n      \"title\": \"Average reasoning duration (ms)\",\n     \
+    \ \"type\": \"timeseries\"\n    },\n    {\n      \"datasource\": {\n        \"\
+    type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\"\
+    : {\n        \"defaults\": {\n          \"custom\": {},\n          \"color\":\
+    \ {\n            \"mode\": \"palette-classic\"\n          }\n        },\n    \
+    \    \"overrides\": []\n      },\n      \"gridPos\": {\n        \"h\": 8,\n  \
+    \      \"w\": 12,\n        \"x\": 12,\n        \"y\": 25\n      },\n      \"id\"\
+    : 10,\n      \"options\": {\n        \"legend\": {\n          \"calcs\": [],\n\
+    \          \"displayMode\": \"list\",\n          \"placement\": \"bottom\"\n \
+    \       },\n        \"tooltip\": {\n          \"mode\": \"single\"\n        }\n\
+    \      },\n      \"targets\": [\n        {\n          \"expr\": \"1000 * (rate(reasoning_duration_seconds_sum{job=\\\
+    \"odis-backend\\\"}[5m]) / rate(reasoning_duration_seconds_count{job=\\\"odis-backend\\\
+    \"}[5m]))\",\n          \"refId\": \"A\"\n        }\n      ],\n      \"title\"\
+    : \"Recent reasoning duration (avg, ms / 5m)\",\n      \"type\": \"timeseries\"\
+    \n    },\n    {\n      \"collapsed\": false,\n      \"gridPos\": {\n        \"\
+    h\": 1,\n        \"w\": 24,\n        \"x\": 0,\n        \"y\": 33\n      },\n\
+    \      \"id\": 11,\n      \"panels\": [],\n      \"title\": \"Observations\",\n\
+    \      \"type\": \"row\"\n    },\n    {\n      \"datasource\": {\n        \"type\"\
+    : \"prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\"\
+    : {\n        \"defaults\": {\n          \"custom\": {},\n          \"color\":\
+    \ {\n            \"mode\": \"palette-classic\"\n          }\n        },\n    \
+    \    \"overrides\": []\n      },\n      \"gridPos\": {\n        \"h\": 8,\n  \
+    \      \"w\": 24,\n        \"x\": 0,\n        \"y\": 34\n      },\n      \"id\"\
+    : 12,\n      \"options\": {\n        \"legend\": {\n          \"calcs\": [],\n\
+    \          \"displayMode\": \"list\",\n          \"placement\": \"bottom\"\n \
+    \       },\n        \"tooltip\": {\n          \"mode\": \"single\"\n        }\n\
+    \      },\n      \"targets\": [\n        {\n          \"expr\": \"sum(observations_created_total{job=\\\
+    \"odis-backend\\\"})\",\n          \"instant\": true,\n          \"refId\": \"\
+    A\"\n        }\n      ],\n      \"title\": \"Total observations created\",\n \
+    \     \"type\": \"timeseries\"\n    },\n    {\n      \"collapsed\": false,\n \
+    \     \"gridPos\": {\n        \"h\": 1,\n        \"w\": 24,\n        \"x\": 0,\n\
+    \        \"y\": 42\n      },\n      \"id\": 13,\n      \"panels\": [],\n     \
+    \ \"title\": \"SSE\",\n      \"type\": \"row\"\n    },\n    {\n      \"datasource\"\
+    : {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\n    \
+    \  },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"custom\"\
+    : {},\n          \"color\": {\n            \"mode\": \"palette-classic\"\n   \
+    \       }\n        },\n        \"overrides\": []\n      },\n      \"gridPos\"\
+    : {\n        \"h\": 8,\n        \"w\": 24,\n        \"x\": 0,\n        \"y\":\
+    \ 43\n      },\n      \"id\": 14,\n      \"options\": {\n        \"legend\": {\n\
+    \          \"calcs\": [],\n          \"displayMode\": \"list\",\n          \"\
+    placement\": \"bottom\"\n        },\n        \"tooltip\": {\n          \"mode\"\
+    : \"single\"\n        }\n        },\n      \"targets\": [\n        {\n       \
+    \   \"expr\": \"sum(monitoring_sse_connections{job=\\\"odis-backend\\\"})\",\n\
+    \          \"refId\": \"A\"\n        }\n      ],\n      \"title\": \"Active monitoring\
+    \ SSE connections\",\n      \"type\": \"timeseries\"\n    },\n    {\n      \"\
+    collapsed\": false,\n      \"gridPos\": {\n        \"h\": 1,\n        \"w\": 24,\n\
+    \        \"x\": 0,\n        \"y\": 51\n      },\n      \"id\": 20,\n      \"panels\"\
+    : [],\n      \"title\": \"Distributed Runtime\",\n      \"type\": \"row\"\n  \
+    \  },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\",\n   \
+    \     \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n        \"\
+    defaults\": {\n          \"custom\": {},\n          \"color\": {\n           \
+    \ \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 7,\n        \"w\": 6,\n \
+    \       \"x\": 0,\n        \"y\": 52\n      },\n      \"id\": 21,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"reasoning_jobs_pending{job=\\\"odis-backend\\\
+    \"}\",\n          \"instant\": true,\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Pending reasoning jobs\",\n      \"type\": \"timeseries\"\
+    \n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\",\n\
+    \        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n       \
+    \ \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n       \
+    \     \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 7,\n        \"w\": 6,\n \
+    \       \"x\": 6,\n        \"y\": 52\n      },\n      \"id\": 22,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"reasoning_jobs_running{job=\\\"odis-backend\\\
+    \"}\",\n          \"instant\": true,\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Running reasoning jobs\",\n      \"type\": \"timeseries\"\
+    \n    },\n    {\n      \"datasource\": {\n        \"type\": \"prometheus\",\n\
+    \        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\": {\n       \
+    \ \"defaults\": {\n          \"custom\": {},\n          \"color\": {\n       \
+    \     \"mode\": \"palette-classic\"\n          }\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 7,\n        \"w\": 6,\n \
+    \       \"x\": 12,\n        \"y\": 52\n      },\n      \"id\": 23,\n      \"options\"\
+    : {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"reasoning_jobs_failed_current{job=\\\"odis-backend\\\
+    \"}\",\n          \"instant\": true,\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Failed reasoning jobs (current)\",\n      \"type\"\
+    : \"timeseries\"\n    },\n    {\n      \"datasource\": {\n        \"type\": \"\
+    prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\"\
+    : {\n        \"defaults\": {\n          \"custom\": {},\n          \"color\":\
+    \ {\n            \"mode\": \"palette-classic\"\n          },\n          \"thresholds\"\
+    : {\n            \"mode\": \"absolute\",\n            \"steps\": [\n         \
+    \     {\n                \"color\": \"green\",\n                \"value\": null\n\
+    \              },\n              {\n                \"color\": \"yellow\",\n \
+    \               \"value\": 15\n              },\n              {\n           \
+    \     \"color\": \"red\",\n                \"value\": 30\n              }\n  \
+    \          ]\n          }\n        },\n        \"overrides\": []\n      },\n \
+    \     \"gridPos\": {\n        \"h\": 7,\n        \"w\": 6,\n        \"x\": 18,\n\
+    \        \"y\": 52\n      },\n      \"id\": 24,\n      \"options\": {\n      \
+    \  \"legend\": {\n          \"calcs\": [],\n          \"displayMode\": \"list\"\
+    ,\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\": {\n \
+    \         \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n  \
+    \      {\n          \"expr\": \"worker_heartbeat_age_seconds{job=\\\"odis-backend\\\
+    \"}\",\n          \"instant\": true,\n          \"refId\": \"A\"\n        }\n\
+    \      ],\n      \"title\": \"Worker heartbeat age (seconds)\",\n      \"type\"\
+    : \"timeseries\"\n    },\n    {\n      \"datasource\": {\n        \"type\": \"\
+    prometheus\",\n        \"uid\": \"prometheus\"\n      },\n      \"fieldConfig\"\
+    : {\n        \"defaults\": {\n          \"custom\": {},\n          \"color\":\
+    \ {\n            \"mode\": \"palette-classic\"\n          }\n        },\n    \
+    \    \"overrides\": []\n      },\n      \"gridPos\": {\n        \"h\": 8,\n  \
+    \      \"w\": 12,\n        \"x\": 0,\n        \"y\": 59\n      },\n      \"id\"\
+    : 25,\n      \"options\": {\n        \"legend\": {\n          \"calcs\": [],\n\
+    \          \"displayMode\": \"list\",\n          \"placement\": \"bottom\"\n \
+    \       },\n        \"tooltip\": {\n          \"mode\": \"single\"\n        }\n\
+    \      },\n      \"targets\": [\n        {\n          \"expr\": \"sum by (integration_event_type)\
+    \ (rate(integration_events_digital_twin_updated_total{job=\\\"odis-backend\\\"\
+    }[5m]))\",\n          \"legendFormat\": \"DigitalTwinUpdated\",\n          \"\
+    refId\": \"A\"\n        },\n        {\n          \"expr\": \"sum by (integration_event_type)\
+    \ (rate(integration_events_operational_state_changed_total{job=\\\"odis-backend\\\
+    \"}[5m]))\",\n          \"legendFormat\": \"OperationalStateChanged\",\n     \
+    \     \"refId\": \"B\"\n        },\n        {\n          \"expr\": \"sum by (integration_event_type)\
+    \ (rate(integration_events_notification_raised_total{job=\\\"odis-backend\\\"\
+    }[5m]))\",\n          \"legendFormat\": \"NotificationRaised\",\n          \"\
+    refId\": \"C\"\n        }\n      ],\n      \"title\": \"Integration events by\
+    \ type (rate / 5m)\",\n      \"type\": \"timeseries\"\n    },\n    {\n      \"\
+    datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"custom\"\
+    : {},\n          \"color\": {\n            \"mode\": \"palette-classic\"\n   \
+    \       },\n          \"unit\": \"percentunit\"\n        },\n        \"overrides\"\
+    : []\n      },\n      \"gridPos\": {\n        \"h\": 8,\n        \"w\": 12,\n\
+    \        \"x\": 12,\n        \"y\": 59\n      },\n      \"id\": 26,\n      \"\
+    options\": {\n        \"legend\": {\n          \"calcs\": [],\n          \"displayMode\"\
+    : \"list\",\n          \"placement\": \"bottom\"\n        },\n        \"tooltip\"\
+    : {\n          \"mode\": \"single\"\n        }\n      },\n      \"targets\": [\n\
+    \        {\n          \"expr\": \"sum(rate(cache_hits_total{job=\\\"odis-backend\\\
+    \"}[5m])) / clamp_min(sum(rate(cache_hits_total{job=\\\"odis-backend\\\"}[5m]))\
+    \ + sum(rate(cache_misses_total{job=\\\"odis-backend\\\"}[5m])), 1)\",\n     \
+    \     \"refId\": \"A\"\n        }\n      ],\n      \"title\": \"Digital twin cache\
+    \ hit ratio (5m)\",\n      \"type\": \"timeseries\"\n    },\n    {\n      \"collapsed\"\
+    : false,\n      \"gridPos\": {\n        \"h\": 1,\n        \"w\": 24,\n      \
+    \  \"x\": 0,\n        \"y\": 67\n      },\n      \"id\": 15,\n      \"panels\"\
+    : [],\n      \"title\": \"System\",\n      \"type\": \"row\"\n    },\n    {\n\
+    \      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\":\
+    \ \"prometheus\"\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n\
+    \          \"custom\": {},\n          \"color\": {\n            \"mode\": \"palette-classic\"\
+    \n          }\n        },\n        \"overrides\": []\n      },\n      \"gridPos\"\
+    : {\n        \"h\": 8,\n        \"w\": 12,\n        \"x\": 0,\n        \"y\":\
+    \ 68\n      },\n      \"id\": 16,\n      \"options\": {\n        \"legend\": {\n\
+    \          \"calcs\": [],\n          \"displayMode\": \"list\",\n          \"\
+    placement\": \"bottom\"\n        },\n        \"tooltip\": {\n          \"mode\"\
+    : \"single\"\n        }\n      },\n      \"targets\": [\n        {\n         \
+    \ \"expr\": \"100 * avg_over_time(up{job=\\\"odis-backend\\\"}[6h])\",\n     \
+    \     \"refId\": \"A\"\n        }\n      ],\n      \"title\": \"Uptime (scrape\
+    \ success %, last 6h)\",\n      \"type\": \"timeseries\"\n    },\n    {\n    \
+    \  \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"custom\"\
+    : {},\n          \"color\": {\n            \"mode\": \"palette-classic\"\n   \
+    \       }\n        },\n        \"overrides\": []\n      },\n      \"gridPos\"\
+    : {\n        \"h\": 8,\n        \"w\": 12,\n        \"x\": 12,\n        \"y\"\
+    : 68\n      },\n      \"id\": 17,\n      \"options\": {\n        \"legend\": {\n\
+    \          \"calcs\": [],\n          \"displayMode\": \"list\",\n          \"\
+    placement\": \"bottom\"\n        },\n        \"tooltip\": {\n          \"mode\"\
+    : \"single\"\n        }\n      },\n      \"targets\": [\n        {\n         \
+    \ \"expr\": \"100 * sum(rate(http_requests_total{job=\\\"odis-backend\\\",endpoint=\\\
+    \"/health\\\",status_code=~\\\"2..\\\"}[5m])) / clamp_min(sum(rate(http_requests_total{job=\\\
+    \"odis-backend\\\",endpoint=\\\"/health\\\"}[5m])), 1)\",\n          \"refId\"\
+    : \"A\"\n        }\n      ],\n      \"title\": \"Health endpoint success rate\
+    \ (2xx %, last 5m)\",\n      \"type\": \"timeseries\"\n    },\n    {\n      \"\
+    datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\": \"prometheus\"\
+    \n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n          \"custom\"\
+    : {},\n          \"color\": {\n            \"mode\": \"palette-classic\"\n   \
+    \       }\n        },\n        \"overrides\": []\n      },\n      \"gridPos\"\
+    : {\n        \"h\": 7,\n        \"w\": 12,\n        \"x\": 0,\n        \"y\":\
+    \ 76\n      },\n      \"id\": 18,\n      \"options\": {\n        \"legend\": {\n\
+    \          \"calcs\": [],\n          \"displayMode\": \"list\",\n          \"\
+    placement\": \"bottom\"\n        },\n        \"tooltip\": {\n          \"mode\"\
+    : \"single\"\n        }\n      },\n      \"targets\": [\n        {\n         \
+    \ \"expr\": \"rate(process_cpu_seconds_total{job=\\\"prometheus\\\"}[5m])\",\n\
+    \          \"refId\": \"A\"\n        }\n      ],\n      \"title\": \"Prometheus\
+    \ process CPU (cores, rate)\",\n      \"type\": \"timeseries\"\n    },\n    {\n\
+    \      \"datasource\": {\n        \"type\": \"prometheus\",\n        \"uid\":\
+    \ \"prometheus\"\n      },\n      \"fieldConfig\": {\n        \"defaults\": {\n\
+    \          \"custom\": {},\n          \"color\": {\n            \"mode\": \"palette-classic\"\
+    \n          }\n        },\n        \"overrides\": []\n      },\n      \"gridPos\"\
+    : {\n        \"h\": 7,\n        \"w\": 12,\n        \"x\": 12,\n        \"y\"\
+    : 76\n      },\n      \"id\": 19,\n      \"options\": {\n        \"legend\": {\n\
+    \          \"calcs\": [],\n          \"displayMode\": \"list\",\n          \"\
+    placement\": \"bottom\"\n        },\n        \"tooltip\": {\n          \"mode\"\
+    : \"single\"\n        }\n      },\n      \"targets\": [\n        {\n         \
+    \ \"expr\": \"process_resident_memory_bytes{job=\\\"prometheus\\\"}\",\n     \
+    \     \"refId\": \"A\"\n        }\n      ],\n      \"title\": \"Prometheus process\
+    \ memory (bytes)\",\n      \"type\": \"timeseries\"\n    }\n  ],\n  \"schemaVersion\"\
+    : 39,\n  \"style\": \"dark\",\n  \"tags\": [\n    \"odis\",\n    \"monitoring\"\
+    \n  ],\n  \"templating\": {\n    \"list\": []\n  },\n  \"time\": {\n    \"from\"\
+    : \"now-6h\",\n    \"to\": \"now\"\n  },\n  \"timepicker\": {},\n  \"timezone\"\
+    : \"browser\",\n  \"title\": \"ODIS Monitoring\",\n  \"uid\": \"odis-monitoring\"\
+    ,\n  \"version\": 1,\n  \"weekStart\": \"\"\n}\n\n"

@@ -10,3 +10,4 @@ Platform documents are living references that evolve alongside implementation. T
 |----------|-------------|
 | [Platform Architecture](platform-architecture.md) | High-level platform design and component roles |
 | [Docker Runtime](docker-runtime.md) | Compose topology, networking, health, and startup |
+| [Kubernetes Deployment](kubernetes-deployment.md) | K8s manifests, networking, scaling, and operations |

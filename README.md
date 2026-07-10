@@ -97,7 +97,7 @@ docker compose up --build -d
 | API (direct) | `http://localhost:8000` |
 | API health | `http://localhost:8000/health` |
 
-Configuration is loaded from `.env` (see `.env.example`). For architecture, networking, volumes, and health dependencies, see [Docker Runtime](docs/platform/docker-runtime.md).
+Configuration is loaded from `.env` (see `.env.example`). For architecture, networking, volumes, and health dependencies, see [Docker Runtime](docs/platform/docker-runtime.md). For Kubernetes deployment, see [Kubernetes Deployment](docs/platform/kubernetes-deployment.md).
 
 ### Hybrid local development
 

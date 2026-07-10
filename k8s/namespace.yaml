@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: odis
+  labels:
+    app.kubernetes.io/part-of: odis
+    app.kubernetes.io/managed-by: kubectl
