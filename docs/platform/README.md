@@ -9,6 +9,7 @@ Platform documents are living references that evolve alongside implementation. T
 | Document | Description |
 |----------|-------------|
 | [Platform Architecture](platform-architecture.md) | High-level platform design and component roles |
+| [TimescaleDB Foundation](timescaledb-foundation.md) | Telemetry hypertables, relational vs time-series data, and analytics roadmap |
 | [Docker Runtime](docker-runtime.md) | Compose topology, networking, health, and startup |
 | [Kubernetes Deployment](kubernetes-deployment.md) | K8s manifests, networking, scaling, and operations |
 | [CI/CD and Container Registry](ci-cd.md) | GitHub Actions validation, GHCR publishing, and image versioning |

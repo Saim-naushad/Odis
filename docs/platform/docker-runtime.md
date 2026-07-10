@@ -13,7 +13,7 @@ For platform context, see [Platform Architecture](platform-architecture.md).
 | **frontend** | `frontend/Dockerfile` (nginx + React build) | Operator monitoring console; proxies `/api` to the API | `8080` → `80` |
 | **api** | `infra/docker/api/Dockerfile` | FastAPI platform API, metrics, health probes | `8000` |
 | **worker** | `infra/docker/worker/Dockerfile` | Background reasoning job processor | internal |
-| **postgres** | `postgres:16` | Durable platform state | internal |
+| **postgres** | `timescale/timescaledb:2.17.2-pg16` | Durable platform state and telemetry hypertables | internal |
 | **redis** | `redis:7-alpine` | Digital twin cache | internal |
 | **kafka** | `apache/kafka:3.9.0` (KRaft) | Event streaming backbone | internal |
 | **prometheus** | `prom/prometheus` | Metrics collection | internal |
@@ -221,7 +221,7 @@ Expose Postgres temporarily by adding a `ports` mapping only for local debugging
 
 - The Compose file is the reference topology for Kubernetes manifests: one deployment per service, internal ClusterIP for private services, Ingress for `frontend` and `api`.
 - API images run `alembic upgrade head` on startup; in Kubernetes, prefer a dedicated migration Job for production rollouts.
-- Pin image tags in production (`postgres:16`, `prom/prometheus:v3.2.1`, etc.) as shown in `docker-compose.yml`.
+- Pin image tags in production (`timescale/timescaledb:2.17.2-pg16`, `prom/prometheus:v3.2.1`, etc.) as shown in `docker-compose.yml`.
 - Grafana and Prometheus are internal; route operator traffic through the frontend and API only.
 
 ---

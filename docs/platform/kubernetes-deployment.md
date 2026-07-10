@@ -312,7 +312,7 @@ Restart affected workloads after secret rotation.
 | Addition | Location | Impact |
 |----------|----------|--------|
 | Horizontal Pod Autoscaler | `k8s/hpa/` | Reference existing `api` and `worker` Deployments |
-| TimescaleDB | `k8s/timescaledb/` | Optional replacement or sidecar to `postgres` |
+| TimescaleDB | `k8s/postgres/` (TimescaleDB image) | PostgreSQL extension for telemetry hypertables; see [TimescaleDB Foundation](timescaledb-foundation.md) |
 | ONNX Runtime | `k8s/onnx-runtime/` | New Deployment + ClusterIP Service; API env extension |
 
 No changes to the per-service directory layout are required.

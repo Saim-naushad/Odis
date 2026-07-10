@@ -401,6 +401,8 @@ Mapping is explicit and isolated in `backend/app/infrastructure/database/mappers
 
 The initial Alembic migration (`b8265a976460`) creates the `observations` table. The migration `c4f1a8d29e10` adds reasoning artifact tables (`reasoning_runs`, `operational_situations`, `decision_contexts`, `decision_plans`, `reasoning_run_indexes`, `structured_assessments`, `reasoning_traces`).
 
+On TimescaleDB-backed deployments, `observations` is the initial telemetry hypertable partitioned on `timestamp`. The domain `Observation.id` remains the application identity; database uniqueness on `id` alone is not preserved at the hypertable level because TimescaleDB requires partition columns in unique constraints. Duplicate rejection stays in the repository layer. See [TimescaleDB Foundation](timescaledb-foundation.md) for relational vs telemetry boundaries and future dedicated telemetry tables.
+
 ### Repository responsibilities
 
 | Method | Behavior |
@@ -717,6 +719,7 @@ This roadmap is intentionally high level. Each step may span multiple PRs. Seque
 
 | Document | Scope |
 |----------|-------|
+| [TimescaleDB Foundation](timescaledb-foundation.md) | Telemetry hypertables, primary key constraints, and future analytics |
 | [Architecture](../architecture.md) | Codebase organization and reasoning layer design |
 | [Reasoning Pipeline](../reasoning-pipeline.md) | Stage-by-stage reasoning flow |
 | [Research](../research/) | Theoretical foundations for operational reasoning |
