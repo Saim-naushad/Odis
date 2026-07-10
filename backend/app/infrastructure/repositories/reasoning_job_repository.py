@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from backend.app.domain.reasoning_job import ReasoningJob, ReasoningJobStatus
 from backend.app.domain.repositories.reasoning_job_repository import (
@@ -69,3 +69,11 @@ class SqlAlchemyReasoningJobRepository(SqlAlchemyRepository, ReasoningJobReposit
         model.completed_at = job.completed_at
         model.attempts = job.attempts
         self._session.flush()
+
+    def count_by_status(self, status: str) -> int:
+        statement = (
+            select(func.count())
+            .select_from(ReasoningJobModel)
+            .where(ReasoningJobModel.status == status)
+        )
+        return int(self._session.scalar(statement) or 0)

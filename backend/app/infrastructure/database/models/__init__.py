@@ -23,6 +23,9 @@ from backend.app.infrastructure.database.models.structured_assessment import (
 from backend.app.infrastructure.database.models.timeline_event import (
     TimelineEventModel,
 )
+from backend.app.infrastructure.database.models.worker_heartbeat import (
+    WorkerHeartbeatModel,
+)
 
 __all__ = [
     "DecisionContextModel",
@@ -36,4 +39,5 @@ __all__ = [
     "ReasoningTraceModel",
     "StructuredAssessmentModel",
     "TimelineEventModel",
+    "WorkerHeartbeatModel",
 ]

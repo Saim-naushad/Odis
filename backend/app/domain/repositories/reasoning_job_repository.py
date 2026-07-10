@@ -21,3 +21,6 @@ class ReasoningJobRepository(Protocol):
 
     def update(self, job: ReasoningJob) -> None:
         """Persist changes to an existing reasoning job."""
+
+    def count_by_status(self, status: str) -> int:
+        """Return how many jobs are in the given status."""

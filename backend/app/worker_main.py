@@ -14,6 +14,7 @@ from backend.app.application.bootstrap import (
 from backend.app.application.reasoning_job_queue import DatabaseReasoningJobQueue
 from backend.app.application.reasoning_worker import ReasoningWorker
 from backend.app.application.unit_of_work import UnitOfWork
+from backend.app.application.worker_heartbeat_service import WorkerHeartbeatService
 from backend.app.infrastructure.config.settings import get_settings
 from backend.app.infrastructure.database.session import (
     create_db_engine,
@@ -27,6 +28,7 @@ from backend.app.infrastructure.repositories.reasoning_job_repository import (
     SqlAlchemyReasoningJobRepository,
 )
 from backend.app.infrastructure.tracing import configure_tracing, shutdown_tracing
+from backend.app.infrastructure.worker.worker_identity import build_worker_id
 
 logger = get_logger(__name__)
 
@@ -87,10 +89,21 @@ def run_worker(*, poll_interval_seconds: float = 1.0) -> None:
     )
 
     worker = create_reasoning_worker(session_factory, application_runtime)
+    heartbeat_service = WorkerHeartbeatService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        worker_id=build_worker_id(),
+    )
+    heartbeat_interval = settings.worker_heartbeat_interval_seconds
+    last_heartbeat_at = 0.0
 
     logger.info("reasoning_worker_started", poll_interval_seconds=poll_interval_seconds)
     try:
         while not _shutdown_requested:
+            now_mono = time.monotonic()
+            if now_mono - last_heartbeat_at >= heartbeat_interval:
+                heartbeat_service.record_heartbeat()
+                last_heartbeat_at = now_mono
+
             processed = worker.process_next()
             if not processed:
                 time.sleep(poll_interval_seconds)

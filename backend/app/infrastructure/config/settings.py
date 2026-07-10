@@ -39,6 +39,18 @@ class Settings(BaseSettings):
         default=300,
         validation_alias="CACHE_TTL_SECONDS",
     )
+    worker_heartbeat_timeout_seconds: int = Field(
+        default=30,
+        validation_alias="WORKER_HEARTBEAT_TIMEOUT_SECONDS",
+    )
+    worker_heartbeat_interval_seconds: int = Field(
+        default=10,
+        validation_alias="WORKER_HEARTBEAT_INTERVAL_SECONDS",
+    )
+    health_check_timeout_seconds: float = Field(
+        default=2.0,
+        validation_alias="HEALTH_CHECK_TIMEOUT_SECONDS",
+    )
 
     otel_enabled: bool = Field(default=False, validation_alias="OTEL_ENABLED")
     otel_exporter_otlp_endpoint: str | None = Field(

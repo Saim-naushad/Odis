@@ -498,6 +498,292 @@
         "x": 0,
         "y": 51
       },
+      "id": 20,
+      "panels": [],
+      "title": "Distributed Runtime",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 0,
+        "y": 52
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "reasoning_jobs_pending{job=\"odis-backend\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Pending reasoning jobs",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 6,
+        "y": 52
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "reasoning_jobs_running{job=\"odis-backend\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Running reasoning jobs",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 52
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "reasoning_jobs_failed_current{job=\"odis-backend\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Failed reasoning jobs (current)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 52
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "worker_heartbeat_age_seconds{job=\"odis-backend\"}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Worker heartbeat age (seconds)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (integration_event_type) (rate(integration_events_digital_twin_updated_total{job=\"odis-backend\"}[5m]))",
+          "legendFormat": "DigitalTwinUpdated",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (integration_event_type) (rate(integration_events_operational_state_changed_total{job=\"odis-backend\"}[5m]))",
+          "legendFormat": "OperationalStateChanged",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (integration_event_type) (rate(integration_events_notification_raised_total{job=\"odis-backend\"}[5m]))",
+          "legendFormat": "NotificationRaised",
+          "refId": "C"
+        }
+      ],
+      "title": "Integration events by type (rate / 5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 59
+      },
+      "id": 26,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cache_hits_total{job=\"odis-backend\"}[5m])) / clamp_min(sum(rate(cache_hits_total{job=\"odis-backend\"}[5m])) + sum(rate(cache_misses_total{job=\"odis-backend\"}[5m])), 1)",
+          "refId": "A"
+        }
+      ],
+      "title": "Digital twin cache hit ratio (5m)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      },
       "id": 15,
       "panels": [],
       "title": "System",
@@ -521,7 +807,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 52
+        "y": 68
       },
       "id": 16,
       "options": {
@@ -561,7 +847,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 52
+        "y": 68
       },
       "id": 17,
       "options": {
@@ -601,7 +887,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 60
+        "y": 76
       },
       "id": 18,
       "options": {
@@ -641,7 +927,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 76
       },
       "id": 19,
       "options": {

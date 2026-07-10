@@ -7,6 +7,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, REGISTRY, generate_latest
 # Import metric modules so collectors register with REGISTRY at startup.
 from backend.app.infrastructure.metrics import (  # noqa: F401
     cache_metrics,
+    health_metrics,
     http_metrics,
     integration_event_metrics,
     monitoring_metrics,
