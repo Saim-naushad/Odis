@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from backend.simulator.machine import FuelCellMachine, FuelCellMachineState
 from domain.entities.observation import Observation
 from domain.value_objects.measurement_type import MeasurementType
 
-_MEASUREMENT_SPECS: tuple[tuple[str, str, str], ...] = (
+_CORE_MEASUREMENT_SPECS: tuple[tuple[str, str, str], ...] = (
     ("stack_temperature", "stack_temperature", "celsius"),
     ("stack_pressure", "stack_pressure", "kPa"),
     ("current", "current", "A"),
@@ -16,38 +17,63 @@ _MEASUREMENT_SPECS: tuple[tuple[str, str, str], ...] = (
     ("fuel_flow", "hydrogen_flow", "SLPM"),
 )
 
+_HYDROGEN_LHV_KWH_PER_SLPM = 0.033
 
-def observations_from_machine(
+
+@dataclass
+class TelemetryContext:
+    """Per-asset telemetry mapping context for a simulator run."""
+
+    run_id: str
+    sensor_bias: dict[str, float] = field(default_factory=dict)
+
+
+def observation_id(
+    *,
+    run_id: str,
+    asset_id: str,
+    tick: int,
+    measurement_type: str,
+) -> str:
+    """Build a globally unique observation id for one simulator run."""
+    return f"sim-{run_id}-{asset_id}-t{tick}-{measurement_type}"
+
+
+def core_observations_from_machine(
     machine: FuelCellMachine,
     *,
     timestamp: datetime,
-    id_prefix: str | None = None,
+    context: TelemetryContext,
 ) -> tuple[Observation, ...]:
-    """Convert the current machine state into platform Observation entities."""
-    return observations_from_state(
+    """Convert machine state into profile-aligned core observations."""
+    return core_observations_from_state(
         machine.state,
         asset_id=machine.asset_id,
         timestamp=timestamp,
-        id_prefix=id_prefix,
+        context=context,
     )
 
 
-def observations_from_state(
+def core_observations_from_state(
     state: FuelCellMachineState,
     *,
     asset_id: str,
     timestamp: datetime,
-    id_prefix: str | None = None,
+    context: TelemetryContext,
 ) -> tuple[Observation, ...]:
-    """Map a machine state snapshot to the fuel cell profile measurement set."""
-    resolved_prefix = id_prefix or f"sim-{asset_id}-t{state.tick_count}"
+    """Map machine state to fuel-cell profile measurements."""
     observations: list[Observation] = []
-
-    for measurement_name, state_field, unit in _MEASUREMENT_SPECS:
-        value = getattr(state, state_field)
+    for measurement_name, state_field, unit in _CORE_MEASUREMENT_SPECS:
+        value = float(getattr(state, state_field))
+        value += context.sensor_bias.get(measurement_name, 0.0)
         observations.append(
             Observation(
-                id=f"{resolved_prefix}-{measurement_name}",
+                id=observation_id(
+                    run_id=context.run_id,
+                    asset_id=asset_id,
+                    tick=state.tick_count,
+                    measurement_type=measurement_name,
+                ),
                 asset_id=asset_id,
                 timestamp=timestamp,
                 measurement_type=MeasurementType(name=measurement_name),
@@ -55,8 +81,91 @@ def observations_from_state(
                 unit=unit,
             )
         )
-
     return tuple(observations)
+
+
+def derived_observations_from_state(
+    state: FuelCellMachineState,
+    *,
+    asset_id: str,
+    timestamp: datetime,
+    context: TelemetryContext,
+) -> tuple[Observation, ...]:
+    """Map machine state to derived display metrics."""
+    power_kw = (state.voltage * state.current) / 1000.0
+    fuel_energy = max(state.hydrogen_flow * _HYDROGEN_LHV_KWH_PER_SLPM, 1e-6)
+    efficiency_percent = min(100.0, (power_kw / fuel_energy) * 100.0)
+    derived_values = {
+        "power_output": (round(power_kw, 4), "kW"),
+        "efficiency": (round(efficiency_percent, 4), "percent"),
+        "coolant_flow": (state.coolant_flow, "L/min"),
+    }
+    return tuple(
+        Observation(
+            id=observation_id(
+                run_id=context.run_id,
+                asset_id=asset_id,
+                tick=state.tick_count,
+                measurement_type=measurement_name,
+            ),
+            asset_id=asset_id,
+            timestamp=timestamp,
+            measurement_type=MeasurementType(name=measurement_name),
+            value=value,
+            unit=unit,
+        )
+        for measurement_name, (value, unit) in derived_values.items()
+    )
+
+
+def observations_from_machine(
+    machine: FuelCellMachine,
+    *,
+    timestamp: datetime,
+    context: TelemetryContext,
+    include_derived: bool = True,
+) -> tuple[Observation, ...]:
+    """Convert machine state into core and optional derived observations."""
+    core = core_observations_from_machine(
+        machine,
+        timestamp=timestamp,
+        context=context,
+    )
+    if not include_derived:
+        return core
+    derived = derived_observations_from_state(
+        machine.state,
+        asset_id=machine.asset_id,
+        timestamp=timestamp,
+        context=context,
+    )
+    return core + derived
+
+
+def observations_from_state(
+    state: FuelCellMachineState,
+    *,
+    asset_id: str,
+    timestamp: datetime,
+    context: TelemetryContext,
+    include_derived: bool = True,
+) -> tuple[Observation, ...]:
+    """Backward-compatible helper for tests."""
+    core = core_observations_from_state(
+        state,
+        asset_id=asset_id,
+        timestamp=timestamp,
+        context=context,
+    )
+    if not include_derived:
+        return core
+    derived = derived_observations_from_state(
+        state,
+        asset_id=asset_id,
+        timestamp=timestamp,
+        context=context,
+    )
+    return core + derived
 
 
 def observation_to_payload(observation: Observation) -> dict[str, object]:

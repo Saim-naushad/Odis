@@ -256,6 +256,35 @@ services:
       retries: 5
       start_period: 15s
 
+  demo-plant:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: infra/docker/demo-plant/Dockerfile
+    restart: unless-stopped
+    networks:
+      - odis-internal
+    environment:
+      <<: *odis-environment
+      SIMULATOR_TRANSPORT: mqtt
+      SIMULATOR_MQTT_BROKER_URL: mqtt://mosquitto:1883
+      SIMULATOR_SITE_ID: plant-alpha
+      SIMULATOR_SCENARIO_SCRIPT: ${SIMULATOR_SCENARIO_SCRIPT:-demo_presentation}
+      SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS: ${SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS:-15}
+      SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS: ${SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS:-60}
+      SIMULATOR_SIM_DT_SECONDS: ${SIMULATOR_SIM_DT_SECONDS:-45}
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      mqtt-bridge:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'backend.simulator' >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 volumes:
   odis-postgres-data:
   odis-kafka-data:

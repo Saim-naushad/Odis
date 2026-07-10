@@ -16,8 +16,9 @@ from backend.app.main import create_app
 from backend.simulator.machine import FuelCellMachine
 from backend.simulator.publisher import ObservationPublisher
 from backend.simulator.telemetry import (
+    TelemetryContext,
+    core_observations_from_machine,
     observation_to_payload,
-    observations_from_machine,
 )
 
 
@@ -54,10 +55,10 @@ def test_publisher_posts_observations_to_platform_api(
 ) -> None:
     machine = FuelCellMachine.default(asset_id="fuel-cell-stack-01")
     machine.tick(1.0)
-    observations = observations_from_machine(
+    observations = core_observations_from_machine(
         machine,
         timestamp=datetime(2026, 7, 15, 9, 0, tzinfo=UTC),
-        id_prefix="pub-test-1",
+        context=TelemetryContext(run_id="pub-test-1"),
     )
 
     with ObservationPublisher(
@@ -76,10 +77,10 @@ def test_observation_payload_round_trips_through_api(
     api_client: TestClient,
 ) -> None:
     machine = FuelCellMachine.default()
-    observations = observations_from_machine(
+    observations = core_observations_from_machine(
         machine,
         timestamp=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
-        id_prefix="payload-test",
+        context=TelemetryContext(run_id="payload-test"),
     )
     payload = observation_to_payload(observations[0])
 

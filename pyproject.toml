@@ -58,6 +58,9 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: tests that require docker compose services",
+]
 
 # ---------------------------------------------------------------------------
 # Ruff — linting only (formatting deferred to a later PR)

@@ -82,59 +82,61 @@ No parallel telemetry model is introduced. The simulator reuses the same `Observ
 
 ## Publisher
 
-`ObservationPublisher` (`backend/simulator/publisher.py`) posts each observation to:
+The simulator supports two transports:
 
-```
-POST /observations
-```
+| Transport | Config | Use |
+|-----------|--------|-----|
+| **MQTT** (default for Compose demo) | `SIMULATOR_TRANSPORT=mqtt` | Full pipeline through Mosquitto and the MQTT bridge |
+| **HTTP** (local dev fallback) | `SIMULATOR_TRANSPORT=http` | Direct `POST /observations` — not E2E acceptance |
 
-using `httpx` against the configured API base URL. This mirrors how a real edge gateway or protocol adapter would integrate with ODIS.
+`MqttObservationPublisher` posts to `odis/v1/{site}/{asset}/telemetry/{measurement}`.
 
----
+`HttpObservationPublisher` posts to `POST /observations` via httpx.
 
-## Scenarios
-
-Scenarios orchestrate how the machine is driven over time.
-
-### Normal operation
-
-`NormalOperationScenario` (`backend/simulator/scenarios/normal_operation.py`) gently varies `target_load` on a five-minute sinusoidal cycle between 45% and 75%. The stack remains healthy — no failures, degradation, or fault injection.
-
-Additional fault scenarios will be added in later phases.
+For Plant Alpha fleet setup, scenarios, throughput limits, and validation, see [Demo Environment](platform/demo-environment.md).
 
 ---
 
 ## Configuration
 
-Settings are loaded from environment variables with the `SIMULATOR_` prefix (and optional `.env` file):
+Settings use the `SIMULATOR_` prefix:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SIMULATOR_API_BASE_URL` | `http://localhost:8000` | ODIS platform API base URL |
-| `SIMULATOR_PUBLISH_INTERVAL_SECONDS` | `5.0` | Seconds between publish cycles |
-| `SIMULATOR_ASSET_ID` | `fuel-cell-stack-01` | Asset identifier on observations |
+| `SIMULATOR_TRANSPORT` | `mqtt` | `mqtt` or `http` |
+| `SIMULATOR_MQTT_BROKER_URL` | `mqtt://localhost:1883` | Mosquitto broker |
+| `SIMULATOR_API_BASE_URL` | `http://localhost:8000` | API (HTTP transport) |
+| `SIMULATOR_SITE_ID` | `plant-alpha` | MQTT site segment |
+| `SIMULATOR_SCENARIO_SCRIPT` | `demo_presentation` | Timed demo script |
+| `SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS` | `15` | Core measurement cadence |
+| `SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS` | `60` | Derived metric cadence |
+| `SIMULATOR_SIM_DT_SECONDS` | `45` | Simulation timestep per tick |
+| `SIMULATOR_RUN_ID` | auto | Optional fixed run id for tests |
 
 ---
 
 ## Running
 
-Start the platform API, then run the simulator:
+### Compose demo (MQTT)
 
 ```bash
-# Terminal 1 — platform API (requires DATABASE_URL)
-uvicorn backend.app.main:app --reload
-
-# Terminal 2 — simulator
-python -m backend.simulator
+docker compose --profile demo up --build -d
 ```
 
-Each publish cycle:
+### Local HTTP fallback
 
-1. Advances the normal-operation scenario by one tick
-2. Derives five observations from machine state
-3. Posts them to `/observations`
+```bash
+SIMULATOR_TRANSPORT=http python -m backend.simulator --scenario normal_operation
+```
 
-Stop with `Ctrl+C`.
+---
+
+## Legacy configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SIMULATOR_PUBLISH_INTERVAL_SECONDS` | `15.0` | Alias for core publish interval |
+| `SIMULATOR_ASSET_ID` | `fuel-cell-stack-01` | Single-asset fallback |
 
 ---
 

@@ -28,6 +28,8 @@ class FuelCellMachineState:
     hydrogen_flow: float
     air_flow: float
     cooling_efficiency: float
+    fuel_supply_factor: float
+    coolant_flow: float
     operating_mode: OperatingMode
     tick_count: int
 
@@ -65,6 +67,7 @@ class FuelCellMachine:
         hydrogen_flow: float = 2.0,
         air_flow: float = 8.0,
         cooling_efficiency: float = 0.85,
+        fuel_supply_factor: float = 1.0,
         operating_mode: OperatingMode = OperatingMode.RUNNING,
     ) -> None:
         self._asset_id = asset_id
@@ -77,6 +80,9 @@ class FuelCellMachine:
         self._hydrogen_flow = hydrogen_flow
         self._air_flow = air_flow
         self._cooling_efficiency = cooling_efficiency
+        self._target_cooling_efficiency = cooling_efficiency
+        self._fuel_supply_factor = fuel_supply_factor
+        self._target_fuel_supply_factor = fuel_supply_factor
         self._operating_mode = operating_mode
         self._tick_count = 0
 
@@ -97,12 +103,32 @@ class FuelCellMachine:
         elif self._operating_mode == OperatingMode.RAMPING:
             self._operating_mode = OperatingMode.RUNNING
 
+    def set_cooling_efficiency(self, cooling_efficiency: float) -> None:
+        """Set the cooling subsystem effectiveness target (0.4-1.0)."""
+        self._target_cooling_efficiency = _clamp(cooling_efficiency, 0.4, 1.0)
+
+    def set_fuel_supply_factor(self, fuel_supply_factor: float) -> None:
+        """Scale hydrogen delivery relative to commanded demand (0.4-1.0)."""
+        self._target_fuel_supply_factor = _clamp(fuel_supply_factor, 0.4, 1.0)
+
     def tick(self, dt_seconds: float = 1.0) -> FuelCellMachineState:
         """Advance internal state by one simulation step."""
         if dt_seconds <= 0:
             raise ValueError("dt_seconds must be positive")
 
         self._tick_count += 1
+        self._cooling_efficiency = _lag_toward(
+            self._cooling_efficiency,
+            self._target_cooling_efficiency,
+            dt_seconds,
+            self._TEMPERATURE_TIME_CONSTANT_SECONDS,
+        )
+        self._fuel_supply_factor = _lag_toward(
+            self._fuel_supply_factor,
+            self._target_fuel_supply_factor,
+            dt_seconds,
+            self._LOAD_TIME_CONSTANT_SECONDS,
+        )
         self._load = _lag_toward(
             self._load,
             self._target_load,
@@ -137,13 +163,22 @@ class FuelCellMachine:
 
         target_fuel_flow = (
             self._BASE_FUEL_FLOW_SLPM + load_fraction * self._FUEL_FLOW_LOAD_COEFFICIENT
-        )
+        ) * self._fuel_supply_factor
         self._hydrogen_flow = _lag_toward(
             self._hydrogen_flow,
             target_fuel_flow,
             dt_seconds,
             self._LOAD_TIME_CONSTANT_SECONDS,
         )
+
+        if self._fuel_supply_factor < 0.98:
+            supply_limited_current = target_current * self._fuel_supply_factor
+            self._current = _lag_toward(
+                self._current,
+                min(self._current, supply_limited_current),
+                dt_seconds,
+                self._LOAD_TIME_CONSTANT_SECONDS / 2.0,
+            )
 
         target_air_flow = self._hydrogen_flow * self._AIR_STOICHIOMETRY_RATIO
         self._air_flow = _lag_toward(
@@ -194,6 +229,8 @@ class FuelCellMachine:
             hydrogen_flow=self._hydrogen_flow,
             air_flow=self._air_flow,
             cooling_efficiency=self._cooling_efficiency,
+            fuel_supply_factor=self._fuel_supply_factor,
+            coolant_flow=_coolant_flow(self._load, self._cooling_efficiency),
             operating_mode=self._operating_mode,
             tick_count=self._tick_count,
         )
@@ -218,3 +255,9 @@ def _lag_toward(
 def _micro_variation(tick: int, *, channel: int, amplitude: float) -> float:
     """Deterministic bounded variation — not independent random noise."""
     return math.sin(tick * 0.17 + channel * 1.3) * amplitude
+
+
+def _coolant_flow(load_percent: float, cooling_efficiency: float) -> float:
+    """Representative coolant loop flow derived from thermal load."""
+    load_fraction = load_percent / 100.0
+    return round(8.0 + load_fraction * 18.0 + (0.85 - cooling_efficiency) * 12.0, 4)

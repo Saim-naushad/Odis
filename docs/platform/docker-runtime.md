@@ -18,6 +18,7 @@ For platform context, see [Platform Architecture](platform-architecture.md).
 | **kafka** | `apache/kafka:3.9.0` (KRaft) | Event streaming backbone | internal |
 | **prometheus** | `prom/prometheus` | Metrics collection | internal |
 | **grafana** | `grafana/grafana` | Dashboards and visualization | internal |
+| **demo-plant** | `infra/docker/demo-plant/Dockerfile` | Plant Alpha MQTT simulator (`--profile demo`) | internal |
 
 Kafka runs in **KRaft mode** (combined broker + controller). No Zookeeper service is required.
 
