@@ -3,11 +3,14 @@ from unittest.mock import patch
 
 import pytest
 
+from application.create_decision_context import create_decision_context
+from application.decision_planner import DecisionPlanner
 from application.event_publisher import InMemoryEventPublisher
 from application.expectation_analysis import ExpectationAnalysis
 from application.operational_context import OperationalContext
-from application.planning_context import PlanningContext
 from application.operational_profile import OperationalProfile
+from application.operational_situation_assessor import OperationalSituationAssessor
+from application.planning_context import PlanningContext
 from application.profiles.fuel_cell_profile import FuelCellOperationalProfile
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import ReasoningRunIndex
@@ -75,6 +78,70 @@ def test_reasoning_session_runs_the_operational_pipeline() -> None:
     assert result.planning_context == PlanningContext.from_assessment(
         result.structured_assessment
     )
+    artifacts = result.reasoning_context.artifacts
+    assert artifacts.signals is not None
+    assert artifacts.evidence
+    assert artifacts.hypotheses
+    assert artifacts.assessment_summary is not None
+    assert artifacts.structured_assessment == result.structured_assessment
+    assert artifacts.decision_context == result.context
+    assert artifacts.decision_plan == result.plan
+    assert artifacts.confidence is None
+    assert artifacts.explanation is None
+
+
+def test_reasoning_session_owns_explicit_ordered_stages() -> None:
+    session = ReasoningSession()
+
+    assert tuple(stage.name for stage in session.stages) == (
+        "Signal Extraction",
+        "Evidence Generation",
+        "Hypothesis Generation",
+        "Assessment",
+        "Planning",
+    )
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        [10.0, 20.0, 30.0],
+        [20.0, 20.0, 20.0],
+        [30.0, 20.0, 10.0],
+        [10.0, 30.0, 5.0, 40.0],
+    ],
+)
+def test_explicit_pipeline_preserves_assessment_and_planning_outputs(
+    values: list[float],
+) -> None:
+    goal = build_goal()
+    observations = build_observation_sequence(values)
+
+    result = ReasoningSession().run(goal, observations)
+    signals = result.reasoning_context.artifacts.signals
+    assert signals is not None
+
+    legacy_assessment = OperationalSituationAssessor().assess(
+        goal,
+        signals.primary_observations,
+        signals.trend,
+        signals.variation,
+        relationship_analysis=signals.relationship_analysis,
+        expectation_analysis=signals.expectation_analysis,
+    )
+    legacy_context = create_decision_context(goal, legacy_assessment.situation)
+    legacy_plan = DecisionPlanner().plan(
+        legacy_context,
+        planning_context=PlanningContext.from_assessment(
+            legacy_assessment.structured
+        ),
+    )
+
+    assert result.situation.assessment == legacy_assessment.situation.assessment
+    assert result.structured_assessment == legacy_assessment.structured
+    assert result.plan.priority == legacy_plan.priority
+    assert result.plan.recommendation == legacy_plan.recommendation
+    assert result.plan.justification == legacy_plan.justification
 
 
 def test_reasoning_session_evaluates_fuel_cell_profile_expectations() -> None:

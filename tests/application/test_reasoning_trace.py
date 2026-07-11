@@ -8,6 +8,11 @@ from tests.builders import build_goal, build_observation_sequence
 
 EXPECTED_STEP_NAMES = (
     "Observations Loaded",
+    "Signal Extraction",
+    "Evidence Generation",
+    "Hypothesis Generation",
+    "Assessment",
+    "Planning",
     "Trend Detected",
     "Variation Detected",
     "Relationship Analysis",

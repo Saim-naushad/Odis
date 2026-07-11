@@ -3,17 +3,19 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from application.create_decision_context import create_decision_context
-from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
 from application.expectation_analysis import ExpectationAnalysis
 from application.observation_source import ObservationSource
 from application.operational_context import OperationalContext
 from application.operational_profile import OperationalProfile
-from application.operational_situation_assessor import OperationalSituationAssessor
 from application.planning_context import PlanningContext
+from application.reasoning.assessment_stage import AssessmentStage
 from application.reasoning.context import ReasoningContext
+from application.reasoning.evidence_generation_stage import EvidenceGenerationStage
+from application.reasoning.hypothesis_stage import HypothesisStage
+from application.reasoning.planning_stage import PlanningStage
 from application.reasoning.signal_extraction_stage import SignalExtractionStage
+from application.reasoning.stage import ReasoningStage
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import (
     ReasoningRunIndex,
@@ -27,7 +29,6 @@ from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.record_action import record_action
 from application.record_outcome import record_outcome
 from application.structured_assessment import StructuredAssessment
-from application.trend_detector import TrendDetector
 from domain.entities.action import Action
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
@@ -63,6 +64,7 @@ class ReasoningResult:
     expectation_analysis: ExpectationAnalysis
     structured_assessment: StructuredAssessment
     planning_context: PlanningContext
+    reasoning_context: ReasoningContext
 
 class ReasoningSession:
     def __init__(
@@ -88,6 +90,17 @@ class ReasoningSession:
         self._reasoning_run_index_repository = reasoning_run_index_repository
         self._reasoning_run_registry_repository = reasoning_run_registry_repository
         self._event_publisher = event_publisher
+        self._stages: tuple[ReasoningStage, ...] = (
+            SignalExtractionStage(),
+            EvidenceGenerationStage(),
+            HypothesisStage(),
+            AssessmentStage(),
+            PlanningStage(),
+        )
+
+    @property
+    def stages(self) -> tuple[ReasoningStage, ...]:
+        return self._stages
 
     def run(
         self,
@@ -121,37 +134,39 @@ class ReasoningSession:
             if self._observation_repository is not None:
                 self._observation_repository.save(observation)
 
-        if len(observations) < 2:
-            TrendDetector().detect(observations)
+        reasoning_context = ReasoningContext(
+            goal=goal,
+            observations=tuple(observations),
+            profile=self._profile,
+        ).with_metadata(run_id=run.id)
+        for stage in self._stages:
+            reasoning_context = stage.run(reasoning_context)
 
-        reasoning_context = SignalExtractionStage().run(
-            ReasoningContext(
-                goal=goal,
-                observations=tuple(observations),
-                profile=self._profile,
+        artifacts = reasoning_context.artifacts
+        signals = artifacts.signals
+        assessment_summary = artifacts.assessment_summary
+        structured_assessment = artifacts.structured_assessment
+        planning_context = artifacts.planning_context
+        context = artifacts.decision_context
+        plan = artifacts.decision_plan
+        if (
+            signals is None
+            or assessment_summary is None
+            or assessment_summary.situation is None
+            or structured_assessment is None
+            or planning_context is None
+            or context is None
+            or plan is None
+        ):
+            raise RuntimeError(
+                "explicit reasoning pipeline did not populate required artifacts"
             )
-        )
-        signals = reasoning_context.artifacts.signals
-        if signals is None:
-            raise RuntimeError("signal extraction must populate signals")
 
         trend = signals.trend
         variation = signals.variation
-        relationship_analysis = signals.relationship_analysis
+        situation = assessment_summary.situation
         operational_context = signals.operational_context
         expectation_analysis = signals.expectation_analysis
-        primary_observations = signals.primary_observations
-        assessment_result = OperationalSituationAssessor().assess(
-            goal,
-            primary_observations,
-            trend,
-            variation,
-            relationship_analysis=relationship_analysis,
-            expectation_analysis=expectation_analysis,
-        )
-        situation = assessment_result.situation
-        structured_assessment = assessment_result.structured
-        planning_context = PlanningContext.from_assessment(structured_assessment)
 
         if self._event_publisher is not None:
             self._event_publisher.publish(
@@ -163,8 +178,6 @@ class ReasoningSession:
         if self._situation_repository is not None:
             self._situation_repository.save(situation)
 
-        context = create_decision_context(goal, situation)
-
         if self._event_publisher is not None:
             self._event_publisher.publish(
                 DecisionContextCreated(
@@ -174,8 +187,6 @@ class ReasoningSession:
             )
         if self._decision_context_repository is not None:
             self._decision_context_repository.save(context)
-
-        plan = DecisionPlanner().plan(context, planning_context=planning_context)
 
         if self._event_publisher is not None:
             self._event_publisher.publish(
@@ -211,6 +222,26 @@ class ReasoningSession:
                 TraceStep(
                     name="Observations Loaded",
                     description="Incoming observations were received for reasoning.",
+                ),
+                TraceStep(
+                    name="Signal Extraction",
+                    description="Signals were extracted from incoming observations.",
+                ),
+                TraceStep(
+                    name="Evidence Generation",
+                    description="Structured evidence was generated from signals.",
+                ),
+                TraceStep(
+                    name="Hypothesis Generation",
+                    description="Candidate hypotheses were generated from evidence.",
+                ),
+                TraceStep(
+                    name="Assessment",
+                    description="Signals and hypotheses were assessed factually.",
+                ),
+                TraceStep(
+                    name="Planning",
+                    description="The assessment was translated into a decision plan.",
                 ),
                 TraceStep(
                     name="Trend Detected",
@@ -272,6 +303,7 @@ class ReasoningSession:
             expectation_analysis=expectation_analysis,
             structured_assessment=structured_assessment,
             planning_context=planning_context,
+            reasoning_context=reasoning_context,
         )
 
     def run_from_source(

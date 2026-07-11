@@ -6,7 +6,10 @@ from dataclasses import dataclass, replace
 from application.expectation_analysis import ExpectationAnalysis
 from application.operational_context import OperationalContext
 from application.operational_profile import OperationalProfile
+from application.planning_context import PlanningContext
 from application.relationship_analysis import RelationshipAnalysis
+from application.structured_assessment import StructuredAssessment
+from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.observation import Observation
 from domain.entities.operational_goal import OperationalGoal
@@ -34,9 +37,12 @@ class ReasoningArtifacts:
     signals: ReasoningSignals | None = None
     evidence: tuple[Evidence, ...] = ()
     hypotheses: tuple[Hypothesis, ...] = ()
+    structured_assessment: StructuredAssessment | None = None
     assessment_summary: AssessmentSummary | None = None
     explanation: Explanation | None = None
     confidence: ConfidenceBreakdown | None = None
+    planning_context: PlanningContext | None = None
+    decision_context: DecisionContext | None = None
     decision_plan: DecisionPlan | None = None
 
 
