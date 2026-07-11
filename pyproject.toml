@@ -162,3 +162,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["numpy", "numpy.*", "onnx", "onnx.*", "onnxruntime", "onnxruntime.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["fakeredis", "fakeredis.*"]
+ignore_missing_imports = true
