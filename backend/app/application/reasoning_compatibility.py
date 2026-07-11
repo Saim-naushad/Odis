@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 from application.operational_profile import OperationalProfile
 from application.reasoning.assessment_stage import AssessmentStage
@@ -35,13 +36,16 @@ from domain.reasoning.evidence import Evidence as CanonicalEvidence
 from domain.reasoning.explanation import Explanation
 from domain.reasoning.hypothesis import Hypothesis
 
-REASONING_ENRICHMENT_STAGES: tuple[ReasoningStage, ...] = (
-    SignalExtractionStage(),
-    EvidenceGenerationStage(),
-    HypothesisStage(),
-    AssessmentStage(),
-    ConfidenceStage(),
-    ExplanationStage(),
+REASONING_ENRICHMENT_STAGES: tuple[ReasoningStage, ...] = cast(
+    tuple[ReasoningStage, ...],
+    (
+        SignalExtractionStage(),
+        EvidenceGenerationStage(),
+        HypothesisStage(),
+        AssessmentStage(),
+        ConfidenceStage(),
+        ExplanationStage(),
+    ),
 )
 
 

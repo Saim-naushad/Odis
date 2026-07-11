@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import cast
 
 from application.operational_profile import OperationalProfile
 from application.reasoning.context import ReasoningContext
@@ -22,9 +23,12 @@ def test_reasoning_stage_protocol_accepts_explicit_stage_tuple() -> None:
         observations=build_observation_sequence([1.0, 2.0]),
         profile=OperationalProfile.default(),
     )
-    stages: tuple[ReasoningStage, ...] = (
-        _AppendStage(name="First", suffix="a"),
-        _AppendStage(name="Second", suffix="b"),
+    stages: tuple[ReasoningStage, ...] = cast(
+        tuple[ReasoningStage, ...],
+        (
+            _AppendStage(name="First", suffix="a"),
+            _AppendStage(name="Second", suffix="b"),
+        ),
     )
 
     current = context

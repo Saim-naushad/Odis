@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
 from uuid import uuid4
 
 from application.event_publisher import EventPublisher
@@ -92,14 +93,17 @@ class ReasoningSession:
         self._reasoning_run_index_repository = reasoning_run_index_repository
         self._reasoning_run_registry_repository = reasoning_run_registry_repository
         self._event_publisher = event_publisher
-        self._stages: tuple[ReasoningStage, ...] = (
-            SignalExtractionStage(),
-            EvidenceGenerationStage(),
-            HypothesisStage(),
-            AssessmentStage(),
-            ConfidenceStage(),
-            ExplanationStage(),
-            PlanningStage(),
+        self._stages: tuple[ReasoningStage, ...] = cast(
+            tuple[ReasoningStage, ...],
+            (
+                SignalExtractionStage(),
+                EvidenceGenerationStage(),
+                HypothesisStage(),
+                AssessmentStage(),
+                ConfidenceStage(),
+                ExplanationStage(),
+                PlanningStage(),
+            ),
         )
 
     @property
