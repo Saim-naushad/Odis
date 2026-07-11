@@ -247,11 +247,16 @@ class ReasoningSession:
                 ),
                 TraceStep(
                     name="Confidence",
-                    description="Confidence in the assessment was scored deterministically.",
+                    description=(
+                        "Confidence in the assessment was scored "
+                        "deterministically."
+                    ),
                 ),
                 TraceStep(
                     name="Explanation",
-                    description="A structured explanation was generated from artifacts.",
+                    description=(
+                        "A structured explanation was generated from artifacts."
+                    ),
                 ),
                 TraceStep(
                     name="Planning",

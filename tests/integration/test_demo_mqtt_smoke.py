@@ -79,7 +79,9 @@ def test_demo_plant_publishes_through_mosquitto_to_api() -> None:
                 break
             time.sleep(1.0)
         else:
-            pytest.fail("observations did not arrive through mqtt bridge within timeout")
+            pytest.fail(
+                "observations did not arrive through mqtt bridge within timeout"
+            )
 
     subscriber.loop_stop()
     subscriber.disconnect()

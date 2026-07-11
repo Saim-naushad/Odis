@@ -21,6 +21,9 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import delete
+from sqlalchemy.orm import Session
+
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service_factory import (
     create_observation_service,
@@ -28,15 +31,13 @@ from backend.app.application.observation_service_factory import (
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_job_queue import DatabaseReasoningJobQueue
 from backend.app.application.reasoning_worker import ReasoningWorker
-from backend.app.infrastructure.config.settings import Settings
 from backend.app.domain.outbox import OutboxEvent
+from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.database.models.observation import ObservationModel
 from backend.app.infrastructure.database.models.reasoning_job import ReasoningJobModel
 from backend.app.infrastructure.database.models.timeline_event import (
     TimelineEventModel,
 )
-from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
 from backend.app.infrastructure.database.session import (
     create_db_engine,
     create_session_factory,
@@ -101,7 +102,7 @@ def _percentile(values: list[float], pct: float) -> float:
     if not values:
         return 0.0
     ordered = sorted(values)
-    rank = max(0, min(len(ordered) - 1, int(round((pct / 100) * (len(ordered) - 1)))))
+    rank = max(0, min(len(ordered) - 1, round((pct / 100) * (len(ordered) - 1))))
     return ordered[rank]
 
 

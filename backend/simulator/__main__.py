@@ -100,7 +100,11 @@ def main() -> None:
                 now = time.monotonic()
 
                 if now < next_core_at and now < next_derived_at:
-                    time.sleep(_seconds_until_next_deadline(now, next_core_at, next_derived_at))
+                    time.sleep(
+                        _seconds_until_next_deadline(
+                            now, next_core_at, next_derived_at
+                        )
+                    )
                     continue
 
                 core_due = now >= next_core_at

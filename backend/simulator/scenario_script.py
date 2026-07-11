@@ -6,7 +6,9 @@ from dataclasses import dataclass
 
 from backend.simulator.plant import PlantAlphaFleet
 from backend.simulator.scenarios.cooling_degradation import CoolingDegradationScenario
-from backend.simulator.scenarios.hydrogen_supply_issue import HydrogenSupplyIssueScenario
+from backend.simulator.scenarios.hydrogen_supply_issue import (
+    HydrogenSupplyIssueScenario,
+)
 from backend.simulator.scenarios.normal_operation import NormalOperationScenario
 from backend.simulator.scenarios.recovery import RecoveryScenario
 from backend.simulator.scenarios.sensor_anomaly import SensorAnomalyScenario

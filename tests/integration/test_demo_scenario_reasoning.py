@@ -13,11 +13,13 @@ from backend.app.infrastructure.database import models as _models  # noqa: F401
 from backend.app.infrastructure.database.base import Base
 from backend.app.main import create_app
 from backend.simulator.scenarios.cooling_degradation import CoolingDegradationScenario
-from backend.simulator.scenarios.hydrogen_supply_issue import HydrogenSupplyIssueScenario
+from backend.simulator.scenarios.hydrogen_supply_issue import (
+    HydrogenSupplyIssueScenario,
+)
 from backend.simulator.scenarios.normal_operation import NormalOperationScenario
 from backend.simulator.scenarios.recovery import RecoveryScenario
 from backend.simulator.scenarios.sensor_anomaly import SensorAnomalyScenario
-from tests.integration.demo_helpers import PipelineDriver, TARGET_ASSET_ID
+from tests.integration.demo_helpers import TARGET_ASSET_ID, PipelineDriver
 
 
 @pytest.fixture
@@ -100,7 +102,9 @@ def test_hydrogen_supply_issue_reasoning_outcome(api_client: TestClient) -> None
     baseline = driver.operational_state()
     baseline_run = driver.run_details()
 
-    driver.run(HydrogenSupplyIssueScenario(duration_sim_seconds=12 * 60.0).tick, ticks=20)
+    driver.run(
+        HydrogenSupplyIssueScenario(duration_sim_seconds=12 * 60.0).tick, ticks=20
+    )
     machine = driver.machine_state()
     fault_state = driver.operational_state()
     fault_run = driver.run_details()
@@ -128,7 +132,9 @@ def test_sensor_anomaly_reasoning_outcome(api_client: TestClient) -> None:
     baseline_run = baseline_driver.run_details()
 
     anomaly_driver = PipelineDriver(api_client, run_id="sensor-anomaly")
-    anomaly_driver.run(SensorAnomalyScenario(duration_sim_seconds=12 * 60.0).tick, ticks=20)
+    anomaly_driver.run(
+        SensorAnomalyScenario(duration_sim_seconds=12 * 60.0).tick, ticks=20
+    )
     anomaly_run = anomaly_driver.run_details()
     machine = anomaly_driver.machine_state()
 
@@ -141,7 +147,8 @@ def test_sensor_anomaly_reasoning_outcome(api_client: TestClient) -> None:
     )
 
     baseline_hypotheses = {
-        item["title"] for item in baseline_run["decision_plan"]["alternative_hypotheses"]
+        item["title"]
+        for item in baseline_run["decision_plan"]["alternative_hypotheses"]
     }
     anomaly_hypotheses = {
         item["title"] for item in anomaly_run["decision_plan"]["alternative_hypotheses"]

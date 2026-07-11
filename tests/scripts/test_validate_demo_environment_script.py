@@ -40,7 +40,7 @@ def test_py_observation_count_helper() -> None:
     observations = [{"id": "a"}, {"id": "b"}]
 
     class Handler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             assert self.path == "/observations"
             body = json.dumps(observations).encode()
             self.send_response(200)

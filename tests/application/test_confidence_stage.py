@@ -55,18 +55,30 @@ def test_confidence_stage_scores_assessment_confidence_deterministically() -> No
 
 def test_confidence_increases_with_more_supporting_observations() -> None:
     low = score_assessment_confidence(
-        assessment_summary=_assessed_context([10.0, 20.0]).artifacts.assessment_summary,  # type: ignore[arg-type]
+        assessment_summary=_assessed_context(
+            [10.0, 20.0]
+        ).artifacts.assessment_summary,  # type: ignore[arg-type]
         evidence=(),
         hypotheses=(),
-        structured_assessment=_assessed_context([10.0, 20.0]).artifacts.structured_assessment,  # type: ignore[arg-type]
-        primary_observations=_assessed_context([10.0, 20.0]).artifacts.signals.primary_observations,  # type: ignore[union-attr]
+        structured_assessment=_assessed_context(
+            [10.0, 20.0]
+        ).artifacts.structured_assessment,  # type: ignore[arg-type]
+        primary_observations=_assessed_context(
+            [10.0, 20.0]
+        ).artifacts.signals.primary_observations,  # type: ignore[union-attr]
     )
     high = score_assessment_confidence(
-        assessment_summary=_assessed_context([10.0, 20.0, 30.0]).artifacts.assessment_summary,  # type: ignore[arg-type]
+        assessment_summary=_assessed_context(
+            [10.0, 20.0, 30.0]
+        ).artifacts.assessment_summary,  # type: ignore[arg-type]
         evidence=(),
         hypotheses=(),
-        structured_assessment=_assessed_context([10.0, 20.0, 30.0]).artifacts.structured_assessment,  # type: ignore[arg-type]
-        primary_observations=_assessed_context([10.0, 20.0, 30.0]).artifacts.signals.primary_observations,  # type: ignore[union-attr]
+        structured_assessment=_assessed_context(
+            [10.0, 20.0, 30.0]
+        ).artifacts.structured_assessment,  # type: ignore[arg-type]
+        primary_observations=_assessed_context(
+            [10.0, 20.0, 30.0]
+        ).artifacts.signals.primary_observations,  # type: ignore[union-attr]
     )
 
     assert high.total >= low.total
