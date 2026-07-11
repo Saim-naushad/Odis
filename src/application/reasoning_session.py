@@ -207,6 +207,7 @@ class ReasoningSession:
         # Action and outcome persistence will follow once repository contracts exist.
 
         if self._reasoning_run_index_repository is not None:
+            asset_id = observations[0].asset_id if observations else ""
             self._reasoning_run_index_repository.save(
                 ReasoningRunIndex(
                     run_id=run.id,
@@ -218,6 +219,7 @@ class ReasoningSession:
                     plan_id=plan.id,
                     action_id=action.id,
                     outcome_id=outcome.id,
+                    asset_id=asset_id,
                 )
             )
 

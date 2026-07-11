@@ -47,11 +47,16 @@ class _FakeMonitoringService:
         self._timeline = timeline
         self._latest_run_id = latest_run_id
 
+    def asset_exists(self, asset_id: str) -> bool:
+        return self._history is not None
+
     def get_history_for_asset(self, asset_id: str) -> list[object] | None:
         return self._history
 
     def get_latest_for_asset(self, asset_id: str) -> _FakeLatest | None:
-        return _FakeLatest(self._latest_run_id) if self._history else None
+        if not self.asset_exists(asset_id) or not self._history:
+            return None
+        return _FakeLatest(self._latest_run_id)
 
     def get_operational_state(self, asset_id: str) -> OperationalState | None:
         return self._operational_state

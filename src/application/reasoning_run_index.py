@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -11,6 +13,7 @@ class ReasoningRunIndex:
     plan_id: str
     action_id: str
     outcome_id: str
+    asset_id: str = ""
 
 
 class ReasoningRunIndexRepository(ABC):
@@ -20,6 +23,17 @@ class ReasoningRunIndexRepository(ABC):
 
     @abstractmethod
     def list(self) -> list[ReasoningRunIndex]:
+        pass
+
+    @abstractmethod
+    def list_by_asset(
+        self,
+        asset_id: str,
+        *,
+        limit: int | None = None,
+        newest_first: bool = True,
+    ) -> list[ReasoningRunIndex]:
+        """Return run indexes for an asset ordered by reasoning run start time."""
         pass
 
     @abstractmethod

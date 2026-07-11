@@ -14,6 +14,7 @@ def build_index(**overrides: str | tuple[str, ...]) -> ReasoningRunIndex:
     plan_id = overrides.get("plan_id", "plan-1")
     action_id = overrides.get("action_id", "action-1")
     outcome_id = overrides.get("outcome_id", "outcome-1")
+    asset_id = overrides.get("asset_id", "asset-1")
     assert isinstance(run_id, str)
     assert isinstance(observation_ids, tuple)
     assert isinstance(situation_id, str)
@@ -29,7 +30,25 @@ def build_index(**overrides: str | tuple[str, ...]) -> ReasoningRunIndex:
         plan_id=plan_id,
         action_id=action_id,
         outcome_id=outcome_id,
+        asset_id=asset_id,
     )
+
+
+def test_list_by_asset_filters_and_limits_results() -> None:
+    repository = InMemoryReasoningRunIndexRepository()
+    repository.save(
+        build_index(run_id="run-a-1", asset_id="asset-a"),
+    )
+    repository.save(
+        build_index(run_id="run-a-2", asset_id="asset-a"),
+    )
+    repository.save(
+        build_index(run_id="run-b-1", asset_id="asset-b"),
+    )
+
+    matches = repository.list_by_asset("asset-a", limit=1, newest_first=True)
+
+    assert [index.run_id for index in matches] == ["run-a-2"]
 
 
 def test_save_then_get_returns_the_same_index() -> None:

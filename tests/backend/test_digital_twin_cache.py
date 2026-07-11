@@ -61,6 +61,7 @@ class _FakeMonitoringService:
         self._timeline = timeline
         self._latest_run_id = latest_run_id
         self.call_counts: dict[str, int] = {
+            "asset_exists": 0,
             "history": 0,
             "latest": 0,
             "operational_state": 0,
@@ -69,13 +70,19 @@ class _FakeMonitoringService:
             "timeline": 0,
         }
 
+    def asset_exists(self, asset_id: str) -> bool:
+        self.call_counts["asset_exists"] += 1
+        return self._history is not None
+
     def get_history_for_asset(self, asset_id: str) -> list[object] | None:
         self.call_counts["history"] += 1
         return self._history
 
     def get_latest_for_asset(self, asset_id: str) -> _FakeLatest | None:
         self.call_counts["latest"] += 1
-        return _FakeLatest(self._latest_run_id) if self._history else None
+        if self._history is None or not self._history:
+            return None
+        return _FakeLatest(self._latest_run_id)
 
     def get_operational_state(self, asset_id: str) -> OperationalState | None:
         self.call_counts["operational_state"] += 1
@@ -183,7 +190,8 @@ def test_digital_twin_service_cache_miss_assembles_and_stores() -> None:
 
     assert twin.asset_id == "asset-1"
     assert cache.get("asset-1") is twin
-    assert monitoring.call_counts["history"] == 1
+    assert monitoring.call_counts["asset_exists"] == 1
+    assert monitoring.call_counts["history"] == 0
 
 
 def test_digital_twin_service_cache_hit_skips_assembly() -> None:

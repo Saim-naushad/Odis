@@ -12,6 +12,7 @@ class ReasoningRunIndexModel(Base):
     __tablename__ = "reasoning_run_indexes"
 
     run_id: Mapped[str] = mapped_column(String, primary_key=True)
+    asset_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     observation_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     situation_id: Mapped[str] = mapped_column(String, nullable=False)
     context_id: Mapped[str] = mapped_column(String, nullable=False)

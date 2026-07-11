@@ -35,6 +35,8 @@ from domain.repositories.reasoning_run_repository import (
 )
 from domain.repositories.situation_repository import SituationRepository
 
+DEFAULT_MONITORING_HISTORY_LIMIT = 100
+
 
 @dataclass(frozen=True, slots=True)
 class MonitoringAssetLatest:
@@ -80,6 +82,7 @@ class MonitoringService:
         decision_context_repository: DecisionContextRepository,
         decision_plan_repository: DecisionPlanRepository,
         timeline_repository: TimelineRepository,
+        history_limit: int = DEFAULT_MONITORING_HISTORY_LIMIT,
     ) -> None:
         self._observation_repository = observation_repository
         self._reasoning_run_repository = reasoning_run_repository
@@ -90,6 +93,7 @@ class MonitoringService:
         self._decision_context_repository = decision_context_repository
         self._decision_plan_repository = decision_plan_repository
         self._timeline_repository = timeline_repository
+        self._history_limit = history_limit
 
     def list_assets(self) -> list[str]:
         """Return every known asset identifier in stable order."""
@@ -97,46 +101,67 @@ class MonitoringService:
         asset_ids = {observation.asset_id for observation in observations}
         return sorted(asset_ids)
 
+    def asset_exists(self, asset_id: str) -> bool:
+        """Return whether any observation has been recorded for the asset."""
+        return bool(
+            self._observation_repository.list_by_asset_in_time_range(
+                asset_id,
+                limit=1,
+            )
+        )
+
     def get_latest_for_asset(self, asset_id: str) -> MonitoringAssetLatest | None:
         """Return the latest reasoning result for an asset when available."""
-        if not self._observation_repository.list_by_asset(asset_id):
+        if not self.asset_exists(asset_id):
             return None
 
-        history = self.get_history_for_asset(asset_id)
-        if history is None or not history:
+        indexes = self._reasoning_run_index_repository.list_by_asset(
+            asset_id,
+            limit=1,
+            newest_first=True,
+        )
+        if not indexes:
             return None
-        latest = history[-1]
+
+        item = self._build_asset_history_item(asset_id, indexes[0].run_id)
+        if item is None:
+            return None
         return MonitoringAssetLatest(
-            asset_id=latest.asset_id,
-            run=latest.run,
-            operational_situation=latest.operational_situation,
-            structured_assessment=latest.structured_assessment,
-            decision_plan=latest.decision_plan,
+            asset_id=item.asset_id,
+            run=item.run,
+            operational_situation=item.operational_situation,
+            structured_assessment=item.structured_assessment,
+            decision_plan=item.decision_plan,
         )
 
     def get_history_for_asset(
-        self, asset_id: str
+        self,
+        asset_id: str,
+        *,
+        limit: int | None = None,
     ) -> list[MonitoringAssetHistoryItem] | None:
-        """Return chronological reasoning history for an asset (oldest → newest)."""
-        if not self._observation_repository.list_by_asset(asset_id):
+        """Return bounded chronological reasoning history for an asset."""
+        if not self.asset_exists(asset_id):
             return None
 
-        history: list[MonitoringAssetHistoryItem] = []
-        for index in self._reasoning_run_index_repository.list():
-            observations = self._load_observations(index.observation_ids)
-            if not observations:
-                continue
-            if any(observation.asset_id == asset_id for observation in observations):
-                item = self._build_asset_history_item(asset_id, index.run_id)
-                if item is not None:
-                    history.append(item)
+        bounded_limit = self._history_limit if limit is None else limit
+        indexes = self._reasoning_run_index_repository.list_by_asset(
+            asset_id,
+            limit=bounded_limit,
+            newest_first=True,
+        )
+        indexes = list(reversed(indexes))
 
-        history.sort(key=lambda item: (item.run.started_at, item.run.id))
+        history: list[MonitoringAssetHistoryItem] = []
+        for index in indexes:
+            item = self._build_asset_history_item(asset_id, index.run_id)
+            if item is not None:
+                history.append(item)
         return history
 
     def get_timeline_for_asset(self, asset_id: str) -> list[TimelineEvent] | None:
         """Return operational timeline events for an asset (oldest → newest)."""
-        if not self._observation_repository.list_by_asset(asset_id):
+        if not self.asset_exists(asset_id):
             return None
         return self._timeline_repository.list_by_asset(asset_id)
 
@@ -146,7 +171,6 @@ class MonitoringService:
         if latest is None:
             return None
 
-        # Compute from the latest persisted reasoning artifacts.
         run_details = self.get_run_details(latest.run.id)
         if run_details is None:
             return None
@@ -171,7 +195,7 @@ class MonitoringService:
 
     def get_latest_notification(self, asset_id: str) -> Notification | None:
         """Return the latest created Notification for an asset when available."""
-        if not self._observation_repository.list_by_asset(asset_id):
+        if not self.asset_exists(asset_id):
             return None
 
         events = self._timeline_repository.list_by_asset(asset_id)
@@ -258,4 +282,3 @@ class MonitoringService:
                 loaded.append(observation)
         loaded.sort(key=lambda observation: (observation.timestamp, observation.id))
         return loaded
-

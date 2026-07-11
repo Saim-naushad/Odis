@@ -141,6 +141,7 @@ def test_reasoning_run_index_links_artifacts(db_session: Session) -> None:
         plan_id="plan-1",
         action_id="action-1",
         outcome_id="outcome-1",
+        asset_id="asset-1",
     )
     repository = SqlAlchemyReasoningRunIndexRepository(db_session)
 

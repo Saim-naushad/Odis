@@ -136,19 +136,17 @@ def get_latest_for_asset(
     asset_id: str,
     service: Annotated[MonitoringService, Depends(get_monitoring_service)],
 ) -> MonitoringAssetLatestResponse:
-    history = service.get_history_for_asset(asset_id)
-    if history is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"asset with id {asset_id!r} not found",
-        )
-    if not history:
+    latest = service.get_latest_for_asset(asset_id)
+    if latest is None:
+        if not service.asset_exists(asset_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"asset with id {asset_id!r} not found",
+            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"asset with id {asset_id!r} has no reasoning history",
         )
-    latest = service.get_latest_for_asset(asset_id)
-    assert latest is not None
     return MonitoringAssetLatestResponse(
         asset_id=latest.asset_id,
         run_id=latest.run.id,
@@ -494,9 +492,7 @@ def get_operational_state_for_asset(
 ) -> OperationalStateResponse:
     state = service.get_operational_state(asset_id)
     if state is None:
-        # Keep error semantics consistent with other asset-scoped endpoints.
-        history = service.get_history_for_asset(asset_id)
-        if history is None:
+        if not service.asset_exists(asset_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"asset with id {asset_id!r} not found",
@@ -520,8 +516,7 @@ def get_recommendation_for_asset(
 ) -> RecommendationResponse:
     recommendation = service.get_recommendation(asset_id)
     if recommendation is None:
-        history = service.get_history_for_asset(asset_id)
-        if history is None:
+        if not service.asset_exists(asset_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"asset with id {asset_id!r} not found",
@@ -545,8 +540,7 @@ def get_latest_notification_for_asset(
 ) -> NotificationResponse:
     notification = service.get_latest_notification(asset_id)
     if notification is None:
-        history = service.get_history_for_asset(asset_id)
-        if history is None:
+        if not service.asset_exists(asset_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"asset with id {asset_id!r} not found",

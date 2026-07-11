@@ -10,6 +10,7 @@ def reasoning_run_index_to_model(index: ReasoningRunIndex) -> ReasoningRunIndexM
     """Map an application reasoning run index to its SQLAlchemy representation."""
     return ReasoningRunIndexModel(
         run_id=index.run_id,
+        asset_id=index.asset_id,
         observation_ids=list(index.observation_ids),
         situation_id=index.situation_id,
         context_id=index.context_id,
@@ -23,6 +24,7 @@ def reasoning_run_index_to_domain(model: ReasoningRunIndexModel) -> ReasoningRun
     """Map a SQLAlchemy reasoning run index row to the application model."""
     return ReasoningRunIndex(
         run_id=model.run_id,
+        asset_id=model.asset_id,
         observation_ids=tuple(model.observation_ids),
         situation_id=model.situation_id,
         context_id=model.context_id,

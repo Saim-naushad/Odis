@@ -1,5 +1,7 @@
 """SQLAlchemy-backed reasoning run index repository."""
 
+from __future__ import annotations
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -11,6 +13,7 @@ from backend.app.infrastructure.database.mappers.reasoning_run_index import (
     reasoning_run_index_to_domain,
     reasoning_run_index_to_model,
 )
+from backend.app.infrastructure.database.models.reasoning_run import ReasoningRunModel
 from backend.app.infrastructure.database.models.reasoning_run_index import (
     ReasoningRunIndexModel,
 )
@@ -33,6 +36,36 @@ class SqlAlchemyReasoningRunIndexRepository(
         statement = select(ReasoningRunIndexModel).order_by(
             ReasoningRunIndexModel.run_id,
         )
+        models = self._session.scalars(statement).all()
+        return [reasoning_run_index_to_domain(model) for model in models]
+
+    def list_by_asset(
+        self,
+        asset_id: str,
+        *,
+        limit: int | None = None,
+        newest_first: bool = True,
+    ) -> list[ReasoningRunIndex]:
+        statement = (
+            select(ReasoningRunIndexModel)
+            .join(
+                ReasoningRunModel,
+                ReasoningRunModel.id == ReasoningRunIndexModel.run_id,
+            )
+            .where(ReasoningRunIndexModel.asset_id == asset_id)
+        )
+        if newest_first:
+            statement = statement.order_by(
+                ReasoningRunModel.started_at.desc(),
+                ReasoningRunIndexModel.run_id.desc(),
+            )
+        else:
+            statement = statement.order_by(
+                ReasoningRunModel.started_at,
+                ReasoningRunIndexModel.run_id,
+            )
+        if limit is not None:
+            statement = statement.limit(limit)
         models = self._session.scalars(statement).all()
         return [reasoning_run_index_to_domain(model) for model in models]
 

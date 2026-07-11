@@ -86,14 +86,12 @@ class DigitalTwinService:
     def _assemble(self, asset_id: str) -> DigitalTwin:
         with business_span("build_digital_twin", attributes={"asset_id": asset_id}):
             build_start = time.perf_counter()
-            history = self._monitoring.get_history_for_asset(asset_id)
-            if history is None:
+            if not self._monitoring.asset_exists(asset_id):
                 raise DigitalTwinAssetNotFoundError(asset_id)
-            if not history:
-                raise DigitalTwinNoReasoningHistoryError(asset_id)
 
             latest = self._monitoring.get_latest_for_asset(asset_id)
-            assert latest is not None
+            if latest is None:
+                raise DigitalTwinNoReasoningHistoryError(asset_id)
 
             operational_state = self._monitoring.get_operational_state(asset_id)
             recommendation = self._monitoring.get_recommendation(asset_id)
