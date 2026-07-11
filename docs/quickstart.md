@@ -11,7 +11,7 @@ ODIS turns a sequence of measurements into an explainable operational decision. 
 Clone the repository and install ODIS in editable mode with development dependencies:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Saim-naushad/Odis.git
 cd Odis
 pip install -e ".[dev]"
 ```
@@ -137,6 +137,7 @@ You do not need to configure detectors or planners for a first program. `Reasoni
 
 | Document | What it's for |
 |----------|----------------|
+| [Documentation index](README.md) | Full documentation map |
 | [README](../README.md) | Project overview, capabilities, limitations, and how to run tests |
 | [architecture.md](architecture.md) | Layer structure, design principles, and how the codebase is organized |
 | [reasoning-pipeline.md](reasoning-pipeline.md) | Stage-by-stage walkthrough of observation → decision |

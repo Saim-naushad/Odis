@@ -1,3 +1,4 @@
+LICENSE
 README.md
 pyproject.toml
 src/application/__init__.py
@@ -53,6 +54,18 @@ src/application/trend_detector.py
 src/application/variation_detector.py
 src/application/profiles/__init__.py
 src/application/profiles/fuel_cell_profile.py
+src/application/reasoning/__init__.py
+src/application/reasoning/assessment_stage.py
+src/application/reasoning/confidence_scorer.py
+src/application/reasoning/confidence_stage.py
+src/application/reasoning/context.py
+src/application/reasoning/evidence_generation_stage.py
+src/application/reasoning/explanation_builder.py
+src/application/reasoning/explanation_stage.py
+src/application/reasoning/hypothesis_stage.py
+src/application/reasoning/planning_stage.py
+src/application/reasoning/signal_extraction_stage.py
+src/application/reasoning/stage.py
 src/domain/__init__.py
 src/domain/entities/__init__.py
 src/domain/entities/action.py
@@ -70,6 +83,12 @@ src/domain/events/observation_recorded.py
 src/domain/events/operational_situation_created.py
 src/domain/events/outcome_recorded.py
 src/domain/exceptions/__init__.py
+src/domain/reasoning/__init__.py
+src/domain/reasoning/assessment_summary.py
+src/domain/reasoning/confidence_breakdown.py
+src/domain/reasoning/evidence.py
+src/domain/reasoning/explanation.py
+src/domain/reasoning/hypothesis.py
 src/domain/repositories/__init__.py
 src/domain/repositories/decision_context_repository.py
 src/domain/repositories/decision_plan_repository.py

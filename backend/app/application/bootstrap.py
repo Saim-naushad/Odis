@@ -31,7 +31,7 @@ from backend.app.application.integration_event_publisher import (
     IntegrationEventPublisher,
 )
 from backend.app.application.monitoring_event_source import (
-    InMemoryMonitoringEventSource,
+    MonitoringEventSource,
 )
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.unit_of_work import UnitOfWork
@@ -41,6 +41,9 @@ from backend.app.infrastructure.cache.redis_digital_twin_cache import (
 from backend.app.infrastructure.config.settings import Settings
 from backend.app.infrastructure.events.kafka_integration_event_publisher import (
     KafkaIntegrationEventPublisher,
+)
+from backend.app.infrastructure.events.redis_monitoring_event_source import (
+    RedisMonitoringEventSource,
 )
 from backend.app.infrastructure.inference.factory import (
     create_forecast_inference_engine,
@@ -52,7 +55,7 @@ class ApplicationRuntime:
     """Process-local services wired through a single composition root."""
 
     domain_event_bus: DomainEventBus
-    monitoring_event_source: InMemoryMonitoringEventSource
+    monitoring_event_source: MonitoringEventSource
     digital_twin_cache: DigitalTwinCache
     outbox_dispatcher: OutboxDispatcher | None
     forecast_inference_engine: ForecastInferenceEngine | None
@@ -73,7 +76,7 @@ def register_domain_event_handlers(
     event_bus: DomainEventBus,
     *,
     digital_twin_cache: DigitalTwinCache,
-    monitoring_event_source: InMemoryMonitoringEventSource,
+    monitoring_event_source: MonitoringEventSource,
     unit_of_work_factory: Callable[[], UnitOfWork[Session]] | None = None,
 ) -> None:
     """Register all domain event handlers on the bus."""
@@ -152,7 +155,9 @@ def bootstrap_application_runtime(
     unit_of_work_factory: Callable[[], UnitOfWork[Session]] | None = None,
 ) -> ApplicationRuntime:
     """Create and wire the shared application runtime for any process."""
-    monitoring_event_source = InMemoryMonitoringEventSource()
+    monitoring_event_source = RedisMonitoringEventSource(
+        redis_url=settings.redis_url,
+    )
     digital_twin_cache = RedisDigitalTwinCache(
         redis_url=settings.redis_url,
         ttl_seconds=settings.cache_ttl_seconds,

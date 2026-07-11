@@ -2,6 +2,8 @@
 name = "odis"
 version = "0.1.0"
 description = "Operational reasoning platform"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
     "alembic>=1.14",
@@ -24,6 +26,13 @@ dependencies = [
     "opentelemetry-instrumentation-redis>=0.49b0",
     "opentelemetry-instrumentation-kafka-python>=0.49b0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Saim-naushad/Odis"
+Repository = "https://github.com/Saim-naushad/Odis"
+Documentation = "https://github.com/Saim-naushad/Odis/tree/main/docs"
+Changelog = "https://github.com/Saim-naushad/Odis/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Saim-naushad/Odis/issues"
 
 [project.scripts]
 odis = "odis.cli:main"

@@ -1,303 +1,115 @@
 # ODIS
 
-ODIS is an operational reasoning platform that transforms measurements from physical assets into explainable operational decisions.
+ODIS is an industrial operational intelligence platform that turns telemetry from physical assets into explainable assessments and recommendations. It combines a deterministic reasoning engine, a deployable backend (ingestion, persistence, APIs), and an operator dashboard — demonstrated today on PEM fuel-cell scenarios. The platform is an actively developed MVP: real services, real data paths, not a hardened production deployment.
 
-Industrial systems generate continuous observations — temperature, pressure, flow rate, voltage, and more. Raw measurements are not decisions. ODIS provides a structured pipeline that separates **evidence**, **signals**, **assessments**, and **recommendations** so operational reasoning remains traceable, deterministic, and auditable.
+```mermaid
+flowchart LR
+    plant["PlantAlphaSimulator"]
+    mqtt["MQTTBridge"]
+    api["FastAPI"]
+    db[("TimescaleDB")]
+    worker["ReasoningWorker"]
+    ui["ReactDashboard"]
 
-This repository is an architectural foundation, not a production deployment. It demonstrates how operational reasoning can be modeled explicitly rather than buried in ad hoc scripts or opaque automation.
-
-## Why ODIS exists
-
-Operational teams need more than dashboards. They need to understand:
-
-- What was observed
-- What pattern was detected
-- How the situation was assessed
-- Why a particular recommendation was made
-
-ODIS encodes that reasoning chain as immutable, append-only records. Each stage produces a snapshot that can be replayed, compared, and extended — without rewriting history when understanding improves.
-
-The design prioritizes **clarity over cleverness**, **deterministic logic over black-box automation**, and **architecture that generalizes across industries** (energy, manufacturing, mining, infrastructure) without hardcoding domain-specific rules in the core model.
-
-## Reasoning pipeline
-
-```
-Observation
-    ↓
-Detected Trend
-    ↓
-Operational Situation
-    ↓
-Decision Context
-    ↓
-Decision Plan
+    plant --> mqtt --> api --> db
+    api --> worker --> db
+    ui --> api
 ```
 
-| Stage | Role |
-|-------|------|
-| **Observation** | An immutable measurement recorded from the environment — what was measured, on which asset, when, and in what units. |
-| **Detected Trend** | A deterministic signal derived from a sequence of observations. The current implementation compares first and last values after timestamp ordering. |
-| **Operational Situation** | An assessment of operational conditions derived from evidence and signal. Records which observations informed the assessment and a human-readable interpretation. |
-| **Decision Context** | A frozen snapshot of everything the planner knew when reasoning began — goal, situation reference, and assessment. |
-| **Decision Plan** | A recommendation with priority, action, and justification. Immutable once generated. |
+## What ODIS does
 
-Evidence, signal, assessment, and decision are intentionally separate. Collapsing them would make reasoning harder to audit and extend.
+Industrial equipment produces continuous measurements — temperature, pressure, flow, voltage. Raw values are not decisions. ODIS separates **evidence**, **signals**, **assessments**, and **recommendations** into an append-only reasoning chain that operators can inspect, replay, and audit. The same pipeline runs as an importable Python library and as a live platform processing MQTT telemetry.
 
-## Current capabilities
+## Key capabilities
 
-ODIS currently supports:
+- **Deterministic reasoning** — trend and variation detection, operational assessment, and prioritized recommendations with explicit justification; no opaque ML in the core pipeline
+- **Explainable reasoning artifacts** — immutable snapshots for situations, decision contexts, plans, actions, and outcomes
+- **Platform runtime** — FastAPI, background worker, TimescaleDB persistence, Redis cache, Kafka integration events, MQTT ingestion
+- **Operator dashboard** — React monitoring console with fleet view, health scores, recommendations, timeline, telemetry history, and SSE updates
+- **Plant Alpha demo** — physics-based fuel-cell simulator publishing realistic telemetry through the full stack
+- **Domain profiles** — configurable operational knowledge (default educational profile and fuel-cell profile) without changing core detectors or planners
+- **CLI and examples** — `odis demo` commands and executable walkthroughs for the reasoning engine in isolation
 
-- **Heatwave reasoning** — rising measurements produce an increasing trend, elevated assessment, and high-priority investigation recommendation
-- **Stable operations reasoning** — steady conditions produce a stable trend and continue-monitoring recommendation
-- **Oscillating scenario** — demonstrates a known limitation where significant mid-sequence variation is classified as stable when first and last values match
-- **Deterministic explainable recommendations** — every plan includes an explicit justification string; no AI or machine learning is involved
+## Repository map
 
-## Domain Profiles
+| Path | Purpose |
+|------|---------|
+| [`src/`](src/) | Reasoning engine — domain model, detectors, assessors, planners, and the public `odis` package |
+| [`backend/`](backend/) | Platform services — FastAPI API, worker, MQTT bridge, SQLAlchemy persistence, digital twin, and operational state |
+| [`backend/simulator/`](backend/simulator/) | Plant Alpha telemetry simulator and fault scenarios for end-to-end demonstration |
+| [`frontend/`](frontend/) | React + TypeScript operator monitoring dashboard |
+| [`docs/`](docs/) | Architecture, platform, and onboarding documentation — start at [docs/README.md](docs/README.md) |
+| [`k8s/`](k8s/) | Kubernetes manifests for platform deployment |
+| [`infra/`](infra/) | Docker images, Prometheus, and Grafana provisioning |
 
-ODIS ships with multiple **operational profiles**:
+## Two ways to explore ODIS
 
-- **Default educational profile** — the baseline profile used in most examples.
-- **Fuel cell profile** — a representative profile that demonstrates how to add domain-specific operational knowledge through configuration.
+### A. Full platform (recommended)
 
-Profiles are **extension points**: they package domain-specific policies (for example, which cross-measurement relationships are worth evaluating) without changing detectors, planners, or the core reasoning pipeline.
-
-Run the unified demonstration to see all three scenarios:
+Runs the complete stack: MQTT ingestion, TimescaleDB, reasoning worker, digital twin, and the monitoring dashboard. Plant Alpha publishes live telemetry so you can watch assessments and recommendations appear in the UI.
 
 ```bash
-python examples/run_demo.py
-```
-
-Individual walkthroughs are also available under `examples/`.
-
-## Running the project
-
-**Requirements:** Python 3.11+
-
-**Installation:**
-
-```bash
-git clone <repository-url>
+git clone https://github.com/Saim-naushad/Odis.git
 cd Odis
-pip install -e ".[dev]"
+docker compose --profile demo up --build -d
 ```
 
-## Local development (Monitoring Dashboard MVP)
+Open the monitoring console at `http://localhost:8080`. For the scripted demo walkthrough, validation, and architecture detail, see [Demo Environment](docs/platform/demo-environment.md).
 
-### Docker runtime (recommended)
+### B. Lightweight reasoning library
 
-Start the full production topology (frontend, API, worker, PostgreSQL, Redis, Kafka, Prometheus, Grafana):
+Install the Python package and run demonstrations without Docker. Useful for understanding the reasoning pipeline in isolation.
 
 ```bash
-docker compose up --build -d
-```
-
-| Endpoint | URL |
-|----------|-----|
-| Monitoring console | `http://localhost:8080` |
-| API (direct) | `http://localhost:8000` |
-| API health | `http://localhost:8000/health` |
-
-Configuration is loaded from `.env` (see `.env.example`). For architecture, networking, volumes, and health dependencies, see [Docker Runtime](docs/platform/docker-runtime.md). For Kubernetes deployment, see [Kubernetes Deployment](docs/platform/kubernetes-deployment.md).
-
-### Hybrid local development
-
-Run infrastructure in Docker and application processes on the host:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis kafka prometheus grafana
-export DATABASE_URL=postgresql+psycopg://odis:odis@localhost:5432/odis
-alembic upgrade head
-uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-In separate terminals:
-
-```bash
-python -m backend.app.worker_main
-cd frontend && npm install && npm run dev
-```
-
-The Vite dev server runs on `http://localhost:5173` and proxies `/api` to the API.
-
-### Observability (Prometheus + Grafana)
-
-Prometheus and Grafana run on the internal Docker network. They are not exposed on the host by default.
-
-- Grafana dashboard: `ODIS Monitoring` (auto-provisioned on startup)
-- Default Grafana credentials: `admin` / `admin` (override via `.env`)
-
-Metrics flow:
-
-```
-Browser → frontend → api → /metrics ← prometheus ← grafana (internal)
-```
-
-## Versioning
-
-- **Current version**: `0.1.0`
-- **Changelog**: `CHANGELOG.md`
-- **Policy**: Future releases intend to follow Semantic Versioning (SemVer).
-
-## Public API
-
-After installation, import from the package root:
-
-```python
-from odis import (
-    Asset,
-    Location,
-    MeasurementType,
-    Observation,
-    OperationalGoal,
-    ReasoningSession,
-)
-
-asset = Asset(
-    id="pump-01",
-    name="Pump P-07",
-    type="centrifugal_pump",
-    location=Location(identifier="cooling-loop-beta"),
-)
-session = ReasoningSession()
-result = session.run(goal, observations)
-```
-
-Exported domain entities, value objects (`Location`, `MeasurementType`, `Priority`,
-`TrendDirection`, `VariationLevel`), detectors, assessors, planners, and recording
-use cases are available from ``odis``. Internal modules such as ``application``,
-``domain``, and ``infrastructure`` remain importable for development but are not
-the supported public surface.
-
-## Command-line interface
-
-The recommended way to explore ODIS after installation:
-
-```bash
+git clone https://github.com/Saim-naushad/Odis.git
+cd Odis
 pip install -e ".[dev]"
 odis demo all
 ```
 
-Individual walkthroughs:
+For a guided first program and result interpretation, see [Quickstart](docs/quickstart.md).
 
-```bash
-odis demo heatwave
-odis demo stable
-odis demo oscillating
-odis demo fuel-cell
-```
+## Quick start
 
-Run reasoning from CSV:
+**Requirements:** Python 3.11+ for library development; Docker for the full platform.
 
-```bash
-odis demo csv
-```
+| Goal | Command | Docs |
+|------|---------|------|
+| Full platform + demo | `docker compose --profile demo up --build -d` | [Demo Environment](docs/platform/demo-environment.md) |
+| Platform without demo profile | `docker compose up --build -d` | [Docker Runtime](docs/platform/docker-runtime.md) |
+| Reasoning library | `pip install -e ".[dev]"` then `odis demo all` | [Quickstart](docs/quickstart.md) |
+| Run tests | `pytest` | [Contributing](CONTRIBUTING.md) |
 
-This is the first demonstration that loads **real observations from an ingestion adapter**
-(`CsvObservationSource`) rather than constructing observations in code.
+Configuration loads from `.env` (see `.env.example`).
 
-Run `odis --help` for available commands.
+## Documentation
 
-You can also run demonstrations directly:
-
-```bash
-python examples/run_demo.py
-```
-
-**Run tests:**
-
-```bash
-pytest
-```
-
-**Run quality checks:**
-
-```bash
-ruff check .
-mypy src backend tests
-```
-
-**Frontend checks:**
-
-```bash
-npm --prefix frontend ci
-npm --prefix frontend run lint
-npm --prefix frontend run build
-```
-
-Backend and frontend validation run automatically on every push and pull request. Pushes to `main` also build and publish Docker images (`odis-api`, `odis-worker`, `odis-frontend`) to GitHub Container Registry. See [CI/CD and Container Registry](docs/platform/ci-cd.md) for workflow details, required secrets, and image tagging.
-
-For a single suite:
-
-```bash
-pytest tests/application/      # component specifications
-pytest tests/integration/      # end-to-end pipeline specifications
-```
-
-## Project architecture
-
-```
-src/
-├── domain/           # Entities, value objects, events, repository interfaces
-├── application/      # Use cases, detectors, assessors, planners
-├── infrastructure/   # Reserved for future persistence and adapters
-└── shared/           # Reserved for cross-cutting utilities
-
-examples/             # Executable operational walkthroughs
-tests/                # Behavioral specifications and test builders
-```
-
-### Architecture diagrams
-
-For version-controlled diagrams of the current implementation, see
-[`docs/architecture-diagrams.md`](docs/architecture-diagrams.md).
-
-### Domain layer (`src/domain/`)
-
-The core model. Immutable entities (`Asset`, `Observation`, `OperationalSituation`, `DecisionContext`, `DecisionPlan`, and others), value objects (`MeasurementType`, `Priority`, `TrendDirection`), domain events, and repository interfaces. No dependency on application or infrastructure code.
-
-### Application layer (`src/application/`)
-
-Orchestrates domain concepts without embedding domain invariants incorrectly:
-
-- `TrendDetector` — signal detection from observation sequences
-- `OperationalSituationAssessor` — transforms evidence and signal into operational assessment
-- `create_decision_context` — snapshots planner inputs
-- `DecisionPlanner` — produces recommendations from context
-
-### Examples (`examples/`)
-
-Executable demonstrations that walk through complete operational scenarios. These are architectural proofs, not production services.
-
-### Tests (`tests/`)
-
-Behavioral specifications for components and the full pipeline. Reusable builders in `tests/builders.py` express test intent as value sequences rather than verbose object construction.
+| Topic | Entry point |
+|-------|-------------|
+| All documentation | [docs/README.md](docs/README.md) |
+| 15-minute onboarding | [docs/quickstart.md](docs/quickstart.md) |
+| Reasoning engine design | [docs/architecture.md](docs/architecture.md) |
+| Pipeline stages | [docs/reasoning-pipeline.md](docs/reasoning-pipeline.md) |
+| Platform deployment | [docs/platform/README.md](docs/platform/README.md) |
+| Architecture diagrams | [docs/architecture-diagrams.md](docs/architecture-diagrams.md) |
+| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Current limitations
 
-ODIS is early-stage. Be aware of the following:
+ODIS is early-stage. The following reflect the implementation today:
 
-- **Limited multi-signal reasoning** — trend and variation detection are implemented; additional signal types (e.g., anomaly patterns, rate-of-change) are not yet modeled as separate signals.
-- **Placeholder planning rules** — the `DecisionPlanner` uses generic substring matching on assessment text. These are scaffolding, not production policy.
-- **In-memory persistence only** — repositories are implemented as in-memory stores. There is no durable database, message bus, or external storage adapter.
-- **Limited telemetry ingestion** — a CSV observation source is available, but there are no connectors to SCADA, IoT platforms, or time-series databases.
-- **No real-world actions or feedback loop** — `Action` and `Outcome` records are created in the executable pipeline, but they are not yet wired to external execution systems or closed-loop learning.
+- **MVP, not production-hardened** — no auth, multi-tenancy, or SLA guarantees; suitable for development, demonstration, and portfolio use
+- **Reasoning scalability** — each job reloads full per-asset observation history; queue depth can grow on long demo sessions without bounded reasoning windows
+- **Placeholder planning rules** — `DecisionPlanner` uses generic substring matching on assessment text; production policy engines are not integrated
+- **Limited signal types** — trend and variation detection are implemented; anomaly and rate-of-change are not separate first-class signals yet
+- **No closed-loop execution** — action and outcome records are persisted but not wired to external control systems
+- **Demo asset metadata** — the dashboard discovers assets from observations; there is no asset registry with rich names, types, or locations
+- **No OPC UA or SCADA connectors** — MQTT and HTTP ingestion are implemented; industrial protocol breadth is limited
 
-## Roadmap
+## Contributing
 
-Planned direction (not committed deliverables):
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding guidelines, and pull request expectations.
 
-- **Richer multi-signal reasoning** — additional detectors (e.g., anomaly and rate-of-change signals) composed alongside existing trend and variation analysis
-- **Richer operational assessments** — assessments informed by multiple signals and operational goals
-- **Historical replay** — reconstruct decision chains from append-only records
-- **Production integrations** — persistence, telemetry ingestion, and industry-specific planning strategies behind stable interfaces
+## License
 
-## Design principles
-
-- **Append-only history** — change is recorded as new immutable snapshots, not in-place mutation
-- **Separation of concerns** — evidence, signal, assessment, and decision remain distinct
-- **Deterministic reasoning** — same inputs produce the same outputs; no AI or ML in the current pipeline
-- **Industry-agnostic core** — the domain model avoids hardcoded thresholds, taxonomies, or sector-specific terminology
-
----
-
-ODIS is a reasoning architecture under active development. Run `python examples/run_demo.py` to see what it does today.
+MIT — see [LICENSE](LICENSE).
