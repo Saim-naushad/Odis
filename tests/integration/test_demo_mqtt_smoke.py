@@ -34,7 +34,11 @@ def test_demo_plant_publishes_through_mosquitto_to_api() -> None:
 
     received: list[str] = []
 
-    def on_message(_client, _userdata, message) -> None:
+    def on_message(
+        _client: mqtt.Client,
+        _userdata: object,
+        message: mqtt.MQTTMessage,
+    ) -> None:
         received.append(message.topic)
 
     subscriber = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
