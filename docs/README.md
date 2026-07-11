@@ -2,6 +2,16 @@
 
 Entry point for all project documentation. Each link goes to a dedicated guide — this page is navigation only.
 
+## Screenshots
+
+Portfolio assets for the monitoring dashboard live in [`assets/`](assets/).
+
+| Image | Description |
+|-------|-------------|
+| [dashboard-overview.png](assets/dashboard-overview.png) | Fleet view with health, risk, confidence, recommendation, and telemetry |
+| [dashboard-telemetry.png](assets/dashboard-telemetry.png) | Telemetry visualization with measurement history and investigation rail |
+| [dashboard-investigation.png](assets/dashboard-investigation.png) | Investigation timeline, event context, and diagnostics panel |
+
 ## Getting Started
 
 | Document | Description |
