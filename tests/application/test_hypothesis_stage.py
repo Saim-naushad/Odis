@@ -3,12 +3,13 @@ from application.reasoning.context import ReasoningContext
 from application.reasoning.evidence_generation_stage import EvidenceGenerationStage
 from application.reasoning.hypothesis_stage import HypothesisStage
 from application.reasoning.signal_extraction_stage import SignalExtractionStage
+from domain.entities.observation import Observation
 from domain.reasoning.hypothesis import HypothesisKind, hypothesis_display_title
 from tests.builders import build_goal, build_observation_sequence
 
 
 def _context_with_stages(
-    observations: tuple[object, ...],
+    observations: tuple[Observation, ...],
     *,
     profile: OperationalProfile | None = None,
 ) -> ReasoningContext:

@@ -191,14 +191,14 @@ def test_expectation_evaluation_consumes_operational_context() -> None:
     goal = build_goal()
     observations = build_observation_sequence([32.0, 36.5, 41.0])
     session = ReasoningSession(profile=OperationalProfile.default())
-    calls: list[tuple[object, object]] = []
+    calls: list[tuple[OperationalContext, RelationshipAnalysis]] = []
     original_evaluate = OperationalProfile.evaluate_expectations
 
     def tracking_evaluate(
         self: OperationalProfile,
-        operational_context: object,
-        relationship_analysis: object,
-    ) -> object:
+        operational_context: OperationalContext,
+        relationship_analysis: RelationshipAnalysis,
+    ) -> ExpectationAnalysis:
         calls.append((operational_context, relationship_analysis))
         return original_evaluate(self, operational_context, relationship_analysis)
 
