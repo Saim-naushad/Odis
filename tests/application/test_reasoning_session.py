@@ -7,6 +7,7 @@ from application.event_publisher import InMemoryEventPublisher
 from application.expectation_analysis import ExpectationAnalysis
 from application.operational_context import OperationalContext
 from application.planning_context import PlanningContext
+from application.operational_profile import OperationalProfile
 from application.profiles.fuel_cell_profile import FuelCellOperationalProfile
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import ReasoningRunIndex
@@ -104,7 +105,7 @@ def test_reasoning_session_performs_relationship_analysis() -> None:
     observations = build_observation_sequence([32.0, 36.5, 41.0])
 
     with patch(
-        "application.reasoning_session.RelationshipAnalyzer.analyze",
+        "application.reasoning.signal_extraction_stage.RelationshipAnalyzer.analyze",
     ) as analyze_mock:
         analyze_mock.return_value = RelationshipAnalysis(
             correlations=(),
@@ -118,17 +119,27 @@ def test_reasoning_session_performs_relationship_analysis() -> None:
 def test_expectation_evaluation_consumes_operational_context() -> None:
     goal = build_goal()
     observations = build_observation_sequence([32.0, 36.5, 41.0])
-    session = ReasoningSession()
+    session = ReasoningSession(profile=OperationalProfile.default())
+    calls: list[tuple[object, object]] = []
+    original_evaluate = OperationalProfile.evaluate_expectations
+
+    def tracking_evaluate(
+        self: OperationalProfile,
+        operational_context: object,
+        relationship_analysis: object,
+    ) -> object:
+        calls.append((operational_context, relationship_analysis))
+        return original_evaluate(self, operational_context, relationship_analysis)
 
     with patch.object(
-        session,
-        "_evaluate_expectations",
-        wraps=session._evaluate_expectations,
-    ) as evaluate_mock:
+        OperationalProfile,
+        "evaluate_expectations",
+        tracking_evaluate,
+    ):
         result = session.run(goal, observations)
 
-    evaluate_mock.assert_called_once()
-    operational_context, relationship_analysis = evaluate_mock.call_args.args
+    assert len(calls) == 1
+    operational_context, relationship_analysis = calls[0]
     assert operational_context is result.operational_context
     assert operational_context.description == "Operational reasoning context"
     assert relationship_analysis.correlations == ()

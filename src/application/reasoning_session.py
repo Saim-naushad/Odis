@@ -7,13 +7,13 @@ from application.create_decision_context import create_decision_context
 from application.decision_planner import DecisionPlanner
 from application.event_publisher import EventPublisher
 from application.expectation_analysis import ExpectationAnalysis
-from application.observation_group import ObservationGroup
 from application.observation_source import ObservationSource
 from application.operational_context import OperationalContext
-from application.operational_context_builder import OperationalContextBuilder
 from application.operational_profile import OperationalProfile
 from application.operational_situation_assessor import OperationalSituationAssessor
 from application.planning_context import PlanningContext
+from application.reasoning.context import ReasoningContext
+from application.reasoning.signal_extraction_stage import SignalExtractionStage
 from application.reasoning_run import ReasoningRun
 from application.reasoning_run_index import (
     ReasoningRunIndex,
@@ -26,10 +26,8 @@ from application.reasoning_run_registry import (
 from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.record_action import record_action
 from application.record_outcome import record_outcome
-from application.relationship_analysis import RelationshipAnalysis, RelationshipAnalyzer
 from application.structured_assessment import StructuredAssessment
 from application.trend_detector import TrendDetector
-from application.variation_detector import VariationDetector
 from domain.entities.action import Action
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
@@ -65,18 +63,6 @@ class ReasoningResult:
     expectation_analysis: ExpectationAnalysis
     structured_assessment: StructuredAssessment
     planning_context: PlanningContext
-
-
-def _primary_measurement_observations(
-    observations: Sequence[Observation],
-) -> tuple[Observation, ...]:
-    measurement_type = observations[0].measurement_type
-    return tuple(
-        observation
-        for observation in observations
-        if observation.measurement_type == measurement_type
-    )
-
 
 class ReasoningSession:
     def __init__(
@@ -138,23 +124,23 @@ class ReasoningSession:
         if len(observations) < 2:
             TrendDetector().detect(observations)
 
-        primary_observations = _primary_measurement_observations(observations)
-        trend = TrendDetector().detect(primary_observations)
-        variation = VariationDetector().detect(primary_observations)
-        observation_group = ObservationGroup(
-            asset_id=observations[0].asset_id,
-            observations=tuple(observations),
+        reasoning_context = SignalExtractionStage().run(
+            ReasoningContext(
+                goal=goal,
+                observations=tuple(observations),
+                profile=self._profile,
+            )
         )
-        relationship_analysis = RelationshipAnalyzer(profile=self._profile).analyze(
-            observation_group
-        )
-        operational_context = OperationalContextBuilder().build(
-            description="Operational reasoning context",
-        )
-        expectation_analysis = self._evaluate_expectations(
-            operational_context,
-            relationship_analysis,
-        )
+        signals = reasoning_context.artifacts.signals
+        if signals is None:
+            raise RuntimeError("signal extraction must populate signals")
+
+        trend = signals.trend
+        variation = signals.variation
+        relationship_analysis = signals.relationship_analysis
+        operational_context = signals.operational_context
+        expectation_analysis = signals.expectation_analysis
+        primary_observations = signals.primary_observations
         assessment_result = OperationalSituationAssessor().assess(
             goal,
             primary_observations,
@@ -286,16 +272,6 @@ class ReasoningSession:
             expectation_analysis=expectation_analysis,
             structured_assessment=structured_assessment,
             planning_context=planning_context,
-        )
-
-    def _evaluate_expectations(
-        self,
-        operational_context: OperationalContext,
-        relationship_analysis: RelationshipAnalysis,
-    ) -> ExpectationAnalysis:
-        return self._profile.evaluate_expectations(
-            operational_context,
-            relationship_analysis,
         )
 
     def run_from_source(
