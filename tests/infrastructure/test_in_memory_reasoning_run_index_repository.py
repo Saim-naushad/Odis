@@ -22,6 +22,7 @@ def build_index(**overrides: str | tuple[str, ...]) -> ReasoningRunIndex:
     assert isinstance(plan_id, str)
     assert isinstance(action_id, str)
     assert isinstance(outcome_id, str)
+    assert isinstance(asset_id, str)
     return ReasoningRunIndex(
         run_id=run_id,
         observation_ids=observation_ids,

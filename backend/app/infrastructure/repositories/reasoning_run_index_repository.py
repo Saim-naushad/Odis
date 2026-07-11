@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import builtins
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -32,7 +34,7 @@ class SqlAlchemyReasoningRunIndexRepository(
             return None
         return reasoning_run_index_to_domain(model)
 
-    def list(self) -> list[ReasoningRunIndex]:
+    def list(self) -> builtins.list[ReasoningRunIndex]:
         statement = select(ReasoningRunIndexModel).order_by(
             ReasoningRunIndexModel.run_id,
         )
@@ -45,7 +47,7 @@ class SqlAlchemyReasoningRunIndexRepository(
         *,
         limit: int | None = None,
         newest_first: bool = True,
-    ) -> list[ReasoningRunIndex]:
+    ) -> builtins.list[ReasoningRunIndex]:
         statement = (
             select(ReasoningRunIndexModel)
             .join(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -22,7 +23,7 @@ class ReasoningRunIndexRepository(ABC):
         pass
 
     @abstractmethod
-    def list(self) -> list[ReasoningRunIndex]:
+    def list(self) -> builtins.list[ReasoningRunIndex]:
         pass
 
     @abstractmethod
@@ -32,7 +33,7 @@ class ReasoningRunIndexRepository(ABC):
         *,
         limit: int | None = None,
         newest_first: bool = True,
-    ) -> list[ReasoningRunIndex]:
+    ) -> builtins.list[ReasoningRunIndex]:
         """Return run indexes for an asset ordered by reasoning run start time."""
         pass
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+
 from application.reasoning_run_index import (
     ReasoningRunIndex,
     ReasoningRunIndexRepository,
@@ -13,7 +15,7 @@ class InMemoryReasoningRunIndexRepository(ReasoningRunIndexRepository):
     def get(self, run_id: str) -> ReasoningRunIndex | None:
         return self._storage.get(run_id)
 
-    def list(self) -> list[ReasoningRunIndex]:
+    def list(self) -> builtins.list[ReasoningRunIndex]:
         return [self._storage[key] for key in sorted(self._storage)]
 
     def list_by_asset(
@@ -22,7 +24,7 @@ class InMemoryReasoningRunIndexRepository(ReasoningRunIndexRepository):
         *,
         limit: int | None = None,
         newest_first: bool = True,
-    ) -> list[ReasoningRunIndex]:
+    ) -> builtins.list[ReasoningRunIndex]:
         matches = [
             index for index in self._storage.values() if index.asset_id == asset_id
         ]
