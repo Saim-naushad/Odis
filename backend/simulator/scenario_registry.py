@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from backend.simulator.scenario_script import build_script_runner
+from backend.simulator.scenarios.base import Scenario
 from backend.simulator.scenarios.cooling_degradation import CoolingDegradationScenario
 from backend.simulator.scenarios.hydrogen_supply_issue import (
     HydrogenSupplyIssueScenario,
@@ -12,7 +13,7 @@ from backend.simulator.scenarios.recovery import RecoveryScenario
 from backend.simulator.scenarios.sensor_anomaly import SensorAnomalyScenario
 
 
-def build_scenario(name: str):
+def build_scenario(name: str) -> Scenario:
     if name == "normal_operation":
         return NormalOperationScenario()
     if name == "cooling_degradation":

@@ -17,7 +17,9 @@ from backend.simulator.telemetry import (
 )
 
 
-def _build_publisher(settings: SimulatorSettings):
+def _build_publisher(
+    settings: SimulatorSettings,
+) -> HttpObservationPublisher | MqttObservationPublisher:
     if settings.transport.lower() == "http":
         return HttpObservationPublisher(settings.api_base_url)
     if settings.transport.lower() == "mqtt":

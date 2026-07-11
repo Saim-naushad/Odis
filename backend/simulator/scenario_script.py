@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from backend.simulator.plant import PlantAlphaFleet
+from backend.simulator.scenarios.base import Scenario
 from backend.simulator.scenarios.cooling_degradation import CoolingDegradationScenario
 from backend.simulator.scenarios.hydrogen_supply_issue import (
     HydrogenSupplyIssueScenario,
@@ -56,7 +57,7 @@ class ScenarioScriptRunner:
     def current_phase_name(self) -> str:
         return self._phases[self._phase_index].name
 
-    def _build_phase(self, phase: ScenarioPhase):
+    def _build_phase(self, phase: ScenarioPhase) -> Scenario:
         if phase.name == "normal_operation":
             return NormalOperationScenario()
         if phase.name == "cooling_degradation":
