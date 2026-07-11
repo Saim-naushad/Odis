@@ -12,6 +12,8 @@ EXPECTED_STEP_NAMES = (
     "Evidence Generation",
     "Hypothesis Generation",
     "Assessment",
+    "Confidence",
+    "Explanation",
     "Planning",
     "Trend Detected",
     "Variation Detected",

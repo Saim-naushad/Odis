@@ -24,6 +24,11 @@ from backend.app.domain.timeline import TimelineEvent, TimelineEventType
 from domain.entities.decision_context import DecisionContext
 from domain.entities.decision_plan import DecisionPlan
 from domain.entities.operational_situation import OperationalSituation
+from domain.reasoning.assessment_summary import AssessmentSummary
+from domain.reasoning.confidence_breakdown import ConfidenceBreakdown
+from domain.reasoning.evidence import Evidence as CanonicalEvidence
+from domain.reasoning.explanation import Explanation
+from domain.reasoning.hypothesis import Hypothesis
 from domain.value_objects.location import Location
 
 
@@ -164,6 +169,133 @@ class MonitoringAssetHistoryItemResponse(BaseModel):
     decision_plan: DecisionPlanSummaryResponse
 
 
+class ConfidenceBreakdownResponse(BaseModel):
+    base: int
+    support: int
+    consistency: int
+    trend_consistency: int
+    sustained_bonus: int
+    penalties: int
+    total: int
+    rationale: str
+
+    @classmethod
+    def from_domain(cls, confidence: ConfidenceBreakdown) -> Self:
+        return cls(
+            base=confidence.base,
+            support=confidence.support,
+            consistency=confidence.consistency,
+            trend_consistency=confidence.trend_consistency,
+            sustained_bonus=confidence.sustained_bonus,
+            penalties=confidence.penalties,
+            total=confidence.total,
+            rationale=confidence.rationale,
+        )
+
+
+class CanonicalEvidenceResponse(BaseModel):
+    id: str
+    description: str
+    source_signal: str
+    measurement_type: str
+    observed_value: str
+    role: str
+    weight: float
+
+    @classmethod
+    def from_domain(cls, evidence: CanonicalEvidence) -> Self:
+        return cls(
+            id=evidence.id,
+            description=evidence.description,
+            source_signal=evidence.source_signal.value,
+            measurement_type=evidence.measurement_type,
+            observed_value=evidence.observed_value,
+            role=evidence.role.value,
+            weight=evidence.weight,
+        )
+
+
+class HypothesisResponse(BaseModel):
+    id: str
+    kind: str
+    display_title: str
+    rationale: str
+    supporting_evidence_ids: tuple[str, ...]
+    contradicting_evidence_ids: tuple[str, ...]
+
+    @classmethod
+    def from_domain(cls, hypothesis: Hypothesis) -> Self:
+        return cls(
+            id=hypothesis.id,
+            kind=hypothesis.kind.value,
+            display_title=hypothesis.display_title,
+            rationale=hypothesis.rationale,
+            supporting_evidence_ids=hypothesis.supporting_evidence_ids,
+            contradicting_evidence_ids=hypothesis.contradicting_evidence_ids,
+        )
+
+
+class AssessmentSummaryResponse(BaseModel):
+    trend_direction: str | None = None
+    variation_level: str | None = None
+    has_correlations: bool = False
+    has_contradictions: bool = False
+    has_unexpected_expectations: bool = False
+    has_indeterminate_expectations: bool = False
+    primary_hypothesis_id: str | None = None
+    supporting_evidence: tuple[CanonicalEvidenceResponse, ...] = ()
+    confidence_breakdown: ConfidenceBreakdownResponse | None = None
+
+    @classmethod
+    def from_domain(cls, summary: AssessmentSummary) -> Self:
+        return cls(
+            trend_direction=(
+                summary.trend_direction.value if summary.trend_direction else None
+            ),
+            variation_level=(
+                summary.variation_level.value if summary.variation_level else None
+            ),
+            has_correlations=summary.has_correlations,
+            has_contradictions=summary.has_contradictions,
+            has_unexpected_expectations=summary.has_unexpected_expectations,
+            has_indeterminate_expectations=summary.has_indeterminate_expectations,
+            primary_hypothesis_id=(
+                summary.primary_hypothesis.id if summary.primary_hypothesis else None
+            ),
+            supporting_evidence=tuple(
+                CanonicalEvidenceResponse.from_domain(item)
+                for item in summary.supporting_evidence
+            ),
+            confidence_breakdown=(
+                ConfidenceBreakdownResponse.from_domain(summary.confidence)
+                if summary.confidence is not None
+                else None
+            ),
+        )
+
+
+class ExplanationResponse(BaseModel):
+    summary: str
+    evidence: tuple[CanonicalEvidenceResponse, ...]
+    hypotheses_considered: tuple[HypothesisResponse, ...]
+    caveats: tuple[str, ...]
+
+    @classmethod
+    def from_domain(cls, explanation: Explanation) -> Self:
+        return cls(
+            summary=explanation.summary,
+            evidence=tuple(
+                CanonicalEvidenceResponse.from_domain(item)
+                for item in explanation.evidence
+            ),
+            hypotheses_considered=tuple(
+                HypothesisResponse.from_domain(item)
+                for item in explanation.hypotheses_considered
+            ),
+            caveats=explanation.caveats,
+        )
+
+
 class MonitoringRunDetailsResponse(BaseModel):
     run_id: str
     started_at: datetime
@@ -174,6 +306,10 @@ class MonitoringRunDetailsResponse(BaseModel):
     decision_context: DecisionContextResponse
     decision_plan: DecisionPlanResponse
     trend_analysis: TrendAnalysisResponse | None = None
+    confidence_breakdown: ConfidenceBreakdownResponse | None = None
+    explanation: ExplanationResponse | None = None
+    hypotheses: tuple[HypothesisResponse, ...] | None = None
+    assessment_summary: AssessmentSummaryResponse | None = None
 
 
 class TrendAnalysisResponse(BaseModel):

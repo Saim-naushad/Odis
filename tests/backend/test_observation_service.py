@@ -191,7 +191,7 @@ def test_create_second_observation_runs_reasoning_and_persists_artifacts(
 
     trace = trace_repository.get_by_run_id(index.run_id)
     assert trace is not None
-    assert len(trace.steps) == 16
+    assert len(trace.steps) == 18
 
     situation = situation_repository.get(index.situation_id)
     assert situation is not None

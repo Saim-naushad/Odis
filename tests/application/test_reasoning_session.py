@@ -86,8 +86,10 @@ def test_reasoning_session_runs_the_operational_pipeline() -> None:
     assert artifacts.structured_assessment == result.structured_assessment
     assert artifacts.decision_context == result.context
     assert artifacts.decision_plan == result.plan
-    assert artifacts.confidence is None
-    assert artifacts.explanation is None
+    assert artifacts.confidence is not None
+    assert artifacts.explanation is not None
+    assert artifacts.assessment_summary is not None
+    assert artifacts.assessment_summary.confidence == artifacts.confidence
 
 
 def test_reasoning_session_owns_explicit_ordered_stages() -> None:
@@ -98,6 +100,8 @@ def test_reasoning_session_owns_explicit_ordered_stages() -> None:
         "Evidence Generation",
         "Hypothesis Generation",
         "Assessment",
+        "Confidence",
+        "Explanation",
         "Planning",
     )
 

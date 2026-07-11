@@ -19,12 +19,16 @@ from backend.app.api.dependencies.services import (
 )
 from backend.app.api.schemas.monitoring import (
     AlternativeHypothesisResponse,
+    AssessmentSummaryResponse,
+    ConfidenceBreakdownResponse,
     ConfidenceScoreResponse,
     DecisionContextResponse,
     DecisionPlanResponse,
     DecisionPlanSummaryResponse,
     DigitalTwinResponse,
     EvidenceResponse,
+    ExplanationResponse,
+    HypothesisResponse,
     LocationResponse,
     MonitoringAssetHistoryItemResponse,
     MonitoringAssetLatestResponse,
@@ -618,6 +622,10 @@ def get_run_details(
         )
 
     from backend.app.application.explainable_reasoning import build_explainable_decision
+    from backend.app.application.reasoning_compatibility import (
+        build_reasoning_context_through_explanation,
+    )
+    from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_GOAL
 
     explainable = build_explainable_decision(
         assessment=details.decision_context.assessment,
@@ -625,6 +633,12 @@ def get_run_details(
         decision_plan=details.decision_plan,
         structured_assessment=details.structured_assessment,
     )
+
+    reasoning_context = build_reasoning_context_through_explanation(
+        goal=DEFAULT_OPERATIONAL_GOAL,
+        observations=details.observations,
+    )
+    artifacts = reasoning_context.artifacts
 
     plan_response = DecisionPlanResponse.from_domain(details.decision_plan)
     plan_response = plan_response.model_copy(
@@ -664,5 +678,28 @@ def get_run_details(
         decision_context=DecisionContextResponse.from_domain(details.decision_context),
         decision_plan=plan_response,
         trend_analysis=TrendAnalysisResponse.from_domain(explainable.trend_analysis),
+        confidence_breakdown=(
+            ConfidenceBreakdownResponse.from_domain(artifacts.confidence)
+            if artifacts.confidence is not None
+            else None
+        ),
+        explanation=(
+            ExplanationResponse.from_domain(artifacts.explanation)
+            if artifacts.explanation is not None
+            else None
+        ),
+        hypotheses=(
+            tuple(
+                HypothesisResponse.from_domain(item)
+                for item in artifacts.hypotheses
+            )
+            if artifacts.hypotheses
+            else None
+        ),
+        assessment_summary=(
+            AssessmentSummaryResponse.from_domain(artifacts.assessment_summary)
+            if artifacts.assessment_summary is not None
+            else None
+        ),
     )
 

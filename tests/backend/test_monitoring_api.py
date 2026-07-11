@@ -284,7 +284,7 @@ def test_run_lookup_returns_complete_details(api_client: TestClient) -> None:
     assert payload["run_id"] == run_id
     assert len(payload["observations"]) == 2
     assert payload["reasoning_trace"] is not None
-    assert len(payload["reasoning_trace"]["steps"]) == 16
+    assert len(payload["reasoning_trace"]["steps"]) == 18
     assert payload["structured_assessment"] is not None
     assert payload["operational_situation"] is not None
     assert payload["decision_context"] is not None
@@ -303,6 +303,15 @@ def test_run_lookup_returns_complete_details(api_client: TestClient) -> None:
     assert 0 <= payload["trend_analysis"]["stability_score"] <= 100
     assert 0 <= payload["trend_analysis"]["volatility_score"] <= 100
     assert payload["trend_analysis"]["summary"]
+    assert payload["confidence_breakdown"] is not None
+    assert 0 <= payload["confidence_breakdown"]["total"] <= 100
+    assert payload["confidence_breakdown"]["rationale"]
+    assert payload["explanation"] is not None
+    assert payload["explanation"]["summary"]
+    assert payload["explanation"]["evidence"]
+    assert payload["hypotheses"]
+    assert payload["assessment_summary"] is not None
+    assert payload["assessment_summary"]["confidence_breakdown"] is not None
 
 
 def test_unknown_run_returns_404(api_client: TestClient) -> None:

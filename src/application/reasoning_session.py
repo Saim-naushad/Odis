@@ -10,8 +10,10 @@ from application.operational_context import OperationalContext
 from application.operational_profile import OperationalProfile
 from application.planning_context import PlanningContext
 from application.reasoning.assessment_stage import AssessmentStage
+from application.reasoning.confidence_stage import ConfidenceStage
 from application.reasoning.context import ReasoningContext
 from application.reasoning.evidence_generation_stage import EvidenceGenerationStage
+from application.reasoning.explanation_stage import ExplanationStage
 from application.reasoning.hypothesis_stage import HypothesisStage
 from application.reasoning.planning_stage import PlanningStage
 from application.reasoning.signal_extraction_stage import SignalExtractionStage
@@ -95,6 +97,8 @@ class ReasoningSession:
             EvidenceGenerationStage(),
             HypothesisStage(),
             AssessmentStage(),
+            ConfidenceStage(),
+            ExplanationStage(),
             PlanningStage(),
         )
 
@@ -238,6 +242,14 @@ class ReasoningSession:
                 TraceStep(
                     name="Assessment",
                     description="Signals and hypotheses were assessed factually.",
+                ),
+                TraceStep(
+                    name="Confidence",
+                    description="Confidence in the assessment was scored deterministically.",
+                ),
+                TraceStep(
+                    name="Explanation",
+                    description="A structured explanation was generated from artifacts.",
                 ),
                 TraceStep(
                     name="Planning",
