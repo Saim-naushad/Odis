@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
+from typing import Any
 
 from application.expectation_analysis import ExpectationAnalysis
 from application.operational_context import OperationalContext
@@ -59,13 +60,13 @@ class ReasoningContext:
     artifacts: ReasoningArtifacts = ReasoningArtifacts()
     metadata: ReasoningMetadata = ReasoningMetadata()
 
-    def with_artifacts(self, **changes: object) -> ReasoningContext:
+    def with_artifacts(self, **changes: Any) -> ReasoningContext:
         return replace(
             self,
             artifacts=replace(self.artifacts, **changes),
         )
 
-    def with_metadata(self, **changes: object) -> ReasoningContext:
+    def with_metadata(self, **changes: Any) -> ReasoningContext:
         return replace(
             self,
             metadata=replace(self.metadata, **changes),
