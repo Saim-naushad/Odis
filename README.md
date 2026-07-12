@@ -1,6 +1,22 @@
 # ODIS
 
+[![Backend CI](https://github.com/Saim-naushad/Odis/actions/workflows/backend.yml/badge.svg)](https://github.com/Saim-naushad/Odis/actions/workflows/backend.yml)
+[![Frontend CI](https://github.com/Saim-naushad/Odis/actions/workflows/frontend.yml/badge.svg)](https://github.com/Saim-naushad/Odis/actions/workflows/frontend.yml)
+[![Docker CI](https://github.com/Saim-naushad/Odis/actions/workflows/docker.yml/badge.svg)](https://github.com/Saim-naushad/Odis/actions/workflows/docker.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+
 ODIS is an industrial operational intelligence platform that turns telemetry from physical assets into explainable assessments and recommendations. It combines a deterministic reasoning engine, a deployable backend (ingestion, persistence, APIs), and an operator dashboard — demonstrated today on PEM fuel-cell scenarios. The platform is an actively developed MVP: real services, real data paths, not a hardened production deployment.
+
+<p align="center">
+  <img src="docs/assets/dashboard-overview.png" alt="ODIS monitoring dashboard showing fleet health, recommendations, telemetry, and investigation timeline" width="1024">
+</p>
+
+*Fleet overview during an active cooling degradation incident.*
+
+## What ODIS does
+
+Industrial equipment produces continuous measurements — temperature, pressure, flow, voltage. Raw values are not decisions. ODIS separates **evidence**, **signals**, **assessments**, and **recommendations** into an append-only reasoning chain that operators can inspect, replay, and audit. The same pipeline runs as an importable Python library and as a live platform processing MQTT telemetry.
 
 ```mermaid
 flowchart LR
@@ -17,14 +33,6 @@ flowchart LR
 ```
 
 Telemetry flows from the simulator through MQTT into the API, persists in TimescaleDB, triggers reasoning in the worker, and surfaces assessments and recommendations to the dashboard over SSE.
-
-<p align="center">
-  <img src="docs/assets/dashboard-overview.png" alt="ODIS monitoring dashboard showing fleet health, recommendations, telemetry, and investigation timeline" width="1024">
-</p>
-
-## What ODIS does
-
-Industrial equipment produces continuous measurements — temperature, pressure, flow, voltage. Raw values are not decisions. ODIS separates **evidence**, **signals**, **assessments**, and **recommendations** into an append-only reasoning chain that operators can inspect, replay, and audit. The same pipeline runs as an importable Python library and as a live platform processing MQTT telemetry.
 
 ## Key capabilities
 
@@ -44,9 +52,13 @@ The operator console surfaces fleet health, prioritized recommendations, live te
   <img src="docs/assets/dashboard-telemetry.png" alt="Telemetry visualization with measurement history, time range controls, and correlated investigation panel" width="1024">
 </p>
 
+*Telemetry correlated with operational reasoning.*
+
 <p align="center">
-  <img src="docs/assets/dashboard-investigation.png" alt="Investigation timeline with reasoning events, event context, and diagnostics entry point" width="480">
+  <img src="docs/assets/dashboard-investigation.png" alt="Investigation timeline with reasoning events, event context, and diagnostics entry point" width="1024">
 </p>
+
+*Reasoning timeline from evidence to recommendation.*
 
 ## Technology stack
 
@@ -131,7 +143,7 @@ ODIS is early-stage. The following reflect the implementation today:
 - **Placeholder planning rules** — `DecisionPlanner` uses generic substring matching on assessment text; production policy engines are not integrated
 - **Limited signal types** — trend and variation detection are implemented; anomaly and rate-of-change are not separate first-class signals yet
 - **No closed-loop execution** — action and outcome records are persisted but not wired to external control systems
-- **Demo asset metadata** — the dashboard discovers assets from observations; there is no asset registry with rich names, types, or locations
+- **Demo asset metadata** — the four Plant Alpha assets resolve rich names, types, and locations from a static catalog; any other asset id falls back to a derived placeholder with no registry-backed identity
 - **No OPC UA or SCADA connectors** — MQTT and HTTP ingestion are implemented; industrial protocol breadth is limited
 
 ## Contributing

@@ -8,9 +8,9 @@ Portfolio assets for the monitoring dashboard live in [`assets/`](assets/).
 
 | Image | Description |
 |-------|-------------|
-| [dashboard-overview.png](assets/dashboard-overview.png) | Fleet view with health, risk, confidence, recommendation, and telemetry |
-| [dashboard-telemetry.png](assets/dashboard-telemetry.png) | Telemetry visualization with measurement history and investigation rail |
-| [dashboard-investigation.png](assets/dashboard-investigation.png) | Investigation timeline, event context, and diagnostics panel |
+| [dashboard-overview.png](assets/dashboard-overview.png) | Fleet overview during an active cooling degradation incident |
+| [dashboard-telemetry.png](assets/dashboard-telemetry.png) | Telemetry correlated with operational reasoning |
+| [dashboard-investigation.png](assets/dashboard-investigation.png) | Reasoning timeline from evidence to recommendation |
 
 ## Getting Started
 
