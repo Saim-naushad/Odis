@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -13,12 +14,10 @@ BASE_URL = "http://localhost:8080"
 
 async def wait_for_settled(page, timeout: int = 5000) -> None:
     """Wait until no 'Refreshing…' indicator is visible anywhere on the page."""
-    try:
+    with suppress(Exception):
         await page.get_by_text("Refreshing…").first.wait_for(
             state="hidden", timeout=timeout
         )
-    except Exception:
-        pass
 
 
 async def wait_for_populated_dashboard(page) -> None:
@@ -73,10 +72,8 @@ async def prepare_telemetry_chart(page) -> None:
 async def wait_for_populated_timeline(page) -> None:
     """Wait for the investigation timeline to hold more than a single event."""
     timeline_items = page.locator('aside[aria-label="Investigation"] ul li')
-    try:
+    with suppress(Exception):
         await timeline_items.nth(1).wait_for(state="visible", timeout=15_000)
-    except Exception:
-        pass
     await wait_for_settled(page)
     await page.wait_for_timeout(500)
 
