@@ -118,7 +118,7 @@ def test_digital_twin_service_raises_when_no_reasoning_history() -> None:
 
 
 def test_digital_twin_service_assembles_preview_latest_five_in_order() -> None:
-    asset_id = "asset-1"
+    asset_id = "fuel-cell-stack-01"
     state = OperationalState(
         asset_id=asset_id,
         health_score=90,
@@ -168,10 +168,54 @@ def test_digital_twin_service_assembles_preview_latest_five_in_order() -> None:
     assert twin is not None
 
     assert twin.asset_id == asset_id
-    assert twin.asset_name
-    assert twin.asset_type
-    assert twin.location.identifier
+    assert twin.asset_name == "PEM Fuel Cell Stack 01"
+    assert twin.asset_type == "PEM Fuel Cell Stack"
+    assert twin.location.identifier == "North Production Line"
     assert twin.latest_reasoning_run_id == "run-99"
     assert twin.last_updated == state.last_updated
     assert [e.id for e in twin.timeline_preview] == ["e2", "e3", "e4", "e5", "e6"]
+
+
+def test_digital_twin_service_falls_back_for_unknown_asset() -> None:
+    asset_id = "not-a-plant-alpha-asset"
+    state = OperationalState(
+        asset_id=asset_id,
+        health_score=90,
+        health_status="NORMAL",
+        risk_level="LOW",
+        confidence=80,
+        primary_driver="ok",
+        recommended_action="monitor",
+        last_updated=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    recommendation = Recommendation(
+        id="rec-1",
+        asset_id=asset_id,
+        category="monitor",
+        priority="P3",
+        urgency="SCHEDULED",
+        title="Monitor",
+        description="desc",
+        recommended_steps=("step",),
+        estimated_impact="low",
+        created_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    monitoring = _FakeMonitoringService(
+        history=[object()],
+        operational_state=state,
+        recommendation=recommendation,
+        notification=None,
+        timeline=[],
+        latest_run_id="run-1",
+    )
+    service = DigitalTwinService(
+        monitoring_service=monitoring,  # type: ignore[arg-type]
+        cache=MemoryDigitalTwinCache(),
+    )
+
+    twin = service.get_for_asset(asset_id)
+
+    assert twin.asset_type == "unknown"
+    assert twin.location.identifier == "unknown"
+    assert twin.asset_name == "not a plant alpha asset"
 

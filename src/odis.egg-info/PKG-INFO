@@ -64,6 +64,12 @@ flowchart LR
     ui --> api
 ```
 
+Telemetry flows from the simulator through MQTT into the API, persists in TimescaleDB, triggers reasoning in the worker, and surfaces assessments and recommendations to the dashboard over SSE.
+
+<p align="center">
+  <img src="docs/assets/dashboard-overview.png" alt="ODIS monitoring dashboard showing fleet health, recommendations, telemetry, and investigation timeline" width="1024">
+</p>
+
 ## What ODIS does
 
 Industrial equipment produces continuous measurements — temperature, pressure, flow, voltage. Raw values are not decisions. ODIS separates **evidence**, **signals**, **assessments**, and **recommendations** into an append-only reasoning chain that operators can inspect, replay, and audit. The same pipeline runs as an importable Python library and as a live platform processing MQTT telemetry.
@@ -77,6 +83,28 @@ Industrial equipment produces continuous measurements — temperature, pressure,
 - **Plant Alpha demo** — physics-based fuel-cell simulator publishing realistic telemetry through the full stack
 - **Domain profiles** — configurable operational knowledge (default educational profile and fuel-cell profile) without changing core detectors or planners
 - **CLI and examples** — `odis demo` commands and executable walkthroughs for the reasoning engine in isolation
+
+## Dashboard
+
+The operator console surfaces fleet health, prioritized recommendations, live telemetry, and an investigation timeline — all driven by the reasoning worker in real time.
+
+<p align="center">
+  <img src="docs/assets/dashboard-telemetry.png" alt="Telemetry visualization with measurement history, time range controls, and correlated investigation panel" width="1024">
+</p>
+
+<p align="center">
+  <img src="docs/assets/dashboard-investigation.png" alt="Investigation timeline with reasoning events, event context, and diagnostics entry point" width="480">
+</p>
+
+## Technology stack
+
+| Layer | Technologies |
+|-------|--------------|
+| Reasoning engine | Python 3.11, deterministic pipeline, domain profiles |
+| API & worker | FastAPI, SQLAlchemy, background job queue, Server-Sent Events |
+| Data & messaging | TimescaleDB, Redis, Kafka, MQTT (Mosquitto) |
+| Operator UI | React, TypeScript, Vite |
+| Operations | Docker Compose, Prometheus, Grafana, Kubernetes |
 
 ## Repository map
 

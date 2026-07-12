@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
 
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.forecast_inference_service import ForecastInferenceService
 from backend.app.application.monitoring_service import MonitoringService
+from backend.app.application.plant_alpha_catalog import (
+    DEFAULT_PLANT_ALPHA_CATALOG,
+    PlantAlphaCatalog,
+)
 from backend.app.domain.digital_twin import DigitalTwin
 from backend.app.domain.timeline import TimelineEvent
 from backend.app.infrastructure.metrics.reasoning_metrics import (
@@ -28,29 +31,15 @@ class DigitalTwinNoReasoningHistoryError(Exception):
     pass
 
 
-@dataclass(frozen=True, slots=True)
-class AssetDescriptor:
-    """Non-persisted asset descriptor used for projections.
-
-    This is intentionally minimal and deterministic. It exists solely so the
-    Digital Twin can expose operator-facing identity fields without introducing
-    any new persistence or business rules.
-    """
-
-    asset: Asset
-
-
-def _default_asset_descriptor(asset_id: str) -> AssetDescriptor:
-    # With no persisted asset registry in this codebase, we derive a stable,
-    # deterministic descriptor from the identifier only.
+def _derive_unknown_asset(asset_id: str) -> Asset:
+    # Fallback for ids outside the known Plant Alpha catalog: a stable,
+    # deterministic placeholder derived from the identifier only.
     derived_name = asset_id.replace("-", " ").strip() or asset_id
-    return AssetDescriptor(
-        asset=Asset(
-            id=asset_id,
-            name=derived_name,
-            type="unknown",
-            location=Location(identifier="unknown"),
-        )
+    return Asset(
+        id=asset_id,
+        name=derived_name,
+        type="unknown",
+        location=Location(identifier="unknown"),
     )
 
 
@@ -67,11 +56,13 @@ class DigitalTwinService:
         monitoring_service: MonitoringService,
         cache: DigitalTwinCache,
         forecast_inference_service: ForecastInferenceService | None = None,
+        asset_catalog: PlantAlphaCatalog = DEFAULT_PLANT_ALPHA_CATALOG,
         timeline_preview_limit: int = 5,
     ) -> None:
         self._monitoring = monitoring_service
         self._cache = cache
         self._forecast_inference_service = forecast_inference_service
+        self._asset_catalog = asset_catalog
         self._timeline_preview_limit = timeline_preview_limit
 
     def get_for_asset(self, asset_id: str) -> DigitalTwin:
@@ -104,14 +95,16 @@ class DigitalTwinService:
             timeline = self._monitoring.get_timeline_for_asset(asset_id) or []
             timeline_preview = self._preview_timeline(timeline)
 
-            descriptor = _default_asset_descriptor(asset_id)
+            asset = self._asset_catalog.get(asset_id) or _derive_unknown_asset(
+                asset_id
+            )
             telemetry_forecasts = self._load_telemetry_forecasts(asset_id)
 
             twin = DigitalTwin(
-                asset_id=descriptor.asset.id,
-                asset_name=descriptor.asset.name,
-                asset_type=descriptor.asset.type,
-                location=descriptor.asset.location,
+                asset_id=asset.id,
+                asset_name=asset.name,
+                asset_type=asset.type,
+                location=asset.location,
                 operational_state=operational_state,
                 recommendation=recommendation,
                 notification=notification,
