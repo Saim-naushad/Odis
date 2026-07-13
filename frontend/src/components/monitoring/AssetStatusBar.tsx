@@ -102,7 +102,7 @@ export function AssetStatusBar({
 
   return (
     <section
-      className="border-b px-6 py-6 lg:px-8"
+      className="min-h-[260px] border-b px-6 py-6 lg:px-8"
       style={{
         borderColor: 'var(--surface-border)',
         borderTopWidth: operationalState ? '3px' : undefined,

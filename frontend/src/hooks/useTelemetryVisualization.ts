@@ -137,7 +137,9 @@ export function useTelemetryVisualization(
     selectedMeasurement,
   )
 
-  const loading = Boolean(assetId) && telemetryQuery.isFetching
+  // isLoading (not isFetching) so cached data stays visible without a
+  // "Refreshing…" flash during SSE-triggered background refetches.
+  const loading = Boolean(assetId) && telemetryQuery.isLoading
   const error =
     assetId && telemetryQuery.isError
       ? telemetryQuery.error instanceof Error

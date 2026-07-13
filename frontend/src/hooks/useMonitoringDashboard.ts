@@ -314,7 +314,9 @@ export function useMonitoringDashboard(
     : undefined
 
   const assets = assetsQuery.data ?? []
-  const assetsLoading = assetsQuery.isFetching
+  // isLoading (not isFetching) so cached data stays visible without a
+  // "Refreshing…" flash during SSE-triggered background refetches.
+  const assetsLoading = assetsQuery.isLoading
   const assetsError = assetsQuery.isError
     ? formatPhaseError(
         hasLoadedAssetsRef.current,
@@ -328,8 +330,8 @@ export function useMonitoringDashboard(
     ? latestAndHistoryQuery.data?.latest
     : undefined
   const history = selectedAssetId ? latestAndHistoryQuery.data?.history ?? [] : []
-  const latestLoading = Boolean(selectedAssetId) && latestAndHistoryQuery.isFetching
-  const historyLoading = Boolean(selectedAssetId) && latestAndHistoryQuery.isFetching
+  const latestLoading = Boolean(selectedAssetId) && latestAndHistoryQuery.isLoading
+  const historyLoading = Boolean(selectedAssetId) && latestAndHistoryQuery.isLoading
   const latestError =
     selectedAssetId && latestAndHistoryQuery.isError
       ? formatPhaseError(
@@ -352,7 +354,7 @@ export function useMonitoringDashboard(
   const runDetails =
     selectedRunId && selectedAssetId ? runDetailsQuery.data : undefined
   const runDetailsLoading =
-    Boolean(selectedRunId) && Boolean(selectedAssetId) && runDetailsQuery.isFetching
+    Boolean(selectedRunId) && Boolean(selectedAssetId) && runDetailsQuery.isLoading
   const runDetailsError =
     selectedRunId && runDetailsQuery.isError
       ? formatPhaseError(
@@ -364,7 +366,7 @@ export function useMonitoringDashboard(
       : undefined
 
   const digitalTwin = selectedAssetId ? digitalTwinQuery.data : undefined
-  const digitalTwinLoading = Boolean(selectedAssetId) && digitalTwinQuery.isFetching
+  const digitalTwinLoading = Boolean(selectedAssetId) && digitalTwinQuery.isLoading
   const digitalTwinError =
     selectedAssetId && digitalTwinQuery.isError
       ? formatPhaseError(
