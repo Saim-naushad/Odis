@@ -19,6 +19,31 @@ async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T
 }
 
+async function apiPost<T>(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    signal,
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const message = await safeReadErrorMessage(response)
+    throw new Error(
+      `Request to ${path} failed with ${response.status}: ${message}`,
+    )
+  }
+
+  return (await response.json()) as T
+}
+
 async function safeReadErrorMessage(response: Response): Promise<string> {
   try {
     const data = await response.json()
@@ -32,5 +57,6 @@ async function safeReadErrorMessage(response: Response): Promise<string> {
 
 export const apiClient = {
   get: apiGet,
+  post: apiPost,
 }
 

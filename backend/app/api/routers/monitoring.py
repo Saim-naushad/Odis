@@ -14,6 +14,7 @@ from backend.app.api.dependencies.services import (
     get_continuous_aggregate_service,
     get_digital_twin_service,
     get_forecast_inference_service,
+    get_investigation_service,
     get_monitoring_service,
     get_telemetry_history_service,
 )
@@ -29,6 +30,8 @@ from backend.app.api.schemas.monitoring import (
     EvidenceResponse,
     ExplanationResponse,
     HypothesisResponse,
+    InvestigationTransitionRequest,
+    InvestigationTransitionResponse,
     LocationResponse,
     MonitoringAssetHistoryItemResponse,
     MonitoringAssetLatestResponse,
@@ -58,6 +61,10 @@ from backend.app.application.digital_twin_service import (
     DigitalTwinService,
 )
 from backend.app.application.forecast_inference_service import ForecastInferenceService
+from backend.app.application.investigation_service import (
+    InvestigationService,
+    InvestigationTransitionRejectedError,
+)
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.monitoring_sse_stream import stream_monitoring_sse_events
 from backend.app.application.telemetry_history_service import (
@@ -552,6 +559,62 @@ def get_latest_notification_for_asset(
     return NotificationResponse.from_domain(notification)
 
 
+@router.post(
+    "/assets/{asset_id}/investigation",
+    response_model=InvestigationTransitionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Record an operator investigation transition",
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Asset or recommendation not found"
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Illegal investigation transition"
+        },
+    },
+)
+def record_investigation_transition(
+    asset_id: str,
+    payload: InvestigationTransitionRequest,
+    monitoring_service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+    investigation_service: Annotated[
+        InvestigationService, Depends(get_investigation_service)
+    ],
+) -> InvestigationTransitionResponse:
+    if not monitoring_service.asset_exists(asset_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"asset with id {asset_id!r} not found",
+        )
+
+    recommendation = monitoring_service.get_recommendation(asset_id)
+    if recommendation is None or recommendation.id != payload.recommendation_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"recommendation {payload.recommendation_id!r} is not the "
+                f"current recommendation for asset {asset_id!r}"
+            ),
+        )
+
+    try:
+        transition = investigation_service.record_transition(
+            asset_id=asset_id,
+            recommendation_id=payload.recommendation_id,
+            status=payload.status,
+            actor_id=payload.actor_id,
+            actor_display_name=payload.actor_display_name,
+            notes=payload.notes,
+        )
+    except InvestigationTransitionRejectedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    return InvestigationTransitionResponse.from_domain(transition)
+
+
 @router.get(
     "/assets/{asset_id}/digital-twin",
     response_model=DigitalTwinResponse,
@@ -584,6 +647,11 @@ def get_digital_twin_for_asset(
         notification=(
             NotificationResponse.from_domain(twin.notification)
             if twin.notification is not None
+            else None
+        ),
+        investigation=(
+            InvestigationTransitionResponse.from_domain(twin.investigation)
+            if twin.investigation is not None
             else None
         ),
         latest_reasoning_run_id=twin.latest_reasoning_run_id,

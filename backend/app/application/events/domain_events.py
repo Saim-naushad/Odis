@@ -84,3 +84,16 @@ class NotificationCreated:
     created_at: datetime
     timestamp: datetime
 
+
+@dataclass(frozen=True, slots=True)
+class InvestigationTransitionRecorded:
+    asset_id: str
+    recommendation_id: str
+    transition_id: str
+    status: str
+    actor_id: str
+    actor_display_name: str
+    occurred_at: datetime
+    notes: str | None
+    timestamp: datetime
+

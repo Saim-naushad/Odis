@@ -72,6 +72,7 @@ vi.mock('../api/monitoringClient', () => {
           created_at: '2026-01-01T10:00:00Z',
         },
         notification: null,
+        investigation: null,
         latest_reasoning_run_id: 'run-1',
         timeline_preview: [
           {

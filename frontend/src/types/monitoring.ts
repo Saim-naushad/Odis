@@ -194,6 +194,27 @@ export interface LocationResponse {
   identifier: string
 }
 
+export type InvestigationStatus = 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED'
+
+export interface InvestigationTransitionResponse {
+  id: string
+  asset_id: string
+  recommendation_id: string
+  status: InvestigationStatus | string
+  actor_id: string
+  actor_display_name: string
+  occurred_at: string
+  notes: string | null
+}
+
+export interface InvestigationTransitionRequest {
+  recommendation_id: string
+  status: InvestigationStatus
+  actor_id: string
+  actor_display_name: string
+  notes?: string | null
+}
+
 export type TimelineEventType =
   | 'observation_received'
   | 'reasoning_started'
@@ -203,6 +224,7 @@ export type TimelineEventType =
   | 'trend_changed'
   | 'health_changed'
   | 'risk_changed'
+  | 'investigation_transition'
 
 export interface TimelineEventResponse {
   id: string
@@ -222,6 +244,7 @@ export interface DigitalTwinResponse {
   operational_state: OperationalStateResponse
   recommendation: RecommendationResponse
   notification: NotificationResponse | null
+  investigation: InvestigationTransitionResponse | null
   latest_reasoning_run_id: string
   timeline_preview: TimelineEventResponse[]
   last_updated: string

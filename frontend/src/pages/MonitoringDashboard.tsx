@@ -60,6 +60,7 @@ export function MonitoringDashboard() {
           <ActionPlaybook
             selectedAssetId={state.selectedAssetId}
             recommendation={twin?.recommendation}
+            investigation={twin?.investigation}
             loading={state.digitalTwinLoading}
             error={state.digitalTwinError}
           />

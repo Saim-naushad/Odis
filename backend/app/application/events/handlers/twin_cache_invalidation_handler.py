@@ -5,6 +5,7 @@ from __future__ import annotations
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ReasoningCompleted,
     RecommendationUpdated,
@@ -28,6 +29,11 @@ class DigitalTwinCacheInvalidationHandler:
         self._invalidate(event.asset_id)
 
     def on_notification_created(self, event: NotificationCreated) -> None:
+        self._invalidate(event.asset_id)
+
+    def on_investigation_transition_recorded(
+        self, event: InvestigationTransitionRecorded
+    ) -> None:
         self._invalidate(event.asset_id)
 
     def on_reasoning_completed(self, event: ReasoningCompleted) -> None:

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ObservationCreated,
     ReasoningCompleted,
@@ -180,6 +181,32 @@ class TimelineEventHandler:
                     "title": event.title,
                     "message": event.message,
                     "created_at": event.created_at.isoformat(),
+                },
+            )
+        )
+
+    def on_investigation_transition_recorded(
+        self, event: InvestigationTransitionRecorded
+    ) -> None:
+        status_label = event.status.lower()
+        description = f"{event.actor_display_name} marked this as {status_label}."
+        if event.notes:
+            description = f"{description} Notes: {event.notes}"
+        self._record(
+            TimelineEvent(
+                id=str(uuid4()),
+                asset_id=event.asset_id,
+                timestamp=event.occurred_at,
+                event_type="investigation_transition",
+                title=f"Investigation {status_label}",
+                description=description,
+                metadata={
+                    "recommendation_id": event.recommendation_id,
+                    "transition_id": event.transition_id,
+                    "status": event.status,
+                    "actor_id": event.actor_id,
+                    "actor_display_name": event.actor_display_name,
+                    "notes": event.notes,
                 },
             )
         )

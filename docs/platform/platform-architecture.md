@@ -535,6 +535,65 @@ Database connectivity is configured through Pydantic Settings. Set `DATABASE_URL
 
 ---
 
+## Operator Investigation Lifecycle
+
+The platform closes the loop between a recommendation and an operator's response to it. Every other reasoning artifact (situations, assessments, plans, recommendations) is machine-generated; the investigation lifecycle is the first record of a human acting on the system's output, and it follows the same append-only discipline as the rest of the platform.
+
+### State model
+
+An investigation transitions forward through four states. There is no backward move and no re-opening a resolved investigation:
+
+```
+NEW ──▶ ACKNOWLEDGED ──▶ INVESTIGATING ──▶ RESOLVED
+ └───────────┴────────────────┴───────────────┘   (skipping ahead is allowed)
+```
+
+`NEW` is implicit — it is the absence of any transition row for a recommendation. Each operator action (`ACKNOWLEDGED`, `INVESTIGATING`, `RESOLVED`) inserts a new immutable `InvestigationEvent` record rather than mutating a status field; the "current" status for a recommendation is simply its most recent transition. Legality is a single forward-only rank check in `InvestigationService` — not a workflow engine or generic state machine.
+
+### Identity: keyed on the Recommendation, not the DecisionPlan
+
+`Recommendation` (`backend/app/domain/recommendation.py`) is the operator-facing object rendered in the dashboard's playbook — it is what an operator actually reads and reacts to. Its id (`rec-{asset_id}-{state.last_updated}`) is deterministic and stable across repeated reads of the same reasoning cycle, even though `Recommendation` itself is never persisted (it's recomputed from the stored `OperationalState` on every read). Investigation transitions are keyed on `recommendation_id`, matching the identifier `NotificationCreated` already carries — not on the reasoning-core `DecisionPlan`, which is an internal reasoning artifact operators never see directly.
+
+### Persistence
+
+| Domain field | ORM column | Notes |
+|--------------|------------|-------|
+| `id` | `id` | Primary key |
+| `asset_id` | `asset_id` | Indexed |
+| `recommendation_id` | `recommendation_id` | Indexed; the stable key for a recommendation instance |
+| `status` | `status` | `ACKNOWLEDGED` \| `INVESTIGATING` \| `RESOLVED` |
+| `actor_id` | `actor_id` | Free-text today — no auth system exists; becomes a stable user id once one does |
+| `actor_display_name` | `actor_display_name` | Human-readable name shown in the UI and timeline |
+| `occurred_at` | `occurred_at` | Timezone-aware `DateTime` |
+| `notes` | `notes` | Optional operator notes |
+
+The table is named `investigation_transitions`, deliberately not `investigation_events` — the codebase already has several other "event" concepts (domain events, outbox events, timeline events, Kafka integration events, SSE events); "transitions" names this table's specific role as the append-only workflow history of an investigation. `SqlAlchemyInvestigationRepository` follows the same pattern as `SqlAlchemyTimelineRepository`: `save`, plus reads ordered oldest-first.
+
+### Request flow
+
+```
+POST /monitoring/assets/{asset_id}/investigation
+    │  validates recommendation_id matches the asset's current recommendation
+    ▼
+InvestigationService.record_transition()
+    │  rejects any non-forward transition (409)
+    │  persists InvestigationEvent + writes an OutboxEvent in the same transaction
+    ▼
+OutboxDispatcher (existing, unchanged)
+    │  publishes InvestigationTransitionRecorded to the DomainEventBus
+    ├──▶ TimelineEventHandler        → new `investigation_transition` TimelineEvent
+    ├──▶ DigitalTwinCacheInvalidationHandler → busts the Redis DigitalTwin cache
+    └──▶ IntegrationEventPublisher   → Kafka, mirroring NotificationCreated
+```
+
+No dedicated history endpoint was added: the transition is visible immediately as a normal timeline event (via the existing `GET /monitoring/assets/{asset_id}/timeline`), and the current status is composed onto `DigitalTwin.investigation` by `DigitalTwinService` — which only reads the latest transition through `MonitoringService`, consistent with its "assemble, never recompute" contract. The dashboard's SSE-driven cache invalidation (`asset_updated` → digital-twin + timeline queries) requires no changes to pick up investigation updates.
+
+### Explicitly out of scope
+
+Authentication/authorization (actor fields stay free-text), a generic workflow/state-machine engine, re-opening resolved investigations, SLA timers or auto-escalation, and persisting the reasoning-core `Action`/`Outcome` entities (a separate, pre-existing gap in `ReasoningSession`, unrelated to this feature).
+
+---
+
 ## Deployment Vision
 
 ### Initial deployment: Docker Compose

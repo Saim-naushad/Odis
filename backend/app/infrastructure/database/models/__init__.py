@@ -5,6 +5,9 @@ from backend.app.infrastructure.database.models.decision_context import (
     DecisionContextModel,
 )
 from backend.app.infrastructure.database.models.decision_plan import DecisionPlanModel
+from backend.app.infrastructure.database.models.investigation_transition import (
+    InvestigationTransitionModel,
+)
 from backend.app.infrastructure.database.models.observation import ObservationModel
 from backend.app.infrastructure.database.models.operational_situation import (
     OperationalSituationModel,
@@ -30,6 +33,7 @@ from backend.app.infrastructure.database.models.worker_heartbeat import (
 __all__ = [
     "DecisionContextModel",
     "DecisionPlanModel",
+    "InvestigationTransitionModel",
     "ObservationModel",
     "OperationalSituationModel",
     "OutboxEvent",

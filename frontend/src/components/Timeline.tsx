@@ -19,6 +19,7 @@ const EVENT_ICONS: Record<TimelineEventType, string> = {
   trend_changed: '⇅',
   health_changed: '♥',
   risk_changed: '⚠',
+  investigation_transition: '●',
 }
 
 export function Timeline({

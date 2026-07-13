@@ -9,6 +9,7 @@ from typing import Any
 import redis
 
 from backend.app.domain.digital_twin import DigitalTwin
+from backend.app.domain.investigation import InvestigationEvent
 from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
@@ -73,6 +74,20 @@ def serialize(digital_twin: DigitalTwin) -> bytes:
                 "title": digital_twin.notification.title,
                 "message": digital_twin.notification.message,
                 "created_at": _dt_to_str(digital_twin.notification.created_at),
+            }
+        ),
+        "investigation": (
+            None
+            if digital_twin.investigation is None
+            else {
+                "id": digital_twin.investigation.id,
+                "asset_id": digital_twin.investigation.asset_id,
+                "recommendation_id": digital_twin.investigation.recommendation_id,
+                "status": digital_twin.investigation.status,
+                "actor_id": digital_twin.investigation.actor_id,
+                "actor_display_name": digital_twin.investigation.actor_display_name,
+                "occurred_at": _dt_to_str(digital_twin.investigation.occurred_at),
+                "notes": digital_twin.investigation.notes,
             }
         ),
         "latest_reasoning_run_id": digital_twin.latest_reasoning_run_id,
@@ -142,6 +157,20 @@ def deserialize(raw: bytes | str) -> DigitalTwin:
             message=obj["notification"]["message"],
             created_at=_dt_from_str(obj["notification"]["created_at"]),
         )
+    investigation: InvestigationEvent | None
+    if obj.get("investigation") is None:
+        investigation = None
+    else:
+        investigation = InvestigationEvent(
+            id=obj["investigation"]["id"],
+            asset_id=obj["investigation"]["asset_id"],
+            recommendation_id=obj["investigation"]["recommendation_id"],
+            status=obj["investigation"]["status"],
+            actor_id=obj["investigation"]["actor_id"],
+            actor_display_name=obj["investigation"]["actor_display_name"],
+            occurred_at=_dt_from_str(obj["investigation"]["occurred_at"]),
+            notes=obj["investigation"]["notes"],
+        )
     timeline_preview = tuple(
         TimelineEvent(
             id=e["id"],
@@ -162,6 +191,7 @@ def deserialize(raw: bytes | str) -> DigitalTwin:
         operational_state=operational_state,
         recommendation=recommendation,
         notification=notification,
+        investigation=investigation,
         latest_reasoning_run_id=obj["latest_reasoning_run_id"],
         timeline_preview=timeline_preview,
         telemetry_forecasts=(),

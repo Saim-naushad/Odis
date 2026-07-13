@@ -9,6 +9,7 @@ from backend.app.application.digital_twin_service import (
     DigitalTwinNoReasoningHistoryError,
     DigitalTwinService,
 )
+from backend.app.domain.investigation import InvestigationEvent
 from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
@@ -39,6 +40,7 @@ class _FakeMonitoringService:
         notification: Notification | None,
         timeline: list[TimelineEvent] | None,
         latest_run_id: str = "run-1",
+        investigation: InvestigationEvent | None = None,
     ) -> None:
         self._history = history
         self._operational_state = operational_state
@@ -46,6 +48,7 @@ class _FakeMonitoringService:
         self._notification = notification
         self._timeline = timeline
         self._latest_run_id = latest_run_id
+        self._investigation = investigation
 
     def asset_exists(self, asset_id: str) -> bool:
         return self._history is not None
@@ -66,6 +69,11 @@ class _FakeMonitoringService:
 
     def get_latest_notification(self, asset_id: str) -> Notification | None:
         return self._notification
+
+    def get_latest_investigation_transition(
+        self, recommendation_id: str
+    ) -> InvestigationEvent | None:
+        return self._investigation
 
     def get_timeline_for_asset(self, asset_id: str) -> list[TimelineEvent] | None:
         return self._timeline
@@ -218,4 +226,59 @@ def test_digital_twin_service_falls_back_for_unknown_asset() -> None:
     assert twin.asset_type == "unknown"
     assert twin.location.identifier == "unknown"
     assert twin.asset_name == "not a plant alpha asset"
+
+
+def test_digital_twin_service_composes_investigation_by_recommendation_id() -> None:
+    asset_id = "fuel-cell-stack-01"
+    state = OperationalState(
+        asset_id=asset_id,
+        health_score=90,
+        health_status="NORMAL",
+        risk_level="LOW",
+        confidence=80,
+        primary_driver="ok",
+        recommended_action="monitor",
+        last_updated=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    recommendation = Recommendation(
+        id="rec-42",
+        asset_id=asset_id,
+        category="monitor",
+        priority="P3",
+        urgency="SCHEDULED",
+        title="Monitor",
+        description="desc",
+        recommended_steps=("step",),
+        estimated_impact="low",
+        created_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    investigation = InvestigationEvent(
+        id="inv-1",
+        asset_id=asset_id,
+        recommendation_id="rec-42",
+        status="ACKNOWLEDGED",
+        actor_id="op-1",
+        actor_display_name="Operator One",
+        occurred_at=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
+        notes="Looking into it",
+    )
+
+    monitoring = _FakeMonitoringService(
+        history=[object()],
+        operational_state=state,
+        recommendation=recommendation,
+        notification=None,
+        timeline=[],
+        investigation=investigation,
+    )
+    service = DigitalTwinService(
+        monitoring_service=monitoring,  # type: ignore[arg-type]
+        cache=MemoryDigitalTwinCache(),
+    )
+
+    twin = service.get_for_asset(asset_id)
+
+    assert twin.investigation is investigation
+    assert twin.investigation is not None
+    assert twin.investigation.recommendation_id == recommendation.id
 

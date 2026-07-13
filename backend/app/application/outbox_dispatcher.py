@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ObservationCreated,
     ReasoningCompleted,
@@ -112,6 +113,19 @@ def _deserialize_domain_event(
             title=str(payload["title"]),
             message=str(payload["message"]),
             created_at=_parse_datetime(str(payload["created_at"])),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "InvestigationTransitionRecorded":
+        notes = payload.get("notes")
+        return InvestigationTransitionRecorded(
+            asset_id=str(payload["asset_id"]),
+            recommendation_id=str(payload["recommendation_id"]),
+            transition_id=str(payload["transition_id"]),
+            status=str(payload["status"]),
+            actor_id=str(payload["actor_id"]),
+            actor_display_name=str(payload["actor_display_name"]),
+            occurred_at=_parse_datetime(str(payload["occurred_at"])),
+            notes=(str(notes) if notes is not None else None),
             timestamp=_parse_datetime(str(payload["timestamp"])),
         )
     return None

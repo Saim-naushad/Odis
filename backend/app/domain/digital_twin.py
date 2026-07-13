@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from backend.app.domain.investigation import InvestigationEvent
 from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
@@ -29,6 +30,7 @@ class DigitalTwin:
     operational_state: OperationalState
     recommendation: Recommendation
     notification: Notification | None
+    investigation: InvestigationEvent | None
     latest_reasoning_run_id: str
     timeline_preview: tuple[TimelineEvent, ...]
     telemetry_forecasts: tuple[TelemetryForecast, ...]

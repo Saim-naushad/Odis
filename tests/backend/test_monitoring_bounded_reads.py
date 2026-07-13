@@ -33,6 +33,9 @@ from backend.app.infrastructure.repositories.decision_context_repository import 
 from backend.app.infrastructure.repositories.decision_plan_repository import (
     SqlAlchemyDecisionPlanRepository,
 )
+from backend.app.infrastructure.repositories.investigation_repository import (
+    SqlAlchemyInvestigationRepository,
+)
 from backend.app.infrastructure.repositories.observation_repository import (
     SqlAlchemyObservationRepository,
 )
@@ -98,6 +101,7 @@ def _monitoring_service(db_session: Session) -> MonitoringService:
         decision_context_repository=SqlAlchemyDecisionContextRepository(db_session),
         decision_plan_repository=SqlAlchemyDecisionPlanRepository(db_session),
         timeline_repository=SqlAlchemyTimelineRepository(db_session),
+        investigation_repository=SqlAlchemyInvestigationRepository(db_session),
     )
 
 

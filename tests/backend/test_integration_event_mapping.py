@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ReasoningCompleted,
     RecommendationUpdated,
@@ -100,4 +101,27 @@ def test_mapping_notification_created_to_notification_raised() -> None:
     assert integration is not None
     assert integration.type == "NotificationRaised"
     assert integration.payload["notification_id"] == "notif-1"
+
+
+def test_mapping_investigation_transition_recorded() -> None:
+    occurred_at = datetime(2026, 1, 1, tzinfo=UTC)
+    event = InvestigationTransitionRecorded(
+        asset_id="asset-1",
+        recommendation_id="rec-1",
+        transition_id="inv-1",
+        status="ACKNOWLEDGED",
+        actor_id="op-1",
+        actor_display_name="Operator One",
+        occurred_at=occurred_at,
+        notes="Paged on-call",
+        timestamp=occurred_at,
+    )
+
+    integration = map_domain_event_to_integration_event(event)
+
+    assert integration is not None
+    assert integration.type == "InvestigationTransitionRecorded"
+    assert integration.payload["recommendation_id"] == "rec-1"
+    assert integration.payload["status"] == "ACKNOWLEDGED"
+    assert integration.payload["notes"] == "Paged on-call"
 

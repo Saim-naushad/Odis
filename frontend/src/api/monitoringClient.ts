@@ -2,6 +2,8 @@ import { apiClient } from './client'
 import type {
   HealthResponse,
   DigitalTwinResponse,
+  InvestigationTransitionRequest,
+  InvestigationTransitionResponse,
   MonitoringAssetHistoryItemResponse,
   MonitoringAssetLatestResponse,
   MonitoringAssetResponse,
@@ -157,6 +159,16 @@ export const monitoringClient = {
       query ? `?${query}` : ''
     }`
     return apiClient.get(path, signal)
+  },
+
+  recordInvestigationTransition(
+    assetId: string,
+    payload: InvestigationTransitionRequest,
+  ): Promise<InvestigationTransitionResponse> {
+    return apiClient.post(
+      `/monitoring/assets/${encodeURIComponent(assetId)}/investigation`,
+      payload,
+    )
   },
 
   getTelemetryAggregatesForAsset(

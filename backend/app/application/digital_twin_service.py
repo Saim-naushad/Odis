@@ -92,6 +92,9 @@ class DigitalTwinService:
                 raise DigitalTwinNoReasoningHistoryError(asset_id)
 
             notification = self._monitoring.get_latest_notification(asset_id)
+            investigation = self._monitoring.get_latest_investigation_transition(
+                recommendation.id
+            )
             timeline = self._monitoring.get_timeline_for_asset(asset_id) or []
             timeline_preview = self._preview_timeline(timeline)
 
@@ -108,6 +111,7 @@ class DigitalTwinService:
                 operational_state=operational_state,
                 recommendation=recommendation,
                 notification=notification,
+                investigation=investigation,
                 latest_reasoning_run_id=latest.run.id,
                 timeline_preview=tuple(timeline_preview),
                 telemetry_forecasts=tuple(telemetry_forecasts),

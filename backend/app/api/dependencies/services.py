@@ -13,6 +13,7 @@ from backend.app.api.dependencies.database import get_unit_of_work
 from backend.app.api.dependencies.repositories import (
     get_decision_context_repository,
     get_decision_plan_repository,
+    get_investigation_repository,
     get_observation_repository,
     get_reasoning_run_index_repository,
     get_reasoning_run_repository,
@@ -33,6 +34,7 @@ from backend.app.application.feature_builder import FeatureBuilder
 from backend.app.application.forecast_inference_engine import ForecastInferenceEngine
 from backend.app.application.forecast_inference_service import ForecastInferenceService
 from backend.app.application.health_service import HealthService
+from backend.app.application.investigation_service import InvestigationService
 from backend.app.application.monitoring_service import MonitoringService
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.observation_service_factory import (
@@ -41,8 +43,14 @@ from backend.app.application.observation_service_factory import (
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.telemetry_history_service import TelemetryHistoryService
 from backend.app.application.unit_of_work import UnitOfWork
+from backend.app.domain.repositories.investigation_repository import (
+    InvestigationRepository,
+)
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.infrastructure.config.settings import get_settings
+from backend.app.infrastructure.repositories.investigation_repository import (
+    SqlAlchemyInvestigationRepository,
+)
 from domain.repositories.decision_context_repository import DecisionContextRepository
 from domain.repositories.decision_plan_repository import DecisionPlanRepository
 from domain.repositories.observation_repository import ObservationRepository
@@ -106,6 +114,9 @@ def get_monitoring_service(
     timeline_repository: Annotated[
         TimelineRepository, Depends(get_timeline_repository)
     ],
+    investigation_repository: Annotated[
+        InvestigationRepository, Depends(get_investigation_repository)
+    ],
 ) -> MonitoringService:
     """Provide a request-scoped monitoring service."""
     return MonitoringService(
@@ -118,6 +129,22 @@ def get_monitoring_service(
         decision_context_repository=decision_context_repository,
         decision_plan_repository=decision_plan_repository,
         timeline_repository=timeline_repository,
+        investigation_repository=investigation_repository,
+    )
+
+
+def get_investigation_service(
+    uow: Annotated[UnitOfWork[Session], Depends(get_unit_of_work)],
+    event_bus: Annotated[DomainEventBus, Depends(get_domain_event_bus)],
+    outbox_dispatcher: Annotated[OutboxDispatcher, Depends(get_outbox_dispatcher)],
+) -> InvestigationService:
+    """Provide a request-scoped investigation transition service."""
+    repository = SqlAlchemyInvestigationRepository(uow.session)
+    return InvestigationService(
+        uow,
+        repository,
+        event_bus=event_bus,
+        outbox_dispatcher=outbox_dispatcher,
     )
 
 

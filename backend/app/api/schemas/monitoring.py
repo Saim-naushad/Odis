@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -11,6 +11,7 @@ from application.reasoning_trace import ReasoningTrace, TraceStep
 from application.structured_assessment import StructuredAssessment
 from backend.app.api.schemas.observation import ObservationResponse
 from backend.app.api.schemas.telemetry import TelemetryForecastResponse
+from backend.app.domain.investigation import InvestigationEvent
 from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.reasoning import (
@@ -469,6 +470,68 @@ class NotificationResponse(BaseModel):
         )
 
 
+class InvestigationTransitionRequest(BaseModel):
+    """Payload for recording an operator investigation transition."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "recommendation_id": "rec-fc-stack-01-20260713T140000Z",
+                "status": "ACKNOWLEDGED",
+                "actor_id": "j.operator",
+                "actor_display_name": "J. Operator",
+                "notes": "Paged on-call, investigating cooling loop.",
+            }
+        }
+    )
+
+    recommendation_id: str = Field(
+        min_length=1,
+        description="Identifier of the recommendation this transition responds to",
+    )
+    status: Literal["ACKNOWLEDGED", "INVESTIGATING", "RESOLVED"] = Field(
+        description="Target investigation status"
+    )
+    actor_id: str = Field(
+        min_length=1,
+        description=(
+            "Stable operator identifier. Free-text today (no auth system); "
+            "will become a real user id once authentication exists."
+        ),
+    )
+    actor_display_name: str = Field(
+        min_length=1,
+        description="Human-readable operator name shown in the UI and timeline",
+    )
+    notes: str | None = Field(default=None, description="Optional operator notes")
+
+
+class InvestigationTransitionResponse(BaseModel):
+    """Serialized investigation transition."""
+
+    id: str
+    asset_id: str
+    recommendation_id: str
+    status: str
+    actor_id: str
+    actor_display_name: str
+    occurred_at: datetime
+    notes: str | None
+
+    @classmethod
+    def from_domain(cls, event: InvestigationEvent) -> Self:
+        return cls(
+            id=event.id,
+            asset_id=event.asset_id,
+            recommendation_id=event.recommendation_id,
+            status=event.status,
+            actor_id=event.actor_id,
+            actor_display_name=event.actor_display_name,
+            occurred_at=event.occurred_at,
+            notes=event.notes,
+        )
+
+
 class LocationResponse(BaseModel):
     identifier: str
 
@@ -485,6 +548,7 @@ class DigitalTwinResponse(BaseModel):
     operational_state: OperationalStateResponse
     recommendation: RecommendationResponse
     notification: NotificationResponse | None
+    investigation: InvestigationTransitionResponse | None
     latest_reasoning_run_id: str
     timeline_preview: list[TimelineEventResponse]
     telemetry_forecasts: list[TelemetryForecastResponse] = Field(

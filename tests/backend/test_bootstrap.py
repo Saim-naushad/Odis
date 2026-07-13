@@ -11,6 +11,7 @@ from backend.app.application.bootstrap import (
 )
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ObservationCreated,
     ReasoningCompleted,
@@ -83,6 +84,7 @@ def test_bootstrap_registers_all_domain_event_handlers(
     assert ObservationCreated in handlers
     assert ReasoningStarted in handlers
     assert TrendChanged in handlers
+    assert InvestigationTransitionRecorded in handlers
 
 
 def test_register_domain_event_handlers_without_database_skips_timeline(

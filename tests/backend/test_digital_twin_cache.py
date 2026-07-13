@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
@@ -10,6 +11,7 @@ from backend.app.application.digital_twin_service import (
 )
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ReasoningCompleted,
     RecommendationUpdated,
@@ -17,6 +19,7 @@ from backend.app.application.events.domain_events import (
 )
 from backend.app.application.events.handlers import DigitalTwinCacheInvalidationHandler
 from backend.app.domain.digital_twin import DigitalTwin
+from backend.app.domain.investigation import InvestigationEvent
 from backend.app.domain.notification import Notification
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
@@ -53,6 +56,7 @@ class _FakeMonitoringService:
         notification: Notification | None,
         timeline: list[TimelineEvent] | None,
         latest_run_id: str = "run-1",
+        investigation: InvestigationEvent | None = None,
     ) -> None:
         self._history = history
         self._operational_state = operational_state
@@ -60,6 +64,7 @@ class _FakeMonitoringService:
         self._notification = notification
         self._timeline = timeline
         self._latest_run_id = latest_run_id
+        self._investigation = investigation
         self.call_counts: dict[str, int] = {
             "asset_exists": 0,
             "history": 0,
@@ -95,6 +100,11 @@ class _FakeMonitoringService:
     def get_latest_notification(self, asset_id: str) -> Notification | None:
         self.call_counts["notification"] += 1
         return self._notification
+
+    def get_latest_investigation_transition(
+        self, recommendation_id: str
+    ) -> InvestigationEvent | None:
+        return self._investigation
 
     def get_timeline_for_asset(self, asset_id: str) -> list[TimelineEvent] | None:
         self.call_counts["timeline"] += 1
@@ -139,6 +149,7 @@ def _sample_twin(asset_id: str = "asset-1") -> DigitalTwin:
         operational_state=state,
         recommendation=_sample_recommendation(asset_id),
         notification=None,
+        investigation=None,
         latest_reasoning_run_id="run-1",
         timeline_preview=(),
         telemetry_forecasts=(),
@@ -282,6 +293,20 @@ def test_digital_twin_service_does_not_cache_errors() -> None:
                 timestamp=datetime(2026, 1, 1, tzinfo=UTC),
             ),
         ),
+        (
+            "on_investigation_transition_recorded",
+            InvestigationTransitionRecorded(
+                asset_id="asset-1",
+                recommendation_id="rec-1",
+                transition_id="inv-1",
+                status="ACKNOWLEDGED",
+                actor_id="op-1",
+                actor_display_name="Operator One",
+                occurred_at=datetime(2026, 1, 1, tzinfo=UTC),
+                notes=None,
+                timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            ),
+        ),
     ],
 )
 def test_invalidation_handler_clears_cache(
@@ -324,6 +349,30 @@ def test_redis_cache_serialization_roundtrip() -> None:
     loaded = deserialize(raw)
 
     assert loaded == twin
+
+
+def test_redis_cache_serialization_roundtrip_with_investigation() -> None:
+    twin = _sample_twin()
+    twin_with_investigation = replace(
+        twin,
+        investigation=InvestigationEvent(
+            id="inv-1",
+            asset_id="asset-1",
+            recommendation_id="rec-1",
+            status="ACKNOWLEDGED",
+            actor_id="op-1",
+            actor_display_name="Operator One",
+            occurred_at=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            notes="Paged on-call",
+        ),
+    )
+
+    loaded = deserialize(serialize(twin_with_investigation))
+
+    assert loaded == twin_with_investigation
+    assert loaded.investigation is not None
+    assert loaded.investigation.status == "ACKNOWLEDGED"
+    assert loaded.investigation.notes == "Paged on-call"
 
 
 def test_redis_cache_invalidate_removes_entry(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -20,6 +20,7 @@ TimelineEventType = Literal[
     "trend_changed",
     "health_changed",
     "risk_changed",
+    "investigation_transition",
 ]
 
 

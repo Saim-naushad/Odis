@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ObservationCreated,
     ReasoningCompleted,
@@ -103,6 +104,10 @@ def register_domain_event_handlers(
         ReasoningCompleted,
         cache_invalidation_handler.on_reasoning_completed,
     )
+    event_bus.subscribe(
+        InvestigationTransitionRecorded,
+        cache_invalidation_handler.on_investigation_transition_recorded,
+    )
 
     monitoring_handler = MonitoringEventHandler(monitoring_event_source)
     event_bus.subscribe(
@@ -147,6 +152,10 @@ def register_domain_event_handlers(
         event_bus.subscribe(
             NotificationCreated,
             timeline_handler.on_notification_created,
+        )
+        event_bus.subscribe(
+            InvestigationTransitionRecorded,
+            timeline_handler.on_investigation_transition_recorded,
         )
 
 

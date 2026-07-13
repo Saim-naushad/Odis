@@ -1,11 +1,47 @@
-import type { RecommendationResponse } from '../../types/monitoring'
-import { priorityVariant, semanticBadgeClass } from '../../utils/statusBadges'
+import { useState } from 'react'
+import type {
+  InvestigationStatus,
+  InvestigationTransitionResponse,
+  RecommendationResponse,
+} from '../../types/monitoring'
+import {
+  investigationStatusVariant,
+  priorityVariant,
+  semanticBadgeClass,
+} from '../../utils/statusBadges'
+import { useInvestigationTransition } from '../../hooks/useInvestigationTransition'
 
 interface ActionPlaybookProps {
   selectedAssetId?: string
   recommendation?: RecommendationResponse
+  investigation?: InvestigationTransitionResponse | null
   loading: boolean
   error?: string
+}
+
+type CurrentStatus = 'NEW' | InvestigationStatus
+
+const NEXT_TRANSITIONS: Record<
+  CurrentStatus,
+  { status: InvestigationStatus; label: string }[]
+> = {
+  NEW: [{ status: 'ACKNOWLEDGED', label: 'Acknowledge' }],
+  ACKNOWLEDGED: [
+    { status: 'INVESTIGATING', label: 'Start investigating' },
+    { status: 'RESOLVED', label: 'Resolve' },
+  ],
+  INVESTIGATING: [{ status: 'RESOLVED', label: 'Resolve' }],
+  RESOLVED: [],
+}
+
+function currentStatus(
+  investigation?: InvestigationTransitionResponse | null,
+): CurrentStatus {
+  const status = investigation?.status
+  if (status === 'ACKNOWLEDGED' || status === 'INVESTIGATING' || status === 'RESOLVED') {
+    return status
+  }
+  return 'NEW'
 }
 
 function priorityAccentColor(priority: string): string {
@@ -25,10 +61,33 @@ function priorityAccentColor(priority: string): string {
 export function ActionPlaybook({
   selectedAssetId,
   recommendation,
+  investigation,
   loading,
   error,
 }: ActionPlaybookProps) {
   const hasRecommendation = Boolean(recommendation)
+  const [actorName, setActorName] = useState('')
+  const [notes, setNotes] = useState('')
+  const transition = useInvestigationTransition(selectedAssetId)
+  const status = currentStatus(investigation)
+  const nextTransitions = NEXT_TRANSITIONS[status]
+  const canAct = actorName.trim().length > 0 && Boolean(recommendation)
+
+  function handleTransition(nextStatus: InvestigationStatus) {
+    if (!recommendation || !canAct) return
+    transition.mutate(
+      {
+        recommendation_id: recommendation.id,
+        status: nextStatus,
+        actor_id: actorName.trim(),
+        actor_display_name: actorName.trim(),
+        notes: notes.trim() ? notes.trim() : undefined,
+      },
+      {
+        onSuccess: () => setNotes(''),
+      },
+    )
+  }
 
   return (
     <section
@@ -82,6 +141,94 @@ export function ActionPlaybook({
               {recommendation.priority} · {recommendation.urgency}
             </span>
             <span className="status-badge status-badge-info">{recommendation.category}</span>
+            <span
+              className={`status-badge ${semanticBadgeClass(investigationStatusVariant(status))}`}
+            >
+              {status}
+            </span>
+          </div>
+
+          <div
+            className="rounded border px-4 py-4"
+            style={{
+              borderColor: 'var(--surface-border)',
+              background: 'var(--surface-base)',
+            }}
+          >
+            <p
+              className="text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Investigation
+            </p>
+            {investigation && (
+              <p className="mt-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                {investigation.actor_display_name} marked this{' '}
+                {investigation.status.toLowerCase()} at{' '}
+                {new Date(investigation.occurred_at).toLocaleString()}
+                {investigation.notes ? ` — ${investigation.notes}` : ''}
+              </p>
+            )}
+            {nextTransitions.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="text"
+                    value={actorName}
+                    onChange={(event) => setActorName(event.target.value)}
+                    placeholder="Your name"
+                    aria-label="Your name"
+                    className="rounded border px-2 py-1 text-xs"
+                    style={{
+                      borderColor: 'var(--surface-border)',
+                      background: 'var(--surface-raised)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                  <input
+                    type="text"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    placeholder="Notes (optional)"
+                    aria-label="Notes"
+                    className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                    style={{
+                      borderColor: 'var(--surface-border)',
+                      background: 'var(--surface-raised)',
+                      color: 'var(--text-primary)',
+                    }}
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {nextTransitions.map((next) => (
+                    <button
+                      key={next.status}
+                      type="button"
+                      disabled={!canAct || transition.isPending}
+                      onClick={() => handleTransition(next.status)}
+                      className="rounded border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{
+                        borderColor: 'var(--surface-border)',
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      {next.label}
+                    </button>
+                  ))}
+                </div>
+                {transition.isError && (
+                  <p className="text-xs" style={{ color: 'var(--status-warning)' }}>
+                    {transition.error instanceof Error
+                      ? transition.error.message
+                      : 'Failed to record investigation transition'}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                This investigation is resolved.
+              </p>
+            )}
           </div>
 
           <div>

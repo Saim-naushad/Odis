@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from backend.app.application.events.domain_events import (
     HealthChanged,
+    InvestigationTransitionRecorded,
     NotificationCreated,
     ReasoningCompleted,
     RecommendationUpdated,
@@ -63,6 +64,24 @@ def map_domain_event_to_integration_event(event: object) -> IntegrationEvent | N
                 "title": event.title,
                 "message": event.message,
                 "created_at": _to_iso(event.created_at),
+                "timestamp": _to_iso(occurred_at),
+            },
+        )
+
+    if isinstance(event, InvestigationTransitionRecorded):
+        return IntegrationEvent(
+            id=str(uuid4()),
+            type="InvestigationTransitionRecorded",
+            occurred_at=occurred_at,
+            payload={
+                "asset_id": event.asset_id,
+                "recommendation_id": event.recommendation_id,
+                "transition_id": event.transition_id,
+                "status": event.status,
+                "actor_id": event.actor_id,
+                "actor_display_name": event.actor_display_name,
+                "occurred_at": _to_iso(event.occurred_at),
+                "notes": event.notes,
                 "timestamp": _to_iso(occurred_at),
             },
         )

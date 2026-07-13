@@ -13,6 +13,7 @@ from application.structured_assessment import StructuredAssessment
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.application.operational_state_engine import OperationalStateEngine
 from backend.app.application.recommendation_engine import RecommendationEngine
+from backend.app.domain.investigation import InvestigationEvent
 from backend.app.domain.notification import (
     Notification,
     NotificationSeverity,
@@ -20,6 +21,9 @@ from backend.app.domain.notification import (
 )
 from backend.app.domain.operational_state import OperationalState
 from backend.app.domain.recommendation import Recommendation
+from backend.app.domain.repositories.investigation_repository import (
+    InvestigationRepository,
+)
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
 from backend.app.domain.timeline import TimelineEvent
 from domain.entities.decision_context import DecisionContext
@@ -82,6 +86,7 @@ class MonitoringService:
         decision_context_repository: DecisionContextRepository,
         decision_plan_repository: DecisionPlanRepository,
         timeline_repository: TimelineRepository,
+        investigation_repository: InvestigationRepository,
         history_limit: int = DEFAULT_MONITORING_HISTORY_LIMIT,
     ) -> None:
         self._observation_repository = observation_repository
@@ -93,6 +98,7 @@ class MonitoringService:
         self._decision_context_repository = decision_context_repository
         self._decision_plan_repository = decision_plan_repository
         self._timeline_repository = timeline_repository
+        self._investigation_repository = investigation_repository
         self._history_limit = history_limit
 
     def list_assets(self) -> list[str]:
@@ -218,6 +224,14 @@ class MonitoringService:
             title=str(metadata["title"]),
             message=str(metadata["message"]),
             created_at=created_at,
+        )
+
+    def get_latest_investigation_transition(
+        self, recommendation_id: str
+    ) -> InvestigationEvent | None:
+        """Return the current investigation transition for a recommendation."""
+        return self._investigation_repository.get_latest_for_recommendation(
+            recommendation_id
         )
 
     def get_run_details(self, run_id: str) -> MonitoringRunDetails | None:

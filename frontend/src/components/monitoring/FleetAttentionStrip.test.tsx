@@ -40,6 +40,7 @@ const twin: DigitalTwinResponse = {
     message: 'Temperature deviation',
     created_at: '2026-01-01T10:00:00Z',
   },
+  investigation: null,
   latest_reasoning_run_id: 'run-1',
   timeline_preview: [],
   last_updated: '2026-01-01T10:00:00Z',

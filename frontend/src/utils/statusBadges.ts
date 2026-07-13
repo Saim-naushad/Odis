@@ -21,6 +21,15 @@ export function notificationStatusVariant(status: string): BadgeVariant {
   return 'neutral'
 }
 
+/** Status of an operator's response to a recommendation ('NEW' = no
+ * transition recorded yet). */
+export function investigationStatusVariant(status: string): BadgeVariant {
+  if (status === 'ACKNOWLEDGED') return 'warn'
+  if (status === 'INVESTIGATING') return 'info'
+  if (status === 'RESOLVED') return 'neutral'
+  return 'neutral' // NEW
+}
+
 export function riskBadgeClass(riskLevel: string): string {
   switch (riskLevel) {
     case 'HIGH':
