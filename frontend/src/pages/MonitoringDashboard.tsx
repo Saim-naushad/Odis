@@ -74,6 +74,12 @@ export function MonitoringDashboard() {
           onRetryTimeline={state.retryTimeline}
           onOpenExpert={() => setExpertOpen(true)}
           expertDisabled={!state.selectedAssetId}
+          selectedRunId={state.selectedRunId}
+          onSelectRun={state.setSelectedRunId}
+          runDetails={state.runDetails}
+          runDetailsLoading={state.runDetailsLoading}
+          runDetailsError={state.runDetailsError}
+          onRetryRunDetails={state.retryReasoningTrace}
         />
       </main>
 

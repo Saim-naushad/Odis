@@ -1,10 +1,13 @@
 import type { TimelineEventResponse, TimelineEventType } from '../types/monitoring'
+import { getTimelineEventRunId } from '../utils/timelineEvent'
 
 interface TimelineProps {
   events: TimelineEventResponse[]
   loading: boolean
   error?: string
   onRetry?: () => void | Promise<void>
+  selectedEventId?: string
+  onSelectEvent?: (event: TimelineEventResponse) => void
 }
 
 const EVENT_ICONS: Record<TimelineEventType, string> = {
@@ -18,7 +21,14 @@ const EVENT_ICONS: Record<TimelineEventType, string> = {
   risk_changed: '⚠',
 }
 
-export function Timeline({ events, loading, error, onRetry }: TimelineProps) {
+export function Timeline({
+  events,
+  loading,
+  error,
+  onRetry,
+  selectedEventId,
+  onSelectEvent,
+}: TimelineProps) {
   const newestEventId =
     events.length > 0 ? events[events.length - 1].id : undefined
 
@@ -53,43 +63,60 @@ export function Timeline({ events, loading, error, onRetry }: TimelineProps) {
         {events.length > 0 ? (
           <ul className="divide-y divide-slate-800 text-xs">
             {events.map((event) => {
-              const isNewest = event.id === newestEventId
+              const isSelected = selectedEventId
+                ? event.id === selectedEventId
+                : event.id === newestEventId
+              const runId = getTimelineEventRunId(event)
+              const isSelectable = Boolean(runId) && Boolean(onSelectEvent)
+              const row = (
+                <div className="flex items-start gap-3 px-3 py-2">
+                  <span
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-slate-300"
+                    aria-hidden="true"
+                  >
+                    {EVENT_ICONS[event.event_type]}
+                  </span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`text-[11px] ${
+                          isSelected
+                            ? 'font-semibold text-slate-50'
+                            : 'font-medium text-slate-100'
+                        }`}
+                      >
+                        {event.title}
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        {new Date(event.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      {event.description}
+                    </p>
+                  </div>
+                </div>
+              )
               return (
                 <li
                   key={event.id}
                   className={
-                    isNewest
+                    isSelected
                       ? 'border-l-2 border-l-slate-400'
                       : 'border-l-2 border-transparent'
                   }
                 >
-                  <div className="flex items-start gap-3 px-3 py-2">
-                    <span
-                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] text-slate-300"
-                      aria-hidden="true"
+                  {isSelectable ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectEvent?.(event)}
+                      className="w-full text-left transition-colors hover:bg-slate-900/60"
                     >
-                      {EVENT_ICONS[event.event_type]}
-                    </span>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`text-[11px] ${
-                            isNewest
-                              ? 'font-semibold text-slate-50'
-                              : 'font-medium text-slate-100'
-                          }`}
-                        >
-                          {event.title}
-                        </span>
-                        <span className="text-[10px] text-slate-500">
-                          {new Date(event.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        {event.description}
-                      </p>
-                    </div>
-                  </div>
+                      {row}
+                    </button>
+                  ) : (
+                    row
+                  )}
                 </li>
               )
             })}

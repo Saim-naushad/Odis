@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Timeline } from './Timeline'
 import type { TimelineEventResponse } from '../types/monitoring'
+
+afterEach(cleanup)
 
 const sampleEvents: TimelineEventResponse[] = [
   {
@@ -52,5 +54,50 @@ describe('Timeline', () => {
     expect(
       screen.getByText('No operational events recorded for this asset yet.'),
     ).toBeInTheDocument()
+  })
+
+  it('invokes onSelectEvent with the full event when a run-linked row is clicked', () => {
+    const onSelectEvent = vi.fn()
+    render(
+      <Timeline
+        events={sampleEvents}
+        loading={false}
+        onSelectEvent={onSelectEvent}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Reasoning completed/i }))
+
+    expect(onSelectEvent).toHaveBeenCalledWith(sampleEvents[1])
+  })
+
+  it('does not render a clickable row for events without a run_id', () => {
+    const onSelectEvent = vi.fn()
+    render(
+      <Timeline
+        events={sampleEvents}
+        loading={false}
+        onSelectEvent={onSelectEvent}
+      />,
+    )
+
+    expect(
+      screen.queryByRole('button', { name: /Observation received/i }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('highlights exactly the selected event, not just the newest', () => {
+    const { container } = render(
+      <Timeline
+        events={sampleEvents}
+        loading={false}
+        selectedEventId="event-1"
+        onSelectEvent={vi.fn()}
+      />,
+    )
+
+    const highlighted = container.querySelector('.border-l-slate-400')
+    expect(highlighted).not.toBeNull()
+    expect(highlighted?.textContent).toContain('Observation received')
   })
 })
