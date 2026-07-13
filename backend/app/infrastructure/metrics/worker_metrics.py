@@ -19,6 +19,17 @@ reasoning_jobs_failed_total = Counter(
     "Total number of reasoning jobs that failed",
 )
 
+reasoning_jobs_coalesced_total = Counter(
+    "reasoning_jobs_coalesced_total",
+    "Total number of enqueue requests absorbed by an already-outstanding job",
+)
+
+reasoning_jobs_rescheduled_total = Counter(
+    "reasoning_jobs_rescheduled_total",
+    "Total number of follow-up jobs scheduled because an asset went dirty "
+    "during execution",
+)
+
 reasoning_jobs_running = Gauge(
     "reasoning_jobs_running",
     "Number of reasoning jobs currently running",
@@ -54,6 +65,16 @@ def record_reasoning_job_completed() -> None:
 def record_reasoning_job_failed() -> None:
     """Increment when a claimed job is marked FAILED."""
     reasoning_jobs_failed_total.inc()
+
+
+def record_reasoning_job_coalesced() -> None:
+    """Increment when an enqueue request is absorbed by an outstanding job."""
+    reasoning_jobs_coalesced_total.inc()
+
+
+def record_reasoning_job_rescheduled() -> None:
+    """Increment when a completion/failure schedules a dirty follow-up job."""
+    reasoning_jobs_rescheduled_total.inc()
 
 
 def record_reasoning_job_duration(duration_seconds: float) -> None:

@@ -60,6 +60,7 @@ from backend.app.infrastructure.repositories.structured_assessment_repository im
     SqlAlchemyStructuredAssessmentRepository,
 )
 from domain.value_objects.trend_direction import TrendDirection
+from tests.backend.helpers import assert_at_most_one_outstanding_job_per_asset
 from tests.builders import build_observation
 
 
@@ -125,6 +126,48 @@ def test_create_enqueues_reasoning_job(
     assert result.job is not None
     assert result.job.asset_id == observation.asset_id
     assert result.job.status == ReasoningJobStatus.PENDING
+
+
+def test_create_twice_before_claim_coalesces_into_one_job(
+    db_session: Session,
+) -> None:
+    """Two writes for the same asset before any claim must not create two
+    outstanding jobs — ObservationService needs no dirty-flag awareness of
+    its own for this; the queue absorbs the second request transparently."""
+    service = ObservationService(
+        SqlAlchemyUnitOfWork(lambda: db_session),
+        SqlAlchemyObservationRepository(db_session),
+        reasoning_job_queue=DatabaseReasoningJobQueue(
+            SqlAlchemyReasoningJobRepository(db_session),
+        ),
+    )
+    first = build_observation(
+        id="obs-coalesce-1",
+        value=30.0,
+        timestamp=build_observation().timestamp,
+    )
+    second = build_observation(
+        id="obs-coalesce-2",
+        value=45.0,
+        timestamp=build_observation().timestamp.replace(hour=13),
+    )
+
+    first_result = service.create(first)
+    second_result = service.create(second)
+
+    assert first_result.job is not None
+    assert second_result.job is not None
+    assert second_result.job.id == first_result.job.id
+
+    from sqlalchemy import select
+
+    from backend.app.infrastructure.database.models.reasoning_job import (
+        ReasoningJobModel,
+    )
+
+    jobs = db_session.scalars(select(ReasoningJobModel)).all()
+    assert len(jobs) == 1
+    assert_at_most_one_outstanding_job_per_asset(db_session)
 
 
 def test_create_single_observation_does_not_run_reasoning(
