@@ -14,10 +14,7 @@ flowchart TB
     end
 
     subgraph application["Application layer"]
-        detectors["Signal detectors\n(TrendDetector)"]
-        assessors["Assessors\n(OperationalSituationAssessor)"]
-        context["Context creation\n(create_decision_context)"]
-        planners["Planners\n(DecisionPlanner)"]
+        stages["7-stage ReasoningSession pipeline\n(Signal Extraction, Evidence, Hypothesis,\nAssessment, Confidence, Explanation, Planning)"]
         reasoningRun["ReasoningRun\n(execution metadata)"]
     end
 
@@ -33,7 +30,7 @@ flowchart TB
     end
 
     subgraph infrastructure["Infrastructure layer"]
-        repositories["In-memory repositories\nand adapters"]
+        infraRepos["In-memory repositories\nand adapters"]
     end
 
     examples --> application
@@ -76,6 +73,7 @@ The domain layer defines **what operational reasoning means** in ODIS — not ho
 
 - **Entities** — immutable records with identity (`Asset`, `Observation`, `OperationalSituation`, `DecisionContext`, `DecisionPlan`, `Action`, `Outcome`, `OperationalGoal`)
 - **Value objects** — immutable types defined by their attributes (`MeasurementType`, `Priority`, `TrendDirection`, `DetectedTrend`, and others)
+- **Reasoning types** (`src/domain/reasoning/`) — `Evidence`, `Hypothesis`, `AssessmentSummary`, `ConfidenceBreakdown`, `Explanation`: the artifacts produced by the Evidence Generation, Hypothesis, Assessment, Confidence, and Explanation stages
 - **Events** — contracts for facts that already happened (`ObservationRecorded`, `OperationalSituationCreated`, `DecisionContextCreated`, and others)
 - **Repository interfaces** — abstract persistence contracts without implementation (including `ReasoningRunRepository` for execution metadata)
 - **Structural invariants** — validation enforced in entity and value object constructors
@@ -108,6 +106,12 @@ The application layer defines **how operational reasoning is performed** by orch
 | `create_decision_context` | Snapshots planner inputs as a `DecisionContext` |
 | `DecisionPlanner` | Produces a `DecisionPlan` from a context |
 | `PlanningContext` | Planning-relevant facts derived from `StructuredAssessment` |
+| `SignalExtractionStage`, `EvidenceGenerationStage`, `HypothesisStage`, `AssessmentStage`, `ConfidenceStage`, `ExplanationStage`, `PlanningStage` | The seven `ReasoningStage` objects `ReasoningSession` executes in order; see [Reasoning Pipeline](reasoning-pipeline.md) |
+| `ReasoningContext` | Immutable context threaded through and extended by each stage |
+| `generate_evidence_from_signals` | Derives weighted `Evidence` from `ReasoningSignals` |
+| `generate_hypotheses_from_signals` | Derives deterministic `Hypothesis` candidates from signals and evidence |
+| `score_assessment_confidence` | Derives a deterministic `ConfidenceBreakdown` for an assessment |
+| `build_explanation` | Derives a structured `Explanation` from assessment, evidence, hypotheses, and confidence |
 | `ExpectationEvaluator` | Converts profile evidence decisions into `ExpectationEvaluation` outcomes |
 | `ExpectationAnalysis` | Aggregates expectation evaluations for a run |
 | `OperationalProfile` | Packages domain-specific policies and expectation evaluation |
@@ -123,16 +127,17 @@ The application layer defines **how operational reasoning is performed** by orch
 
 `run()` is the core orchestration API: it accepts a goal and an observation sequence and executes the full pipeline. External integrations should target `ObservationPipeline`, which reads observations from an `ObservationSource` and delegates to `ReasoningSession.run()`. `ReasoningSession.run_from_source()` remains available as a convenience wrapper with identical behavior.
 
-Each `ReasoningSession.run()` executes the following stages in order:
+Each `ReasoningSession.run()` first persists run metadata and records observations (when repositories are configured), then executes seven `ReasoningStage` objects in a fixed order, each reading and extending a shared, immutable `ReasoningContext` (`src/application/reasoning/`):
 
-1. Persist run metadata (when repositories are configured)
-2. Record observations
-3. Derive single-measurement signals (`TrendDetector`, `VariationDetector`) from the **primary measurement type** in the observation set
-4. Build an `ObservationGroup` from all observations and run `RelationshipAnalyzer`
-5. Build `OperationalContext` via `OperationalContextBuilder`
-6. Evaluate expectations through the configured `OperationalProfile`
-7. Assess the situation via `OperationalSituationAssessor`, producing `OperationalSituation`, `StructuredAssessment`, and `PlanningContext`
-8. Create `DecisionContext`, plan via `DecisionPlanner`, and record `Action` and `Outcome`
+1. **Signal Extraction** (`SignalExtractionStage`) — derives `DetectedTrend` and `DetectedVariation` from the **primary measurement type**; builds an `ObservationGroup` from all observations and runs `RelationshipAnalyzer`; builds `OperationalContext` via `OperationalContextBuilder`; evaluates expectations through the configured `OperationalProfile`. All five outputs are bundled into `ReasoningSignals`.
+2. **Evidence Generation** (`EvidenceGenerationStage`) — derives a weighted `Evidence` tuple from `ReasoningSignals` (latest reading, trend, variation, recent delta, sample support, correlations, contradictions).
+3. **Hypothesis Generation** (`HypothesisStage`) — derives 1–2 deterministic `Hypothesis` candidates (cooling degradation, hydrogen supply, sensor drift, load change, unknown) from signals and evidence.
+4. **Assessment** (`AssessmentStage`) — wraps `OperationalSituationAssessor` to produce `OperationalSituation` and `StructuredAssessment`, bundled with the primary hypothesis and supporting evidence into an `AssessmentSummary`.
+5. **Confidence** (`ConfidenceStage`) — scores a deterministic `ConfidenceBreakdown` from the assessment summary, evidence, hypotheses, and structured assessment.
+6. **Explanation** (`ExplanationStage`) — builds a structured `Explanation` from the assessment summary, evidence, hypotheses, and confidence.
+7. **Planning** (`PlanningStage`) — creates `DecisionContext` (via `create_decision_context`) and a `PlanningContext` from the structured assessment, then plans via `DecisionPlanner`, producing `DecisionPlan`.
+
+`Action` and `Outcome` are recorded by `record_action`/`record_outcome` immediately after the stage loop finishes — they are not `ReasoningStage` objects.
 
 When observations include multiple measurement types, single-measurement detectors use the first measurement type encountered; relationship analysis uses the full group. This lets profiles evaluate cross-measurement evidence without requiring every detector to accept heterogeneous sequences today.
 

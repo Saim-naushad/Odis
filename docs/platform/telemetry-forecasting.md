@@ -180,10 +180,10 @@ Disable forecasting with `FORECAST_ENABLED=false`.
 ### 4. Prediction (request time)
 
 ```
-GET /monitoring/assets/{id}/telemetry/forecast?bucket=1h
+GET /monitoring/assets/{asset_id}/telemetry/forecast?bucket=1h
 ```
 
-or via Digital Twin assembly (`telemetry_forecasts` field).
+or via digital twin assembly (`telemetry_forecasts` field).
 
 Pipeline:
 
@@ -232,8 +232,8 @@ Forecasts are **additive** — they do not invalidate twin cache on reasoning ev
 
 | Endpoint | Response |
 |----------|----------|
-| `GET /monitoring/assets/{id}/telemetry/forecast` | `list[TelemetryForecastResponse]` |
-| `GET /monitoring/assets/{id}/digital-twin` | includes `telemetry_forecasts` |
+| `GET /monitoring/assets/{asset_id}/telemetry/forecast` | `list[TelemetryForecastResponse]` |
+| `GET /monitoring/assets/{asset_id}/digital-twin` | includes `telemetry_forecasts` |
 
 Returns `503` when `FORECAST_ENABLED=false`.
 

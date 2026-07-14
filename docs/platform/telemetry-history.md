@@ -12,8 +12,8 @@ ODIS has two distinct monitoring concerns:
 
 | Concern | Source | Example endpoints |
 |---------|--------|-------------------|
-| **Reasoning history** | `reasoning_runs`, `decision_plans`, traces | `/monitoring/assets/{id}/history`, `/monitoring/runs/{id}` |
-| **Telemetry history** | `observations` hypertable | `/monitoring/assets/{id}/telemetry` |
+| **Reasoning history** | `reasoning_runs`, `decision_plans`, traces | `/monitoring/assets/{asset_id}/history`, `/monitoring/runs/{run_id}` |
+| **Telemetry history** | `observations` hypertable | `/monitoring/assets/{asset_id}/telemetry` |
 
 Reasoning endpoints answer *what the platform concluded* at a point in time. Telemetry endpoints answer *what was measured* over time. Keeping them separate:
 
@@ -64,7 +64,7 @@ sequenceDiagram
     participant REPO as ObservationRepository
     participant DB as observations hypertable
 
-    UI->>API: GET /assets/{id}/telemetry?start=&end=
+    UI->>API: GET /assets/{asset_id}/telemetry?start=&end=
     API->>SVC: get_history(asset_id, filters)
     SVC->>REPO: list_by_asset_in_time_range(...)
     REPO->>DB: SQL time-range query (standard SQLAlchemy)
@@ -110,7 +110,7 @@ Research across TimescaleDB, Grafana, Azure IoT Hub, and AWS IoT SiteWise inform
 
 | Pattern | Source inspiration | ODIS adoption |
 |---------|-------------------|---------------|
-| Asset-scoped history | SiteWise `GetAssetPropertyValueHistory` | `/monitoring/assets/{id}/telemetry` |
+| Asset-scoped history | SiteWise `GetAssetPropertyValueHistory` | `/monitoring/assets/{asset_id}/telemetry` |
 | Time-range filters | Grafana / Timescale `time_bucket` queries | `start` / `end` query params |
 | Metric filtering | Azure IoT message queries | `measurement_type` param |
 | Latest value reads | Grafana instant queries | `/telemetry/latest` |
@@ -155,9 +155,9 @@ The monitoring dashboard includes a **Telemetry** panel with operator-friendly t
 
 | Resolution | API | Chart behavior |
 |------------|-----|----------------|
-| **Raw** | `GET /monitoring/assets/{id}/telemetry` | Line chart of timestamp/value samples in the selected time window |
-| **Hourly** | `GET /monitoring/assets/{id}/telemetry/aggregate?bucket=1h` | Line chart of `avg_value` per hour; tooltip shows avg, min, max, and `sample_count` |
-| **Daily** | `GET /monitoring/assets/{id}/telemetry/aggregate?bucket=1d` | Line chart of `avg_value` per day; tooltip shows avg, min, max, and `sample_count` |
+| **Raw** | `GET /monitoring/assets/{asset_id}/telemetry` | Line chart of timestamp/value samples in the selected time window |
+| **Hourly** | `GET /monitoring/assets/{asset_id}/telemetry/aggregate?bucket=1h` | Line chart of `avg_value` per hour; tooltip shows avg, min, max, and `sample_count` |
+| **Daily** | `GET /monitoring/assets/{asset_id}/telemetry/aggregate?bucket=1d` | Line chart of `avg_value` per day; tooltip shows avg, min, max, and `sample_count` |
 
 The UI fetches **only the selected resolution** for the active time window. It does not load raw, hourly, and daily datasets on every selection change.
 
@@ -175,17 +175,17 @@ The chart component is intentionally measurement-scoped and time-range aware. PR
 
 ## Continuous Aggregates
 
-Downsampled telemetry is available via `ContinuousAggregateService` and `GET /monitoring/assets/{id}/telemetry/aggregate`. See [Continuous Aggregates](continuous-aggregates.md) for view definitions, refresh policies, and the relationship to raw history.
+Downsampled telemetry is available via `ContinuousAggregateService` and `GET /monitoring/assets/{asset_id}/telemetry/aggregate`. See [Continuous Aggregates](continuous-aggregates.md) for view definitions, refresh policies, and the relationship to raw history.
 
 ---
 
-## Future: ONNX
+## ONNX Forecasting
 
-Forecasting is documented in [Telemetry Forecasting](telemetry-forecasting.md).
+Forecasting is documented in [Telemetry Forecasting](telemetry-forecasting.md). Inference and the API/digital-twin read paths are implemented; the dashboard chart does not yet render forecast points as an overlay (see [Forecast overlay preparation](#forecast-overlay-preparation-pr138) above).
 
 | Capability | Relationship to telemetry APIs |
 |------------|-------------------------------|
-| **ONNX inference** | Parallel read path via `/telemetry/forecast`; overlays on charts |
+| **ONNX inference** | Parallel read path via `/telemetry/forecast`, and included in the digital twin response |
 
 Raw `TelemetrySeries` responses stay stable. ONNX adds forecasts without changing the historical domain contract.
 
@@ -202,8 +202,8 @@ flowchart TB
     end
 
     subgraph api["API Layer"]
-        ROUTER["/monitoring/assets/{id}/telemetry"]
-        AGG["/monitoring/assets/{id}/telemetry/aggregate"]
+        ROUTER["/monitoring/assets/{asset_id}/telemetry"]
+        AGG["/monitoring/assets/{asset_id}/telemetry/aggregate"]
         SCHEMA["TelemetrySeriesResponse"]
     end
 

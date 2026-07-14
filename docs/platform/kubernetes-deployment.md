@@ -1,6 +1,8 @@
 # Kubernetes Deployment
 
-This document describes the production-oriented Kubernetes deployment for ODIS. The manifests translate the [Docker Runtime](docker-runtime.md) topology from PR131 without redesigning the architecture.
+This document describes the production-oriented Kubernetes deployment for ODIS. The manifests translate most of the [Docker Runtime](docker-runtime.md) topology from PR131 without redesigning the architecture.
+
+**Known gap:** `k8s/` has no manifests for `mosquitto` or `mqtt-bridge`, unlike the Docker Compose topology (both always-on there). A Kubernetes deployment today only supports direct HTTP ingestion (`POST /observations`); the MQTT production path (`PlantAlphaSimulator → MQTT → mqtt-bridge → API`) is Compose-only until those manifests are added.
 
 For platform context, see [Platform Architecture](platform-architecture.md).
 

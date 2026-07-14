@@ -1,6 +1,8 @@
 # ODIS Platform Architecture
 
-This document is the canonical reference for how ODIS is structured as a production system. It describes the industrial platform that wraps the completed Reasoning Engine v1 and guides every remaining implementation effort.
+This document is the canonical reference for how ODIS is structured as a production system. It describes the industrial platform that wraps the completed Reasoning Engine v1.
+
+**Status:** The Phase 2 platform build-out described in this document is complete as of v1.0.0 — FastAPI, persistence, MQTT ingestion, Kafka, the React dashboard, Kubernetes manifests, and observability (Prometheus/Grafana/OpenTelemetry) all exist and are documented in the platform guides below. Where a topic has its own dedicated platform doc, that doc is the source of truth for implementation detail; this document stays at the architectural level.
 
 This is an evolving platform architecture document, not an RFC. It will grow alongside implementation.
 
@@ -209,9 +211,9 @@ The frontend exists because operators need more than API responses — they need
 **Packaging, orchestration, and runtime infrastructure for the platform.**
 
 - Docker containers for each service
-- Docker Compose for local development and initial deployment
+- Docker Compose for local development and full-platform deployment
 - Environment configuration, health checks, and service discovery
-- Future path to Kubernetes without changing subsystem responsibilities
+- Kubernetes manifests translating the same topology for production orchestration (see [Kubernetes Deployment](kubernetes-deployment.md))
 
 Deployment exists because industrial software must run reliably in real environments, not only in developer notebooks.
 
@@ -637,24 +639,27 @@ Docker Compose provides:
 
 ### Scaling toward Kubernetes
 
-The Docker Compose stack maps naturally to a Kubernetes deployment without changing platform responsibilities:
+The Docker Compose stack maps to a Kubernetes deployment without changing platform responsibilities. This mapping is implemented — see [Kubernetes Deployment](kubernetes-deployment.md) for the actual manifests, networking, and scaling commands:
 
-| Compose service | Kubernetes equivalent (future) |
-|-----------------|-------------------------------|
-| FastAPI Platform | Deployment + Service |
-| PostgreSQL | StatefulSet or managed database |
-| MQTT Broker | Deployment or managed messaging |
-| React Dashboard | Deployment + Ingress |
-| Ingestion Service | Deployment (horizontally scalable) |
-| Fuel Cell Simulator | Deployment (dev/staging only) |
+| Compose service | Kubernetes equivalent | Status |
+|-----------------|-----------------------|--------|
+| FastAPI Platform (`api`) | Deployment + Service | Implemented (`k8s/api/`) |
+| PostgreSQL/TimescaleDB (`postgres`) | StatefulSet, headless Service | Implemented (`k8s/postgres/`) |
+| Redis (`redis`) | Deployment + Service | Implemented (`k8s/redis/`) |
+| Kafka (`kafka`) | StatefulSet, headless Service | Implemented (`k8s/kafka/`) |
+| React Dashboard (`frontend`) | Deployment + Ingress | Implemented (`k8s/frontend/`, `k8s/ingress/`) |
+| Worker (`worker`) | Deployment (horizontally scalable) | Implemented (`k8s/worker/`) |
+| Prometheus / Grafana | Deployment + Service + PVC | Implemented (`k8s/prometheus/`, `k8s/grafana/`) |
+| MQTT Broker (`mosquitto`) / mqtt-bridge | — | **Not yet implemented** — no k8s manifests; see the known gap noted in [Kubernetes Deployment](kubernetes-deployment.md) |
+| Fuel Cell Simulator (`demo-plant`) | — | Compose-only (`--profile demo`); not deployed to Kubernetes |
 
-Subsystem boundaries, API contracts, and data flows remain identical. Only orchestration, scaling, and infrastructure management change. Kubernetes implementation details are out of scope for this document.
+Subsystem boundaries, API contracts, and data flows remain identical between Compose and Kubernetes. Only orchestration, scaling, and infrastructure management change.
 
 ---
 
-## Technology Roadmap
+## Technology Stack
 
-The following stack is the planned production technology foundation. Items marked *future* are intended but not part of the initial platform delivery.
+The production technology foundation, as delivered in v1.0.0.
 
 ### Backend
 
@@ -664,20 +669,20 @@ The following stack is the planned production technology foundation. Items marke
 | FastAPI | HTTP API framework |
 | SQLAlchemy | ORM and database access |
 | Alembic | Database migrations |
-| PostgreSQL | Primary data store |
+| TimescaleDB (PostgreSQL) | Primary data store and telemetry hypertables |
 
 ### Messaging
 
 | Technology | Purpose |
 |------------|---------|
-| MQTT | Initial industrial telemetry transport |
-| Kafka | *Future* — high-throughput event streaming and replay |
+| MQTT (Mosquitto) | Industrial telemetry transport — Compose only; see the Kubernetes gap above |
+| Kafka (KRaft mode) | High-throughput integration event streaming via a transactional outbox |
 
 ### Industrial
 
 | Technology | Purpose |
 |------------|---------|
-| OPC UA | Industrial protocol adapter for equipment integration |
+| OPC UA | Not implemented — see README "Current limitations" (MQTT and HTTP ingestion only) |
 
 ### Frontend
 
@@ -692,8 +697,8 @@ The following stack is the planned production technology foundation. Items marke
 | Technology | Purpose |
 |------------|---------|
 | Docker | Container packaging |
-| Docker Compose | Local development and initial deployment |
-| Kubernetes | *Future* — production orchestration and scaling |
+| Docker Compose | Local development and full-platform deployment |
+| Kubernetes | Production orchestration and scaling; see [Kubernetes Deployment](kubernetes-deployment.md) |
 
 ### Quality
 
@@ -704,13 +709,13 @@ The following stack is the planned production technology foundation. Items marke
 | mypy | Static type checking |
 | GitHub Actions | Continuous integration |
 
-### Observability (future)
+### Observability
 
 | Technology | Purpose |
 |------------|---------|
-| Prometheus | Metrics collection |
+| Prometheus | Metrics collection; see [Business Metrics](business-metrics.md) |
 | Grafana | Metrics visualization and dashboards |
-| OpenTelemetry | Distributed tracing and instrumentation |
+| OpenTelemetry | Distributed tracing and instrumentation (`OTEL_ENABLED`) |
 
 ---
 
@@ -736,41 +741,41 @@ These principles govern platform implementation decisions:
 
 ## Out of Scope
 
-This document intentionally does **not** define:
+This document intentionally does **not** define low-level specifications for implemented subsystems — those live in dedicated platform docs — and does not cover topics that remain genuinely unimplemented:
 
-| Topic | Will be defined in |
-|-------|-------------------|
-| REST endpoint specifications | API implementation PR |
-| Database schema | Persistence implementation PR |
-| MQTT topic hierarchy | Ingestion implementation PR |
-| Kafka topology | Kafka integration PR |
-| Authentication | Security implementation PR |
-| Authorization | Security implementation PR |
-| Deployment manifests | Deployment implementation PR |
-| Infrastructure-as-Code | Infrastructure implementation PR |
+| Topic | Status | Defined in |
+|-------|--------|-----------|
+| REST endpoint specifications | Implemented | `/docs` (Swagger UI), [backend/README.md](../../backend/README.md#api-surface) |
+| Database schema | Implemented | [TimescaleDB Foundation](timescaledb-foundation.md), `alembic/versions/` |
+| MQTT topic hierarchy | Implemented | [Docker Runtime](docker-runtime.md), [Simulator](../simulator.md) |
+| Kafka topology | Implemented | [CI/CD](ci-cd.md), transactional outbox described above |
+| Deployment manifests | Implemented | [Kubernetes Deployment](kubernetes-deployment.md) |
+| Infrastructure-as-Code | Implemented | `infra/`, `k8s/` |
+| Authentication | **Not implemented** | See README "Current limitations" — no auth in v1.0.0 |
+| Authorization | **Not implemented** | See README "Current limitations" — no multi-tenancy or SLA guarantees in v1.0.0 |
 
-Each topic will receive its own implementation PR with detailed specifications. This document establishes the architectural frame; implementation PRs fill in the details.
+This document establishes the architectural frame; the linked platform docs hold the current implementation detail.
 
 ---
 
-## Phase 2 Roadmap
+## Phase 2 Roadmap (complete as of v1.0.0)
 
-High-level implementation sequence for the production platform:
+This was the high-level implementation sequence planned for the production platform. All ten steps shipped by v1.0.0; kept here as historical record of the build order rather than as a forward-looking plan. See [RELEASE_NOTES.md](../../RELEASE_NOTES.md) for what actually shipped in each area.
 
 | Step | Deliverable | Description |
 |------|-------------|-------------|
-| 1 | **FastAPI platform foundation** | HTTP API skeleton, project structure, health endpoints, service wiring |
-| 2 | **Docker Compose development environment** | Multi-service local stack with reproducible startup |
-| 3 | **PostgreSQL persistence** | Database foundation (engine, sessions, migrations, repository abstractions); entity repository implementations follow in subsequent PRs |
-| 4 | **Reasoning API** | Endpoints that trigger reasoning and return assessments and plans |
-| 5 | **Fuel cell simulator** | Realistic telemetry generator for development and demonstration |
-| 6 | **MQTT ingestion** | Subscriber service that receives telemetry and forwards to API |
-| 7 | **React dashboard** | Operator interface for monitoring assessments and reasoning history |
-| 8 | **Historical replay** | Reconstruct and replay reasoning from persisted artifacts |
-| 9 | **Kafka integration** | High-throughput event streaming as an alternative ingestion path |
-| 10 | **Production deployment improvements** | Hardening, observability, scaling preparation |
+| 1 | FastAPI platform foundation | HTTP API skeleton, project structure, health endpoints, service wiring |
+| 2 | Docker Compose development environment | Multi-service local stack with reproducible startup |
+| 3 | PostgreSQL persistence | Database foundation, migrations, repository implementations |
+| 4 | Reasoning API | Endpoints that trigger reasoning and return assessments and plans |
+| 5 | Fuel cell simulator | Realistic telemetry generator for development and demonstration |
+| 6 | MQTT ingestion | Subscriber service that receives telemetry and forwards to API |
+| 7 | React dashboard | Operator interface for monitoring assessments and reasoning history |
+| 8 | Historical replay | Reconstruct and replay reasoning from persisted artifacts |
+| 9 | Kafka integration | Transactional-outbox event streaming alongside MQTT ingestion |
+| 10 | Production deployment improvements | Kubernetes manifests, Prometheus/Grafana, OpenTelemetry tracing |
 
-This roadmap is intentionally high level. Each step may span multiple PRs. Sequencing reflects dependency order — persistence before reasoning API, ingestion before dashboard — but parallel work is possible where boundaries are clean.
+For genuinely open work beyond v1.0.0 (multi-signal reasoning, bounded observation-history reads, closed-loop execution), see the README "Current limitations" section.
 
 ---
 

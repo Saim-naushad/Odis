@@ -19,6 +19,9 @@ backend/app/infrastructure/metrics/
 ├── notification_metrics.py      # Notification creation
 ├── integration_event_metrics.py # Per-type integration event publishing
 ├── observation_metrics.py       # Observation ingestion
+├── forecast_metrics.py          # ONNX telemetry forecast inference
+├── health_metrics.py            # Worker heartbeat and readiness probe failures
+├── mqtt_bridge_metrics.py       # MQTT ingestion bridge message flow
 ├── cache_metrics.py             # Digital twin cache
 ├── http_metrics.py              # HTTP request instrumentation
 └── monitoring_metrics.py        # SSE connection gauge
@@ -86,6 +89,33 @@ Label values use the domain enum strings (e.g. `CRITICAL`, `WARNING`, `HIGH`, `M
 |--------|------|--------|---------|--------------|
 | `observations_created_total` | Counter | — | Observations persisted via the API | `ObservationService.create` |
 
+### Forecast metrics (`forecast_metrics.py`)
+
+| Metric | Type | Labels | Purpose | Emitted from |
+|--------|------|--------|---------|--------------|
+| `forecast_inference_total` | Counter | — | Successful ONNX forecast inference requests | Telemetry forecast path (see [Telemetry Forecasting](telemetry-forecasting.md)) |
+| `forecast_inference_failures_total` | Counter | — | Failed forecast inference requests | Telemetry forecast path |
+| `forecast_inference_duration_seconds` | Histogram | — | ONNX inference latency | Telemetry forecast path |
+
+### Health and readiness metrics (`health_metrics.py`)
+
+| Metric | Type | Labels | Purpose | Emitted from |
+|--------|------|--------|---------|--------------|
+| `worker_heartbeat_age_seconds` | Gauge | — | Age of the most recent worker heartbeat | Readiness check |
+| `reasoning_jobs_pending` | Gauge | — | Reasoning jobs currently pending | Readiness check |
+| `reasoning_jobs_failed_current` | Gauge | — | Reasoning jobs currently in FAILED status | Readiness check |
+| `readiness_check_failures_total` | Counter | `dependency` | Readiness probe failures by dependency (database, engine, session_factory, reasoning_job_queue, worker) | `/health/ready` |
+
+### MQTT bridge metrics (`mqtt_bridge_metrics.py`)
+
+| Metric | Type | Labels | Purpose | Emitted from |
+|--------|------|--------|---------|--------------|
+| `mqtt_messages_received_total` | Counter | `topic`, `qos`, `retain` | Messages received from Mosquitto | `mqtt-bridge` |
+| `mqtt_messages_forwarded_total` | Counter | `asset_id` | Messages successfully forwarded to `POST /observations` | `mqtt-bridge` |
+| `mqtt_messages_ignored_total` | Counter | `reason` | Messages ignored (e.g. unparseable topic/payload) | `mqtt-bridge` |
+| `mqtt_messages_acknowledged_total` | Counter | `outcome` | Messages explicitly acknowledged to the broker | `mqtt-bridge` |
+| `mqtt_messages_unacknowledged_total` | Counter | `reason` | Deliveries left unacknowledged for broker redelivery | `mqtt-bridge` |
+
 ### Infrastructure metrics (unchanged)
 
 | Module | Key metrics |
@@ -114,7 +144,7 @@ ReasoningWorker.process_next
   └─ record_reasoning_run() | record_reasoning_failure()
   └─ record_reasoning_job_duration()
 
-GET /monitoring/assets/{id}/digital-twin  (cache miss)
+GET /monitoring/assets/{asset_id}/digital-twin  (cache miss)
   └─ record_digital_twin_build_duration()
 
 OutboxDispatcher → KafkaIntegrationEventPublisher.publish

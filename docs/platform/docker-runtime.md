@@ -16,9 +16,13 @@ For platform context, see [Platform Architecture](platform-architecture.md).
 | **postgres** | `timescale/timescaledb:2.17.2-pg16` | Durable platform state and telemetry hypertables | internal |
 | **redis** | `redis:7-alpine` | Digital twin cache | internal |
 | **kafka** | `apache/kafka:3.9.0` (KRaft) | Event streaming backbone | internal |
+| **mosquitto** | `eclipse-mosquitto:2.0.20` | MQTT broker for the production ingestion path | internal |
+| **mqtt-bridge** | `infra/docker/mqtt-bridge/Dockerfile` | Subscribes to Mosquitto, forwards telemetry to `POST /observations` | internal |
 | **prometheus** | `prom/prometheus` | Metrics collection | internal |
 | **grafana** | `grafana/grafana` | Dashboards and visualization | internal |
 | **demo-plant** | `infra/docker/demo-plant/Dockerfile` | Plant Alpha MQTT simulator (`--profile demo`) | internal |
+
+`mosquitto` and `mqtt-bridge` are always-on services (no Compose profile restriction) — they run in every `docker compose up`, not only with `--profile demo`. Only `demo-plant` is gated behind `--profile demo`.
 
 Kafka runs in **KRaft mode** (combined broker + controller). No Zookeeper service is required.
 
@@ -39,6 +43,8 @@ flowchart TB
         PG[("postgres")]
         RD["redis"]
         KF["kafka (KRaft)"]
+        MQ["mosquitto"]
+        BRIDGE["mqtt-bridge"]
         PR["prometheus"]
         GF["grafana"]
     end
@@ -51,6 +57,8 @@ flowchart TB
     API --> KF
     WRK --> PG
     WRK --> KF
+    BRIDGE -->|"subscribe"| MQ
+    BRIDGE -->|"POST /observations"| API
     PR -->|"/metrics scrape"| API
     GF -->|"Prometheus datasource"| PR
 ```
@@ -79,6 +87,8 @@ ASCII equivalent:
                     │   worker    │  (internal)
                     └─────────────┘
 
+      mosquitto ◀──subscribe── mqtt-bridge ──POST /observations──▶ api   (internal)
+
       prometheus ──scrape──▶ api /metrics   (internal)
       grafana ──query──▶ prometheus          (internal)
 ```
@@ -96,7 +106,7 @@ All services attach to a single bridge network: `odis-internal`.
 
 **Internal only:**
 
-- `postgres`, `redis`, `kafka`, `worker`, `prometheus`, `grafana`
+- `postgres`, `redis`, `kafka`, `worker`, `mosquitto`, `mqtt-bridge`, `prometheus`, `grafana`
 
 The frontend nginx container proxies browser requests from `/api/*` to the API service, matching the Vite dev proxy behavior.
 
@@ -110,6 +120,7 @@ Named Docker volumes:
 |--------|---------|-------|
 | `odis-postgres-data` | postgres | `/var/lib/postgresql/data` |
 | `odis-kafka-data` | kafka | `/var/lib/kafka/data` |
+| `odis-mosquitto-data` | mosquitto | `/mosquitto/data` |
 | `odis-prometheus-data` | prometheus | `/prometheus` |
 | `odis-grafana-data` | grafana | `/var/lib/grafana` |
 
@@ -129,6 +140,8 @@ Health probes use the endpoints from PR130:
 | **redis** | `redis-cli ping` |
 | **kafka** | `kafka-topics.sh --list` |
 | **worker** | process check (`pgrep`) |
+| **mosquitto** | `mosquitto_sub` against `$SYS/broker/version` |
+| **mqtt-bridge** | process check (`pgrep`) |
 | **frontend** | HTTP `GET /` |
 | **prometheus** | `/-/healthy` |
 | **grafana** | `/api/health` |

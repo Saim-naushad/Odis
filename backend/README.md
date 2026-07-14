@@ -56,10 +56,10 @@ Redis, Kafka, and MQTT connection settings.
 |------|-------------|-------|
 | Platform metadata | `GET /`, `/health`, `/health/live`, `/health/ready` | Liveness, readiness, and version info |
 | Observation ingestion | `POST /observations` | Enqueues a reasoning job on receipt |
-| Monitoring | `GET /monitoring/assets`, `/assets/{id}/latest`, `/assets/{id}/history` | Reasoning results and history |
-| Digital twin | `GET /monitoring/assets/{id}/digital-twin` | Composed read model: state, recommendation, telemetry, forecast, investigation |
-| Telemetry | `GET /monitoring/assets/{id}/telemetry`, `/telemetry/aggregate`, `/telemetry/forecast` | Raw history, continuous aggregates, ONNX forecasts |
-| Investigation | `POST /monitoring/assets/{id}/investigation` | Operator lifecycle transitions (acknowledged/investigating/resolved) |
+| Monitoring | `GET /monitoring/assets`, `/assets/{asset_id}/latest`, `/assets/{asset_id}/history` | Reasoning results and history |
+| Digital twin | `GET /monitoring/assets/{asset_id}/digital-twin` | Composed read model: state, recommendation, telemetry, forecast, investigation |
+| Telemetry | `GET /monitoring/assets/{asset_id}/telemetry`, `/telemetry/aggregate`, `/telemetry/forecast` | Raw history, continuous aggregates, ONNX forecasts |
+| Investigation | `POST /monitoring/assets/{asset_id}/investigation` | Operator lifecycle transitions (acknowledged/investigating/resolved) |
 | Live updates | `GET /monitoring/events` | Server-Sent Events stream consumed by the dashboard |
 | Metrics | `GET /metrics` | Prometheus scrape endpoint |
 

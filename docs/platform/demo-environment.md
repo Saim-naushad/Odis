@@ -235,7 +235,7 @@ Required checks (fail on error):
 - exactly four Plant Alpha assets (`fuel-cell-stack-01` … `04`), no benchmark assets
 - observations stored and at least one reasoning job completed
 - reasoning queue at or below the configured threshold
-- Digital Twin for `fuel-cell-stack-01` returns HTTP 200 within the timeout (not a passing run if it times out)
+- digital twin for `fuel-cell-stack-01` returns HTTP 200 within the timeout (not a passing run if it times out)
 
 Recorded on success: response status, latency, health status/score, recommendation category/priority, notification presence, timeline preview length.
 
@@ -265,8 +265,8 @@ ODIS_DEMO_SMOKE=1 pytest tests/integration/test_demo_mqtt_smoke.py
 
 ## Known limitations
 
-- **Fresh stack for acceptance:** Run acceptance validation on a clean database for deterministic results (`docker compose down -v` before `up` and `./scripts/validate_demo_environment.sh`). Reusing a long-lived volume can leave benchmark assets, large observation history, or elevated Digital Twin latency that does not reflect a first-run demo.
-- **Digital Twin latency grows with session length:** Long-running demo sessions (roughly 15–20 minutes or more) may increase Digital Twin response time because the current reasoning pipeline reloads growing per-asset observation history on each run.
+- **Fresh stack for acceptance:** Run acceptance validation on a clean database for deterministic results (`docker compose down -v` before `up` and `./scripts/validate_demo_environment.sh`). Reusing a long-lived volume can leave benchmark assets, large observation history, or elevated digital twin latency that does not reflect a first-run demo.
+- **Digital twin latency grows with session length:** Long-running demo sessions (roughly 15–20 minutes or more) may increase digital twin response time because the current reasoning pipeline reloads growing per-asset observation history on each run.
 - **Expected, not a correctness bug:** That latency behavior is a known scalability characteristic of the present pipeline, tracked for a future performance PR (e.g. bounded reasoning windows). It does not indicate incorrect ingestion, scenario logic, or dashboard behavior.
 - **PR141 scope:** This PR validates demo infrastructure and end-to-end MQTT ingestion through reasoning and the operator dashboard. It does not claim long-duration scalability; `demo_realistic` remains disabled for that reason.
 - **Resolved: healthy peers reading CRITICAL alongside the actual fault target.** A clean `demo_presentation` run previously showed `fuel-cell-stack-02/03/04` reaching `CRITICAL` at the same time as the actual fault target (`fuel-cell-stack-01`), and staying there through `recovery`, with no fault ever injected into their physics model. Root cause: `VariationDetector`'s threshold and `TrendDetector`'s first-vs-last comparison were both miscalibrated for Plant Alpha's real sinusoidal load-cycling amplitude, and reasoning reloaded unbounded observation history on every run so a resolved fault's stale extremes never aged out. Fixed via `ReasoningSessionConfig.observation_window` (bounded, per-measurement-type recent history), a recalibrated `HIGH_VARIATION_THRESHOLD`, and a `TrendDetector` rewrite (split-half mean comparison instead of endpoint comparison) — see `docs/architecture.md`'s reasoning-pipeline section. Verified on a fresh clean stack: all four assets read `NORMAL` at baseline.

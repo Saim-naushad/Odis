@@ -6,22 +6,27 @@ For repository layout and layer responsibilities, see [Architecture](architectur
 
 ## Pipeline overview
 
+`ReasoningSession.run()` executes seven `ReasoningStage` objects in a fixed order — Signal Extraction, Evidence Generation, Hypothesis Generation, Assessment, Confidence, Explanation, Planning (`src/application/reasoning/`) — each reading and extending a shared, immutable `ReasoningContext`. `Action` and `Outcome` are recorded immediately afterward, outside the stage loop.
+
 ```mermaid
 flowchart TD
     obs["Observation\n(evidence)"]
-    trend["DetectedTrend\n(signal)"]
-    situation["OperationalSituation\n(assessment)"]
-    context["DecisionContext\n(planner snapshot)"]
-    plan["DecisionPlan\n(recommendation)"]
+    signals["ReasoningSignals\n(trend, variation, relationships,\noperational context, expectations)\nSignal Extraction stage"]
+    evidence["Evidence\n(weighted support / context / contradiction)\nEvidence Generation stage"]
+    hypotheses["Hypothesis\n(candidate explanations)\nHypothesis Generation stage"]
+    situation["OperationalSituation\n(assessment)\nAssessment stage"]
+    confidence["ConfidenceBreakdown\nConfidence stage"]
+    explanation["Explanation\nExplanation stage"]
+    context["DecisionContext\n(planner snapshot)\nPlanning stage"]
+    plan["DecisionPlan\n(recommendation)\nPlanning stage"]
     action["Action\n(record of what was done)"]
     outcome["Outcome\n(measured consequence)"]
 
-    obs --> trend
-    trend --> situation
-    situation --> context
-    context --> plan
-    plan --> action
-    action --> outcome
+    obs --> signals --> evidence --> hypotheses
+    signals --> situation
+    hypotheses --> situation
+    situation --> confidence --> explanation
+    situation --> context --> plan --> action --> outcome
 ```
 
 The executable pipeline today runs from **Observation** through **Outcome**. `Action` and `Outcome` records are created by `record_action` and `record_outcome` during each `ReasoningSession.run()`, completing the conceptual lifecycle. They are not yet wired to external execution systems or closed-loop learning.
@@ -93,6 +98,38 @@ Observations reference an asset and measurement type but do not own them.
 
 `VariationDetector` uses a simple max-min spread threshold. It runs alongside `TrendDetector` on every `ReasoningSession.run()`.
 
+Trend and variation are two of five outputs the **Signal Extraction** stage (`SignalExtractionStage`) produces together as `ReasoningSignals`, in a single pass, on every run — the other three are relationship analysis (correlation/contradiction), the `OperationalContext`, and `ExpectationAnalysis` from the configured profile. See [Cross-measurement and expectation stages](#cross-measurement-and-expectation-stages) below.
+
+---
+
+### Evidence
+
+**Represents:** A single weighted, typed observation about what the signals showed — a latest reading, a trend direction, a recent delta, sample support, or a cross-measurement correlation or contradiction — tagged with a role (`PRIMARY_SUPPORT`, `CONTEXT`, `CORROBORATING`, or `CONTRADICTING`).
+
+**Why it exists:** An assessment needs to point at *specific, itemized reasons*, not just a signal bundle. `Evidence` gives the assessment (and downstream explanation) a concrete, weighted list to cite instead of re-deriving justification from raw signals after the fact.
+
+**What it does not do:**
+
+- Decide the assessment (evidence informs assessment; it does not compute one)
+- Carry hypothesis or confidence information (those are later stages)
+
+**Stage:** Evidence Generation (`EvidenceGenerationStage`, `generate_evidence_from_signals`). Runs immediately after Signal Extraction, deriving each `Evidence` item deterministically from `ReasoningSignals`.
+
+---
+
+### Hypothesis
+
+**Represents:** A small (1–2), deterministic set of candidate explanations for what the signals and evidence show — e.g. cooling degradation, hydrogen supply issue, sensor drift, load change, or unknown — each with a rationale and the specific evidence ids that support it.
+
+**Why it exists:** Distinguishing "the reading changed" from "here is the most likely reason it changed, and here is what would have to be true for a competing explanation instead" is what makes an assessment an *investigation* rather than a threshold alert. Hypotheses are the mechanism for stating and ranking those competing explanations.
+
+**What it does not do:**
+
+- Choose the final assessment text (the assessor still owns that)
+- Score its own likelihood (see Confidence, below)
+
+**Stage:** Hypothesis Generation (`HypothesisStage`, `generate_hypotheses_from_signals`). Runs after Evidence Generation; the primary hypothesis is attached to the assessment summary produced by the next stage.
+
 ---
 
 ### OperationalSituation
@@ -106,6 +143,37 @@ Observations reference an asset and measurement type but do not own them.
 - Plan or recommend actions
 - Mutate when new observations arrive (a revised interpretation is a new situation)
 - Store the raw trend object (the signal informs assessment; only the assessment text is retained on the situation)
+
+**Stage:** Assessment (`AssessmentStage`), which wraps the existing `OperationalSituationAssessor` unchanged and bundles its output — `OperationalSituation`, `StructuredAssessment`, the primary hypothesis, and supporting evidence — into an `AssessmentSummary`.
+
+---
+
+### ConfidenceBreakdown
+
+**Represents:** A deterministic confidence score for the produced assessment, derived from the assessment summary, evidence, hypotheses, structured assessment, and primary observations.
+
+**Why it exists:** Not every assessment deserves equal trust — a situation backed by strong correlated evidence and a clear hypothesis should read differently from one backed by a single reading. `ConfidenceBreakdown` makes that distinction explicit and auditable instead of implicit in prose.
+
+**What it does not do:**
+
+- Change the assessment or plan (confidence is scored *about* the assessment, not folded back into changing it)
+- Use ML or probabilistic inference — scoring is deterministic, the same rule for the same inputs every time
+
+**Stage:** Confidence (`ConfidenceStage`, `score_assessment_confidence`). Runs after Assessment; its output is also written back onto the `AssessmentSummary`.
+
+---
+
+### Explanation
+
+**Represents:** A structured, deterministic explanation assembled from the assessment summary, evidence, hypotheses, and confidence — the human-readable "why" behind the recommendation that follows.
+
+**Why it exists:** Explainability is a stated non-negotiable for ODIS (see [Architecture](architecture.md)). `Explanation` is the artifact that makes the reasoning chain inspectable *before* planning happens, rather than reconstructed after the fact from the plan alone.
+
+**What it does not do:**
+
+- Produce or alter the recommendation (that remains the Planning stage's responsibility)
+
+**Stage:** Explanation (`ExplanationStage`, `build_explanation`). Runs after Confidence and before Planning.
 
 ---
 
@@ -135,6 +203,8 @@ Observations reference an asset and measurement type but do not own them.
 - Guarantee correctness (current rules are placeholder logic)
 - Revise itself (a changed recommendation is a new plan)
 
+**Stage:** Planning (`PlanningStage`), which wraps the existing `create_decision_context` and `DecisionPlanner` unchanged. `Action` and `Outcome` are recorded by `record_action`/`record_outcome` immediately after the stage loop finishes, not as `ReasoningStage` objects themselves.
+
 ---
 
 ### Action
@@ -162,50 +232,54 @@ Observations reference an asset and measurement type but do not own them.
 
 ## Cross-measurement and expectation stages
 
-Beyond the core evidence-to-decision chain, `ReasoningSession` also executes:
+The **Signal Extraction** and **Planning** stages each do more work internally than their single output artifact suggests:
 
-| Stage | Application component | Role |
-|-------|----------------------|------|
-| Relationship analysis | `RelationshipAnalyzer` | Aggregates correlation and contradiction detectors into `RelationshipAnalysis` |
-| Operational context | `OperationalContextBuilder` | Establishes the situational frame for reasoning |
-| Expectation evaluation | `OperationalProfile.evaluate_expectations()` | Compares profile-defined expectations against evidence |
-| Structured assessment | `StructuredAssessment` | Machine-readable summary of signals, relationships, and expectation flags |
-| Planning context | `PlanningContext` | Planning-relevant facts derived from structured assessment |
+| Component | Owning stage | Application component | Role |
+|-----------|--------------|----------------------|------|
+| Relationship analysis | Signal Extraction | `RelationshipAnalyzer` | Aggregates correlation and contradiction detectors into `RelationshipAnalysis` |
+| Operational context | Signal Extraction | `OperationalContextBuilder` | Establishes the situational frame for reasoning |
+| Expectation evaluation | Signal Extraction | `OperationalProfile.evaluate_expectations()` | Compares profile-defined expectations against evidence |
+| Structured assessment | Assessment | `StructuredAssessment` | Machine-readable summary of signals, relationships, and expectation flags |
+| Planning context | Planning | `PlanningContext` | Planning-relevant facts derived from structured assessment |
 
-When observations include multiple measurement types, single-measurement detectors use the primary measurement type; relationship analysis uses the full observation group. See [Architecture](architecture.md) for the complete stage order, and its "Known limitation: single primary measurement per run" for why this is insufficient when a domain's distinct fault conditions manifest in different, unrelated measurement channels.
+All five run unconditionally on every `ReasoningSession.run()` — they are not optional add-ons layered on top of the seven stages, they are what two of those stages (Signal Extraction, Planning) do internally. When observations include multiple measurement types, single-measurement detectors (trend, variation) use the primary measurement type; relationship analysis uses the full observation group. See [Architecture](architecture.md) for the complete stage order, and its "Known limitation: single primary measurement per run" for why this is insufficient when a domain's distinct fault conditions manifest in different, unrelated measurement channels.
 
 `ReasoningSession` optionally bounds the observations it reasons over via `ReasoningSessionConfig(observation_window=N)` — each measurement type is trimmed to its `N` most-recent observations before any detector runs, so trend/variation signals reflect recent behavior rather than an ever-growing, unbounded history. `None` (the default) reasons over the full sequence passed to `run()`, unchanged from prior behavior.
 
 ## Executable vs. conceptual stages
 
-| Stage | Domain entity | Application component | In demos/tests today |
-|-------|---------------|----------------------|----------------------|
-| Observation | Yes | — (constructed directly) | Yes |
-| DetectedTrend | Yes (`DetectedTrend`) | `TrendDetector` | Yes |
-| DetectedVariation | Yes (`DetectedVariation`) | `VariationDetector` | Yes |
-| OperationalSituation | Yes | `OperationalSituationAssessor` | Yes |
-| DecisionContext | Yes | `create_decision_context` | Yes |
-| DecisionPlan | Yes | `DecisionPlanner` | Yes |
+| Stage | Domain / reasoning type | Application component | In demos/tests today |
+|-------|--------------------------|----------------------|----------------------|
+| Observation | Yes (`domain.entities`) | — (constructed directly) | Yes |
+| DetectedTrend | Yes (`DetectedTrend`) | `TrendDetector` (via `SignalExtractionStage`) | Yes |
+| DetectedVariation | Yes (`DetectedVariation`) | `VariationDetector` (via `SignalExtractionStage`) | Yes |
+| Evidence | Yes (`domain.reasoning.Evidence`) | `generate_evidence_from_signals` (`EvidenceGenerationStage`) | Yes |
+| Hypothesis | Yes (`domain.reasoning.Hypothesis`) | `generate_hypotheses_from_signals` (`HypothesisStage`) | Yes |
+| OperationalSituation | Yes | `OperationalSituationAssessor` (via `AssessmentStage`) | Yes |
+| ConfidenceBreakdown | Yes (`domain.reasoning.ConfidenceBreakdown`) | `score_assessment_confidence` (`ConfidenceStage`) | Yes |
+| Explanation | Yes (`domain.reasoning.Explanation`) | `build_explanation` (`ExplanationStage`) | Yes |
+| DecisionContext | Yes | `create_decision_context` (via `PlanningStage`) | Yes |
+| DecisionPlan | Yes | `DecisionPlanner` (via `PlanningStage`) | Yes |
 | Action | Yes | `record_action` | Yes |
 | Outcome | Yes | `record_outcome` | Yes |
 
 ## Evidence, signal, assessment, decision
 
-The pipeline deliberately separates four kinds of knowledge:
+At an architectural level (independent of the seven concrete pipeline stages above), the pipeline deliberately separates four kinds of knowledge — raw fact, derived pattern, interpretation, and recommendation:
 
 ```mermaid
 flowchart LR
-    evidence["Evidence\n(Observations)"]
+    rawFact["Raw fact\n(Observations)"]
     signal["Signal\n(DetectedTrend)"]
     assessment["Assessment\n(OperationalSituation)"]
     decision["Decision\n(DecisionPlan)"]
 
-    evidence --> signal
+    rawFact --> signal
     signal --> assessment
     assessment --> decision
 ```
 
-Mixing these concerns — for example, storing trend direction directly on a plan — would make it impossible to swap signal detectors or planning strategies without rewriting downstream records.
+Mixing these concerns — for example, storing trend direction directly on a plan — would make it impossible to swap signal detectors or planning strategies without rewriting downstream records. Don't confuse "raw fact" here with the typed `Evidence` domain object introduced above — that `Evidence` is a *derived, weighted* artifact the Evidence Generation stage produces from signals, itself downstream of raw Observations in this same separation.
 
 ## Extending ODIS
 
