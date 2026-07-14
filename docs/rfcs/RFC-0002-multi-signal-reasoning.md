@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| Status | Proposed |
+| Status | Partially Implemented |
 | Date | 2026-06-26 |
 | Depends on | RFC-0001 (Architectural Foundation) |
 | Related | [reasoning-pipeline.md](../reasoning-pipeline.md), [architecture.md](../architecture.md) |
@@ -11,7 +11,28 @@
 
 This RFC defines how ODIS evolves from single-signal to multi-signal operational reasoning. It preserves the principles established in RFC-0001 — immutable domain records, append-only history, explicit layering, and separation of evidence, signal, assessment, and decision — while allowing multiple independent detectors to inform a single operational assessment.
 
-This document proposes architecture only. No implementation is included.
+This document proposed architecture only at the time of writing; no implementation was included. See **Implementation Status** below for what has since shipped.
+
+---
+
+## Implementation Status
+
+**Implemented — the recommended direction (Option A, Section 6) and the Section 7 migration plan:**
+
+- `VariationDetector` and the `DetectedVariation` value object exist (`src/application/variation_detector.py`, `src/domain/value_objects/detected_variation.py`), independently tested alongside `TrendDetector`.
+- `OperationalSituationAssessor` accepts `DetectedVariation` alongside `DetectedTrend` (`src/application/operational_situation_assessor.py`) — typed parameters, not a generic `Signal` abstraction, matching the rejection of Option B.
+- `oscillating_operations_demo.py` and the wider demo/test suite exercise both detectors together.
+- `DecisionPlanner` was deliberately left unchanged (Step 5) — it still matches assessment text via substring/casefold, exactly as this RFC specified for the initial migration.
+
+**Partially addressed — Section 8 open questions:**
+
+- *Confidence propagation*: a dedicated Confidence stage now exists in the reasoning pipeline (`src/application/reasoning/confidence_stage.py`, `confidence_scorer.py`), but it scores the overall assessment, not per-signal confidence metadata as originally sketched here.
+- *Signal conflicts*: resolved inside `OperationalSituationAssessor`, as Option A anticipated. No separate conflict-resolution policy component has been extracted.
+
+**Still open / out of scope for this RFC:**
+
+- *Planner coupling*: `DecisionPlanner` remains a placeholder (substring/casefold matching); structured assessment types or planner inputs decoupled from free text are still future work.
+- *Multi-asset / cross-measurement reasoning* was an explicit non-goal here (Section 4). Cross-measurement relationship analysis (`CorrelationDetector`/`ContradictionDetector`) has since shipped, but as separate scope — not a continuation of this RFC's migration.
 
 ---
 

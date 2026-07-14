@@ -6,14 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ODIS is treated as a flagship engineering portfolio project. The architecture is intentionally stable — the project is no longer optimizing for feature count. Every change should improve one or more of: resume value, demo quality, GitHub presentation, industrial realism, or engineering depth. Avoid speculative refactors; favor small, focused pull requests over large ones.
 
-Engineering principles that shape the reasoning core (from `CONTRIBUTING.md`) — these protect the reasoning model as the system grows, not style preferences:
-
-- **Keep the domain model simple.** `src/domain/` describes what operational reasoning *is* — entities, value objects, invariants. It must not know about databases, detectors, or planners.
-- **Prefer explicit reasoning over clever abstractions.** A readable pipeline beats a framework that hides steps. If a reader cannot trace evidence → signal → assessment → decision, the abstraction has failed.
-- **Preserve append-only semantics.** Operational history is never rewritten; a revised assessment/goal/plan is a new immutable record.
-- **Separate evidence, signal, assessment, and decision.** Collapsing these stages makes the system harder to test, extend, and explain.
-- **Avoid complexity before repeated patterns justify it.** No factories, service containers, or inheritance hierarchies until the codebase demonstrates the need. Start explicit; generalize only when a pattern repeats.
-- **No AI/ML in the core reasoning pipeline unless explicitly scoped.** Reasoning is deterministic and explainable by design; forecasting (ONNX) lives in the platform layer, not the reasoning core.
+The engineering principles that shape the reasoning core — keep the domain model simple, prefer explicit reasoning over clever abstractions, preserve append-only semantics, separate evidence/signal/assessment/decision, avoid complexity before repeated patterns justify it, no AI/ML in the core reasoning pipeline unless explicitly scoped — are the full authority in [CONTRIBUTING.md](CONTRIBUTING.md#philosophy). They are not style preferences; they protect the reasoning model as the system grows. Read that section before touching `src/domain/` or `src/application/`, and keep it in sync with this file if either changes.
 
 ## Workflow
 
@@ -44,15 +37,15 @@ npm run build
 npm test
 ```
 
-For UI-affecting changes, run the app and exercise the affected flow in the browser — don't rely on type checks alone to claim a frontend feature works. `pre-commit install` registers hooks that mirror the Ruff/MyPy checks on `git commit`; pytest is not covered by the hook and must be run manually. CI (`.github/workflows/backend.yml`, `frontend.yml`, `docker.yml`) runs these same gates on every push/PR to `main`, plus Docker image builds on merge to `main`.
+For UI-affecting changes, run the app and exercise the affected flow in the browser — don't rely on type checks alone to claim a frontend feature works. Pre-commit and CI mechanics (what runs automatically on commit vs. what you must run yourself) are documented in [CONTRIBUTING.md](CONTRIBUTING.md#development-setup) — see there rather than duplicating that narrative here.
 
 ## Coding standards
 
-- **Immutable domain entities** — frozen dataclasses; domain records do not mutate after creation.
-- **Composition over inheritance** — new behavior comes from new components (e.g. a detector beside `TrendDetector`), not subclass trees.
-- **Thin application orchestration** — application code coordinates domain objects and validates input coherence; business invariants live on entities, planning rules live in identifiable application components, not scattered across the codebase.
-- **No hidden side effects** — functions must not silently persist data, emit events, or mutate global state; side effects belong in infrastructure and must be explicit.
-- **Type-annotate domain, application, and backend code** — MyPy enforces `disallow_untyped_defs` on `domain.*`, `application.*`, and `backend.*` (see `[tool.mypy.overrides]` in `pyproject.toml`). Ruff line length is 88; isort groups are `application`, `backend`, `domain`, `infrastructure`, `odis`, `tests` as first-party.
+Full coding guidelines — immutable domain entities, composition over inheritance, thin application orchestration, no hidden side effects, type-annotation requirements — are the full authority in [CONTRIBUTING.md](CONTRIBUTING.md#coding-guidelines). Keep both files consistent by editing CONTRIBUTING.md first.
+
+Facts specific to this codebase's tooling, not covered there:
+
+- MyPy enforces `disallow_untyped_defs` on `domain.*`, `application.*`, and `backend.*` (see `[tool.mypy.overrides]` in `pyproject.toml`). Ruff line length is 88; isort groups are `application`, `backend`, `domain`, `infrastructure`, `odis`, `tests` as first-party.
 - **Tests as executable specifications** — use `tests/builders.py` (e.g. `build_observation_sequence([32, 35, 38])`) to express intent concisely rather than verbose manual setup. Tests marked `integration` require the Docker Compose services to be running.
 
 ## Architecture assumptions
