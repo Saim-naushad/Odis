@@ -6,17 +6,19 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
 
-ODIS is an industrial operational intelligence platform that turns telemetry from physical assets into explainable assessments and recommendations. It combines a deterministic reasoning engine, a deployable backend (ingestion, persistence, APIs), and an operator dashboard — demonstrated today on PEM fuel-cell scenarios. The platform is an actively developed MVP: real services, real data paths, not a hardened production deployment.
+ODIS is an industrial operations platform that turns telemetry from physical equipment into explainable operational decisions through a deterministic reasoning pipeline. Every recommendation is backed by inspectable evidence, a confidence score, and a complete reasoning trace. The platform is demonstrated end-to-end on a simulated PEM fuel-cell plant, while the reasoning engine itself remains domain-agnostic.
+
+The repository contains both a standalone reasoning engine and a complete demonstration platform, including a physics-based simulator, an event-driven backend, and a live operator dashboard.
+
+<!--
+Insert Hero Screenshot
 
 <p align="center">
-  <img src="docs/assets/dashboard-overview.png" alt="ODIS monitoring dashboard showing fleet health, recommendations, telemetry, and investigation timeline" width="1024">
+  <img src="docs/assets/dashboard-overview.png" width="900" alt="ODIS Dashboard Overview">
 </p>
+-->
 
-*Fleet overview during an active cooling degradation incident.*
-
-## What ODIS does
-
-Industrial equipment produces continuous measurements — temperature, pressure, flow, voltage. Raw values are not decisions. ODIS separates **evidence**, **signals**, **assessments**, and **recommendations** into an append-only reasoning chain that operators can inspect, replay, and audit. The same pipeline runs as an importable Python library and as a live platform processing MQTT telemetry.
+## How it works
 
 ```mermaid
 flowchart LR
@@ -32,61 +34,84 @@ flowchart LR
     ui --> api
 ```
 
-Telemetry flows from the simulator through MQTT into the API, persists in TimescaleDB, triggers reasoning in the worker, and surfaces assessments and recommendations to the dashboard over SSE.
+Telemetry flows from the simulator through MQTT into the API, persists in TimescaleDB, triggers reasoning in the background worker, and surfaces assessments and recommendations to the dashboard over Server-Sent Events.
+
+**The reasoning engine itself doesn't know any of this infrastructure exists.** It is a standalone library that accepts observations and produces a reasoning result, invoked the same way from unit tests, example programs, or the production worker.
+
+## The major systems
+
+**Reasoning engine** (`src/`) — A seven-stage pipeline (Signal Extraction → Evidence → Hypothesis → Assessment → Confidence → Explanation → Planning) that runs identically whether called from a unit test or the production worker. The detectors intentionally favor deterministic, explainable algorithms over statistical black boxes so every recommendation can be verified by inspecting the underlying observations. See [docs/reasoning-pipeline.md](docs/reasoning-pipeline.md).
+
+**Plant Alpha simulator** (`backend/simulator/`) — A four-stack PEM fuel-cell digital twin built on first-order-lag physics rather than random number generation. Cooling faults and hydrogen-supply faults propagate through the appropriate subsystems, producing realistic correlated telemetry instead of independent noise. The simulator publishes over MQTT exactly like a real industrial environment. See [docs/simulator.md](docs/simulator.md).
+
+**Event-driven backend** (`backend/app/`) — FastAPI and a background worker share one composition root. A transactional outbox guarantees domain events reach Kafka, while an in-process event bus drives cache invalidation and real-time dashboard updates without service polling.
+
+**Digital twin** (`DigitalTwinService`) — A read model that assembles current asset state from monitoring data and forecasts. Cached in Redis and invalidated through domain events, it never re-executes reasoning that has already been performed.
+
+**Investigation workflow** (`InvestigationService`) — Operator response to recommendations is stored as an append-only sequence of transitions (`ACKNOWLEDGED → INVESTIGATING → RESOLVED`) rather than a mutable status field, preserving a complete operational history. See [docs/platform/platform-architecture.md#operator-investigation-lifecycle](docs/platform/platform-architecture.md#operator-investigation-lifecycle).
+
+<!--
+Insert Investigation Screenshot
+
+<p align="center">
+  <img src="docs/assets/dashboard-investigation.png" width="850" alt="Investigation Workflow">
+</p>
+-->
 
 ## Key capabilities
 
-- **Deterministic reasoning** — trend and variation detection, operational assessment, and prioritized recommendations with explicit justification; no opaque ML in the core pipeline
-- **Explainable reasoning artifacts** — immutable snapshots for situations, decision contexts, plans, actions, and outcomes
-- **Platform runtime** — FastAPI, background worker, TimescaleDB persistence, Redis cache, Kafka integration events, MQTT ingestion
-- **Operator dashboard** — React monitoring console with fleet view, health scores, recommendations, timeline, telemetry history, and SSE updates
-- **Plant Alpha demo** — physics-based fuel-cell simulator publishing realistic telemetry through the full stack
-- **Domain profiles** — configurable operational knowledge (default educational profile and fuel-cell profile) without changing core detectors or planners
-- **CLI and examples** — `odis demo` commands and executable walkthroughs for the reasoning engine in isolation
+- **Deterministic reasoning** — Trend, variation, and correlation detectors produce explainable assessments with no hidden machine-learning models inside the reasoning pipeline.
+- **Explainable recommendations** — Every recommendation traces back to the supporting evidence, generated hypothesis, confidence breakdown, and reasoning history.
+- **Live operator dashboard** — A React monitoring console streams fleet health, telemetry, investigations, and recommendations over Server-Sent Events.
+- **Investigation workflow** — Operator actions are captured as an append-only acknowledge → investigate → resolve lifecycle rather than overwriting previous state.
+- **Event-driven architecture** — A transactional outbox and domain event bus decouple persistence from Kafka delivery, cache invalidation, and live UI updates.
+- **Physics-based simulator** — Plant Alpha models a four-stack PEM fuel-cell plant with coupled subsystem behavior instead of synthetic random telemetry.
 
-## Dashboard
+## Why ODIS exists
 
-The operator console surfaces fleet health, prioritized recommendations, live telemetry, and an investigation timeline — all driven by the reasoning worker in real time.
+Industrial monitoring systems are good at collecting numbers and bad at explaining them. A temperature climbing for twenty minutes and a threshold alert firing are not the same thing as an operator understanding *why* it matters and *what to do about it*. Most systems either dump raw telemetry onto a dashboard and leave interpretation to a human, or wrap it inside a model whose reasoning cannot be inspected after the fact.
 
-<p align="center">
-  <img src="docs/assets/dashboard-telemetry.png" alt="Telemetry visualization with measurement history, time range controls, and correlated investigation panel" width="1024">
-</p>
+ODIS explores the middle ground: a deterministic sequence of reasoning stages that transforms observations into evidence, evidence into hypotheses, hypotheses into operational assessments, and assessments into actionable recommendations—while preserving every intermediate artifact along the way.
 
-*Telemetry correlated with operational reasoning.*
-
-<p align="center">
-  <img src="docs/assets/dashboard-investigation.png" alt="Investigation timeline with reasoning events, event context, and diagnostics entry point" width="1024">
-</p>
-
-*Reasoning timeline from evidence to recommendation.*
+Nothing in the core reasoning pipeline relies on a trained model. Every recommendation can be traced directly back to the observations that produced it. That design choice is deliberate; see [CONTRIBUTING.md](CONTRIBUTING.md#philosophy) for the engineering principles behind it.
 
 ## Technology stack
 
 | Layer | Technologies |
 |-------|--------------|
-| Reasoning engine | Python 3.11, deterministic pipeline, domain profiles |
-| API & worker | FastAPI, SQLAlchemy, background job queue, Server-Sent Events |
+| Reasoning engine | Python 3.11, deterministic reasoning pipeline, domain profiles |
+| API & worker | FastAPI, SQLAlchemy, background workers, Server-Sent Events |
 | Data & messaging | TimescaleDB, Redis, Kafka, MQTT (Mosquitto) |
 | Operator UI | React, TypeScript, Vite |
 | Operations | Docker Compose, Prometheus, Grafana, Kubernetes |
 
-## Repository map
+## Repository structure
 
 | Path | Purpose |
 |------|---------|
-| [`src/`](src/) | Reasoning engine — domain model, detectors, assessors, planners, and the public `odis` package |
-| [`backend/`](backend/) | Platform services — FastAPI API, worker, MQTT bridge, SQLAlchemy persistence, digital twin, and operational state |
-| [`backend/simulator/`](backend/simulator/) | Plant Alpha telemetry simulator and fault scenarios for end-to-end demonstration |
+| [`src/`](src/) | Standalone reasoning engine — domain model, detectors, assessors, planners, and the public `odis` package |
+| [`backend/`](backend/) | Platform services — FastAPI API, background worker, MQTT bridge, SQLAlchemy persistence, digital twin, and investigation workflow |
+| [`backend/simulator/`](backend/simulator/) | Plant Alpha physics-based telemetry simulator and fault scenarios |
 | [`frontend/`](frontend/) | React + TypeScript operator monitoring dashboard |
-| [`docs/`](docs/) | Architecture, platform, and onboarding documentation — start at [docs/README.md](docs/README.md) |
-| [`k8s/`](k8s/) | Kubernetes manifests for platform deployment |
-| [`infra/`](infra/) | Docker images, Prometheus, and Grafana provisioning |
+| [`docs/`](docs/) | Architecture, platform, onboarding, and design documentation — start at [docs/README.md](docs/README.md) |
+| [`k8s/`](k8s/) | Kubernetes deployment manifests |
+| [`infra/`](infra/) | Docker images, Prometheus, Grafana, and infrastructure provisioning |
 
-## Two ways to explore ODIS
+<!--
+Insert Telemetry Screenshot
 
-### A. Full platform (recommended)
+<p align="center">
+  <img src="docs/assets/dashboard-telemetry.png" width="850" alt="Telemetry Visualization">
+</p>
+-->
 
-Runs the complete stack: MQTT ingestion, TimescaleDB, reasoning worker, digital twin, and the monitoring dashboard. Plant Alpha publishes live telemetry so you can watch assessments and recommendations appear in the UI.
+## Quick start
+
+ODIS can be explored in two different ways depending on what you're interested in.
+
+### Full platform
+
+Run the complete platform—including MQTT ingestion, TimescaleDB, the reasoning worker, digital twin, and the React operator dashboard—with the Plant Alpha simulator continuously publishing live telemetry.
 
 ```bash
 git clone https://github.com/Saim-naushad/Odis.git
@@ -94,11 +119,27 @@ cd Odis
 docker compose --profile demo up --build -d
 ```
 
-Open the monitoring console at `http://localhost:8080`. For the scripted demo walkthrough, validation, and architecture detail, see [Demo Environment](docs/platform/demo-environment.md).
+Open the dashboard at:
 
-### B. Lightweight reasoning library
+```
+http://localhost:8080
+```
 
-Install the Python package and run demonstrations without Docker. Useful for understanding the reasoning pipeline in isolation.
+<!--
+Insert Active Incident Screenshot
+
+<p align="center">
+  <img src="docs/assets/dashboard-incident.png" width="850" alt="Live Investigation">
+</p>
+-->
+
+For the complete walkthrough, expected simulator timeline, and validation steps, see the [Demo Environment Guide](docs/platform/demo-environment.md).
+
+---
+
+### Reasoning engine only
+
+If you're interested only in the reasoning engine, you can run it without Docker.
 
 ```bash
 git clone https://github.com/Saim-naushad/Odis.git
@@ -107,50 +148,59 @@ pip install -e ".[dev]"
 odis demo all
 ```
 
-For a guided first program and result interpretation, see [Quickstart](docs/quickstart.md).
+For a guided introduction, see the [Quickstart](docs/quickstart.md).
 
-## Quick start
+**Requirements**
 
-**Requirements:** Python 3.11+ for library development; Docker for the full platform.
+- Python 3.11+ for the standalone reasoning engine
+- Docker Desktop (or Docker Engine + Compose) for the complete platform
+- Configuration is loaded from `.env` (see `.env.example`)
 
-| Goal | Command | Docs |
-|------|---------|------|
-| Full platform + demo | `docker compose --profile demo up --build -d` | [Demo Environment](docs/platform/demo-environment.md) |
-| Platform without demo profile | `docker compose up --build -d` | [Docker Runtime](docs/platform/docker-runtime.md) |
-| Reasoning library | `pip install -e ".[dev]"` then `odis demo all` | [Quickstart](docs/quickstart.md) |
-| Run tests | `pytest` | [Contributing](CONTRIBUTING.md) |
-
-Configuration loads from `.env` (see `.env.example`).
+---
 
 ## Documentation
 
 | Topic | Entry point |
 |-------|-------------|
-| All documentation | [docs/README.md](docs/README.md) |
+| Documentation index | [docs/README.md](docs/README.md) |
 | 15-minute onboarding | [docs/quickstart.md](docs/quickstart.md) |
-| Reasoning engine design | [docs/architecture.md](docs/architecture.md) |
-| Pipeline stages | [docs/reasoning-pipeline.md](docs/reasoning-pipeline.md) |
-| Platform deployment | [docs/platform/README.md](docs/platform/README.md) |
-| Architecture diagrams | [docs/architecture-diagrams.md](docs/architecture-diagrams.md) |
+| Architecture overview | [docs/architecture.md](docs/architecture.md) |
+| Reasoning pipeline | [docs/reasoning-pipeline.md](docs/reasoning-pipeline.md) |
+| Platform architecture | [docs/platform/README.md](docs/platform/README.md) |
+| Simulator | [docs/simulator.md](docs/simulator.md) |
+| Release notes | [RELEASE_NOTES.md](RELEASE_NOTES.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+---
 
 ## Current limitations
 
-ODIS is early-stage. The following reflect the implementation today:
+ODIS intentionally prioritizes explainability and architectural clarity over production completeness. The following reflect deliberate scope boundaries in the current implementation.
 
-- **MVP, not production-hardened** — no auth, multi-tenancy, or SLA guarantees; suitable for development, demonstration, and portfolio use
-- **Reasoning scalability** — each job still reloads full per-asset observation history from the database; queue depth can grow on long demo sessions. `ReasoningSession` now bounds the observation *window it reasons over* (`ReasoningSessionConfig.observation_window`), which fixes stale data lingering in trend/variation signals, but the underlying database read itself is not yet bounded
-- **Placeholder planning rules** — `DecisionPlanner` uses generic substring matching on assessment text; production policy engines are not integrated
-- **Limited signal types** — trend and variation detection are implemented; anomaly and rate-of-change are not separate first-class signals yet
-- **Single primary measurement per reasoning run** — trend/variation detectors, evidence, hypotheses, and assessment all key off one measurement type per run. Distinct fault families that manifest in different, physically unrelated channels (verified on Plant Alpha: a cooling fault only shows up in `stack_temperature`, a fuel-supply fault only in `current`) can't both be reliably discriminated by one fixed preference. Multi-signal reasoning is the first planned architectural milestone after v1.0 — see `docs/architecture.md`'s "Known limitation: single primary measurement per run"
-- **No closed-loop execution** — action and outcome records are persisted but not wired to external control systems
-- **Demo asset metadata** — the four Plant Alpha assets resolve rich names, types, and locations from a static catalog; any other asset id falls back to a derived placeholder with no registry-backed identity
-- **No OPC UA or SCADA connectors** — MQTT and HTTP ingestion are implemented; industrial protocol breadth is limited
+- **MVP, not production-hardened** — Authentication, multi-tenancy, and operational SLAs are intentionally out of scope. The project is designed as an engineering demonstration and portfolio project.
+
+- **Reasoning scalability** — Each reasoning job reloads the full observation history for an asset before windowing is applied. `ReasoningSessionConfig.observation_window` bounds detector input, but database retrieval itself is not yet windowed.
+
+- **Planning policy** — `DecisionPlanner` currently derives recommendations from deterministic assessment rules. A richer policy engine is intentionally left for future work.
+
+- **Single primary measurement per reasoning run** — Trend and variation detectors currently reason over one primary measurement type at a time. This makes certain orthogonal fault families (for example cooling vs. fuel-supply degradation) difficult to capture simultaneously. Multi-signal reasoning is the first planned architectural milestone after v1.0.
+
+- **No closed-loop execution** — Actions and outcomes are persisted for traceability but are not connected to external industrial control systems.
+
+- **Industrial protocol coverage** — MQTT and HTTP ingestion are implemented. Additional protocols such as OPC UA and SCADA integrations are intentionally outside the scope of v1.0.
+
+---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding guidelines, and pull request expectations.
+Contributions are welcome.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, testing expectations, and pull request guidelines.
+
+---
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+This project is released under the **MIT License**.
+
+See [LICENSE](LICENSE) for details.
