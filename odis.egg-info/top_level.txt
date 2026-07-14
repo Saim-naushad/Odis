@@ -1,7 +1,0 @@
-app
-application
-domain
-infrastructure
-odis
-shared
-simulator

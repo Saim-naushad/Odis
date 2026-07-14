@@ -49,14 +49,10 @@ export function useMonitoringSse(): UseMonitoringSseResult {
       },
     })
 
-    client.addEventListener('heartbeat', (event) => {
-      const data = client.parse(event.data)
-      console.debug('[monitoring:sse] heartbeat', data)
-    })
+    client.addEventListener('heartbeat', () => {})
 
     client.addEventListener('monitoring', (event) => {
       const payload = client.parse(event.data)
-      console.debug('[monitoring:sse] monitoring event', payload)
       dispatcher.dispatch(payload)
     })
 

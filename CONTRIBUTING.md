@@ -20,7 +20,9 @@ For deeper context, see [docs/architecture.md](docs/architecture.md) and [docs/r
 
 ## Development setup
 
-**Requirements:** Python 3.11+
+**Requirements:** Python 3.11+ for the reasoning library; Docker for the full platform; Node.js for frontend changes.
+
+Reasoning library only (no Docker):
 
 ```bash
 git clone https://github.com/Saim-naushad/Odis.git
@@ -31,17 +33,27 @@ pre-commit install
 
 `pre-commit install` registers git hooks that mirror CI lint and type checks locally. Hooks run automatically on `git commit`; run them manually with `pre-commit run --all-files`.
 
+For the full platform (API, worker, TimescaleDB, dashboard) or a hybrid setup with infra in Docker and apps on the host, see the [README quick start](README.md#quick-start) and [Docker Runtime](docs/platform/docker-runtime.md).
+
 Run the full quality checks before opening a pull request:
 
 ```bash
 ruff check .
-mypy src tests
-pytest
+mypy src backend tests
+pytest -m "not integration"
 ```
 
-CI runs the same lint, type, and test checks on every push and pull request. Pre-commit covers lint and type checks before commit; run `pytest` yourself before pushing.
+`pytest -m "not integration"` skips tests that require the Docker Compose services; run the full `pytest` suite when those are up. Frontend changes additionally require, from `frontend/`:
 
-To explore the system interactively:
+```bash
+npm run lint
+npm run build
+npm test
+```
+
+CI runs these same checks on every push and pull request (`.github/workflows/backend.yml`, `frontend.yml`, `docker.yml`). Pre-commit covers backend lint and type checks before commit; run pytest and the frontend checks yourself before pushing.
+
+To explore the reasoning engine interactively:
 
 ```bash
 python examples/run_demo.py
@@ -49,15 +61,22 @@ python examples/run_demo.py
 
 ## Project structure
 
+ODIS has two concentric layers: a transport- and persistence-agnostic **reasoning engine** (`src/`), and a **platform** (`backend/`, `frontend/`, `infra/`, `k8s/`) that hosts it. `backend/app/application/*` imports directly from `src/application`/`src/domain` — the backend orchestrates and persists reasoning, it does not duplicate reasoning logic.
+
 | Path | Purpose |
 |------|---------|
 | `src/domain/` | Entities, value objects, events, repository interfaces, and structural invariants. No dependencies on other layers. |
 | `src/application/` | Orchestration — detectors, assessors, planners, and use cases that coordinate domain objects. |
+| `src/infrastructure/` | In-memory repository implementations used by the reasoning engine and its tests. |
+| `src/odis/` | The public `odis` package and CLI. Import from `odis`, not internal `domain`/`application` modules, when writing examples or external-facing code. |
 | `examples/` | Executable walkthroughs that demonstrate end-to-end reasoning scenarios. |
+| `backend/` | FastAPI platform — API, background worker, MQTT bridge, and SQLAlchemy persistence that host the reasoning engine. |
+| `backend/simulator/` | Plant Alpha, the physics-based fuel-cell digital twin used for demos and integration tests. |
+| `frontend/` | React + TypeScript operator monitoring dashboard. |
+| `infra/` | Docker images and Prometheus/Grafana provisioning. |
+| `k8s/` | Kubernetes manifests for platform deployment. |
 | `tests/` | Behavioral specifications. Use `tests/builders.py` to express test intent concisely. |
-| `docs/` | Architecture documentation for contributors who need more than code comments. |
-
-`src/infrastructure/` and `src/shared/` are reserved for future persistence and cross-cutting utilities. Do not add infrastructure code unless the PR explicitly requires it.
+| `docs/` | Architecture, platform, and onboarding documentation — start at [docs/README.md](docs/README.md). |
 
 ## Pull requests
 
@@ -79,7 +98,7 @@ python examples/run_demo.py
 
 **Avoid hidden side effects.** Functions should not silently persist data, emit events, or mutate global state. Side effects belong in infrastructure (when implemented) and should be explicit.
 
-**Type-annotate application and domain code.** MyPy enforces `disallow_untyped_defs` on `domain.*` and `application.*`. Keep annotations honest.
+**Type-annotate domain, application, and backend code.** MyPy enforces `disallow_untyped_defs` on `domain.*`, `application.*`, and `backend.*`. Keep annotations honest.
 
 **No AI or ML in the core pipeline unless explicitly scoped.** ODIS reasoning is deterministic and explainable. Do not introduce opaque models without a dedicated design discussion.
 

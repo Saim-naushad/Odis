@@ -11,6 +11,6 @@ Explain how this change aligns with ODIS principles — explicit reasoning, appe
 - [ ] Tests added or updated where appropriate
 - [ ] Documentation updated if architecture changed
 - [ ] `ruff check .` passes
-- [ ] `mypy src tests` passes
+- [ ] `mypy src backend tests` passes
 - [ ] CI passes
 - [ ] Scope remains focused (one capability per PR)
