@@ -124,13 +124,39 @@ async def stream_monitoring_events(
     "/assets",
     response_model=list[MonitoringAssetResponse],
     summary="List known assets",
-    response_description="All known asset identifiers in stable order.",
+    response_description=(
+        "All known asset identifiers with a lightweight fleet-summary snapshot."
+    ),
 )
 def list_assets(
     service: Annotated[MonitoringService, Depends(get_monitoring_service)],
+    digital_twin_service: Annotated[
+        DigitalTwinService, Depends(get_digital_twin_service)
+    ],
 ) -> list[MonitoringAssetResponse]:
     asset_ids = service.list_assets()
-    return [MonitoringAssetResponse(id=asset_id) for asset_id in asset_ids]
+    return [
+        _asset_summary(asset_id, digital_twin_service) for asset_id in asset_ids
+    ]
+
+
+def _asset_summary(
+    asset_id: str, digital_twin_service: DigitalTwinService
+) -> MonitoringAssetResponse:
+    # A newly discovered asset with no completed reasoning run yet is not an
+    # error: the fleet strip just shows it with no health snapshot.
+    try:
+        twin = digital_twin_service.get_for_asset(asset_id)
+    except (DigitalTwinAssetNotFoundError, DigitalTwinNoReasoningHistoryError):
+        return MonitoringAssetResponse(id=asset_id)
+
+    return MonitoringAssetResponse(
+        id=asset_id,
+        name=twin.asset_name,
+        health_status=twin.operational_state.health_status,
+        health_score=twin.operational_state.health_score,
+        has_active_notification=twin.notification is not None,
+    )
 
 
 @router.get(

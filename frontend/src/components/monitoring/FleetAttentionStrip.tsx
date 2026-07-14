@@ -42,14 +42,6 @@ export function FleetAttentionStrip({
         >
           Assets
         </h2>
-        {loading && (
-          <span
-            className="text-[10px] uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Refreshing…
-          </span>
-        )}
       </div>
 
       {error && (
@@ -80,19 +72,24 @@ export function FleetAttentionStrip({
           const isSelectedWithTwin =
             isSelected && selectedDigitalTwin?.asset_id === asset.id
 
+          // The selected asset's live digital twin is fresher than the fleet
+          // snapshot; every other chip falls back to the snapshot from the
+          // assets list so the whole fleet shows status without a click.
           const label = isSelectedWithTwin
             ? selectedDigitalTwin.asset_name || asset.id
-            : asset.id
+            : asset.name || asset.id
 
           const healthStatus = isSelectedWithTwin
             ? selectedDigitalTwin.operational_state.health_status
-            : undefined
+            : (asset.health_status ?? undefined)
 
           const healthScore = isSelectedWithTwin
             ? selectedDigitalTwin.operational_state.health_score
-            : undefined
+            : (asset.health_score ?? undefined)
 
-          const hasNotification = isSelectedWithTwin && Boolean(selectedDigitalTwin.notification)
+          const hasNotification = isSelectedWithTwin
+            ? Boolean(selectedDigitalTwin.notification)
+            : Boolean(asset.has_active_notification)
 
           return (
             <button
@@ -118,13 +115,13 @@ export function FleetAttentionStrip({
 
               <span className="max-w-[10rem] truncate font-medium">{label}</span>
 
-              {isSelectedWithTwin && healthStatus && (
+              {healthStatus && (
                 <span className={`status-badge ${healthStatusBadgeClass(healthStatus)}`}>
                   {healthStatus}
                 </span>
               )}
 
-              {isSelectedWithTwin && healthScore !== undefined && (
+              {healthScore !== undefined && (
                 <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                   {healthScore}
                 </span>

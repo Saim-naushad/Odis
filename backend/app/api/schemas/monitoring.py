@@ -34,11 +34,35 @@ from domain.value_objects.location import Location
 
 
 class MonitoringAssetResponse(BaseModel):
-    """Known asset identifier."""
+    """Known asset identifier with a lightweight fleet-summary snapshot.
 
-    model_config = ConfigDict(json_schema_extra={"example": {"id": "asset-stack-1"}})
+    Health fields are omitted (None) when no reasoning run has completed
+    for the asset yet; callers must not treat that as an error state.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "fuel-cell-stack-01",
+                "name": "PEM Fuel Cell Stack 01",
+                "health_status": "NORMAL",
+                "health_score": 92,
+                "has_active_notification": False,
+            }
+        }
+    )
 
     id: str = Field(min_length=1, description="Asset identifier")
+    name: str | None = Field(default=None, description="Operator-facing asset name")
+    health_status: str | None = Field(
+        default=None, description="Latest health status, if reasoning has run"
+    )
+    health_score: int | None = Field(
+        default=None, description="Latest health score (0-100), if reasoning has run"
+    )
+    has_active_notification: bool = Field(
+        default=False, description="Whether an active notification exists"
+    )
 
 
 class OperationalSituationResponse(BaseModel):

@@ -93,7 +93,15 @@ class ScenarioScriptRunner:
             return
         self._phase_index += 1
         self._phase_elapsed = 0.0
-        self._active = self._build_phase(self._phases[self._phase_index])
+        next_phase = self._phases[self._phase_index]
+        self._active = self._build_phase(next_phase)
+        # Printed so a screen recording has an on-screen (console) cue for
+        # exactly when each demo beat starts, without doing wall-clock math
+        # against PRESENTATION_PHASES by hand.
+        print(
+            f"[demo:{self.name}] phase changed -> {next_phase.name} "
+            f"(target={next_phase.target_asset_id})"
+        )
 
 
 def build_script_runner(script_name: str) -> ScenarioScriptRunner:

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ActionPlaybook } from './ActionPlaybook'
+import { OPERATORS } from '../../utils/operators'
 import type {
   InvestigationTransitionResponse,
   RecommendationResponse,
@@ -43,6 +44,7 @@ describe('ActionPlaybook', () => {
   afterEach(() => {
     cleanup()
     recommendMockRecordTransition.mockReset()
+    localStorage.clear()
   })
 
   it('renders recommendation steps once', () => {
@@ -79,14 +81,14 @@ describe('ActionPlaybook', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('requires an operator name before acting, then records the transition', async () => {
+  it('defaults to the first operator persona and records the transition against it', async () => {
     const transitionResponse: InvestigationTransitionResponse = {
       id: 'inv-1',
       asset_id: 'fc-stack-01',
       recommendation_id: 'rec-1',
       status: 'ACKNOWLEDGED',
-      actor_id: 'j.operator',
-      actor_display_name: 'j.operator',
+      actor_id: OPERATORS[0].id,
+      actor_display_name: OPERATORS[0].displayName,
       occurred_at: '2026-01-01T10:05:00Z',
       notes: null,
     }
@@ -101,22 +103,56 @@ describe('ActionPlaybook', () => {
       />,
     )
 
+    // No free-text identity required — a persona is preselected, so the
+    // action is available immediately.
     const button = screen.getByRole('button', { name: 'Acknowledge' })
-    expect(button).toBeDisabled()
-
-    fireEvent.change(screen.getByLabelText('Your name'), {
-      target: { value: 'j.operator' },
-    })
     expect(button).not.toBeDisabled()
-
     fireEvent.click(button)
 
     await waitFor(() => {
       expect(recommendMockRecordTransition).toHaveBeenCalledWith('fc-stack-01', {
         recommendation_id: 'rec-1',
         status: 'ACKNOWLEDGED',
-        actor_id: 'j.operator',
-        actor_display_name: 'j.operator',
+        actor_id: OPERATORS[0].id,
+        actor_display_name: `${OPERATORS[0].displayName} — ${OPERATORS[0].role}`,
+        notes: undefined,
+      })
+    })
+  })
+
+  it('records the transition against whichever operator persona is selected', async () => {
+    const secondOperator = OPERATORS[1]
+    recommendMockRecordTransition.mockResolvedValue({
+      id: 'inv-1',
+      asset_id: 'fc-stack-01',
+      recommendation_id: 'rec-1',
+      status: 'ACKNOWLEDGED',
+      actor_id: secondOperator.id,
+      actor_display_name: secondOperator.displayName,
+      occurred_at: '2026-01-01T10:05:00Z',
+      notes: null,
+    } satisfies InvestigationTransitionResponse)
+
+    renderWithClient(
+      <ActionPlaybook
+        selectedAssetId="fc-stack-01"
+        recommendation={recommendation}
+        investigation={null}
+        loading={false}
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('radio', { name: new RegExp(secondOperator.displayName) }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge' }))
+
+    await waitFor(() => {
+      expect(recommendMockRecordTransition).toHaveBeenCalledWith('fc-stack-01', {
+        recommendation_id: 'rec-1',
+        status: 'ACKNOWLEDGED',
+        actor_id: secondOperator.id,
+        actor_display_name: `${secondOperator.displayName} — ${secondOperator.role}`,
         notes: undefined,
       })
     })

@@ -39,11 +39,6 @@ export function Timeline({
         <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
           Timeline
         </h2>
-        {loading && !error && (
-          <span className="text-[10px] uppercase tracking-wide text-slate-500">
-            Refreshing…
-          </span>
-        )}
       </div>
       {error && (
         <div className="mt-2 flex items-start justify-between gap-2">

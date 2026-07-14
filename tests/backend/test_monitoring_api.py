@@ -89,7 +89,51 @@ def test_list_assets_returns_known_assets(api_client: TestClient) -> None:
     response = api_client.get("/monitoring/assets")
 
     assert response.status_code == 200
-    assert response.json() == [{"id": "asset-a"}, {"id": "asset-b"}]
+    # A single observation per asset is not enough history for a completed
+    # reasoning run yet, so the fleet-summary fields are null rather than
+    # erroring — see test_list_assets_includes_fleet_summary_once_reasoned
+    # for the enriched-response case.
+    assert response.json() == [
+        {
+            "id": "asset-a",
+            "name": None,
+            "health_status": None,
+            "health_score": None,
+            "has_active_notification": False,
+        },
+        {
+            "id": "asset-b",
+            "name": None,
+            "health_status": None,
+            "health_score": None,
+            "has_active_notification": False,
+        },
+    ]
+
+
+def test_list_assets_includes_fleet_summary_once_reasoned(
+    api_client: TestClient,
+) -> None:
+    asset_id = "asset-fleet-summary"
+    for index, value in enumerate((10.0, 10.5, 11.0, 20.0, 30.0, 40.0), start=1):
+        api_client.post(
+            "/observations",
+            json=_observation_payload(
+                observation_id=f"obs-fs-{index}",
+                asset_id=asset_id,
+                timestamp=f"2026-01-01T10:0{index}:00Z",
+                value=value,
+            ),
+        )
+
+    response = api_client.get("/monitoring/assets")
+
+    assert response.status_code == 200
+    [summary] = [item for item in response.json() if item["id"] == asset_id]
+    assert summary["name"]
+    assert summary["health_status"] is not None
+    assert summary["health_score"] is not None
+    assert isinstance(summary["has_active_notification"], bool)
 
 
 def test_asset_history_returns_empty_list_when_no_reasoning_yet(

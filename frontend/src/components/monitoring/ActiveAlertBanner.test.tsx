@@ -15,13 +15,20 @@ const notification: NotificationResponse = {
 }
 
 describe('ActiveAlertBanner', () => {
-  it('renders alert details with severity and status', () => {
+  it('renders a terse alert strip with severity, status, and title', () => {
     render(<ActiveAlertBanner notification={notification} />)
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(screen.getByText('Stack temperature deviation')).toBeInTheDocument()
-    expect(screen.getByText('Cooling flow may be insufficient.')).toBeInTheDocument()
     expect(screen.getByText('WARNING')).toBeInTheDocument()
     expect(screen.getByText('OPEN')).toBeInTheDocument()
+  })
+
+  it('does not repeat the full message (that detail lives in the Action Playbook)', () => {
+    render(<ActiveAlertBanner notification={notification} />)
+
+    expect(
+      screen.queryByText('Cooling flow may be insufficient.'),
+    ).not.toBeInTheDocument()
   })
 })

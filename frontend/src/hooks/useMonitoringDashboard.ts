@@ -14,7 +14,7 @@ import type {
 const DEFAULT_POLL_INTERVAL_MS = 60_000
 
 export interface MonitoringDashboardState {
-  platformStatus: 'unknown' | 'ok' | 'error'
+  platformStatus: 'unknown' | 'ok' | 'degraded' | 'error'
   platformName?: string
   reasoningEngineVersion?: string
   platformPhase?: string
@@ -294,14 +294,19 @@ export function useMonitoringDashboard(
     await digitalTwinQuery.refetch()
   }
 
+  // Backend health has three states (healthy/degraded/unhealthy); a
+  // non-critical dependency blip (e.g. Kafka, Redis) must not read to the
+  // operator with the same alarm as a real outage.
   const platformStatus: MonitoringDashboardState['platformStatus'] =
     platformQuery.isLoading && !platformQuery.data
       ? 'unknown'
       : platformQuery.isError
         ? 'error'
-        : platformQuery.data?.health.status === 'ok'
+        : platformQuery.data?.health.status === 'healthy'
           ? 'ok'
-          : 'error'
+          : platformQuery.data?.health.status === 'degraded'
+            ? 'degraded'
+            : 'error'
 
   const platformName = platformQuery.data?.meta.platform_name
   const reasoningEngineVersion =

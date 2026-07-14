@@ -10,6 +10,7 @@ import {
   semanticBadgeClass,
 } from '../../utils/statusBadges'
 import { useInvestigationTransition } from '../../hooks/useInvestigationTransition'
+import { OPERATORS, useSelectedOperator } from '../../utils/operators'
 
 interface ActionPlaybookProps {
   selectedAssetId?: string
@@ -62,16 +63,15 @@ export function ActionPlaybook({
   selectedAssetId,
   recommendation,
   investigation,
-  loading,
   error,
 }: ActionPlaybookProps) {
   const hasRecommendation = Boolean(recommendation)
-  const [actorName, setActorName] = useState('')
+  const [operator, selectOperator] = useSelectedOperator()
   const [notes, setNotes] = useState('')
   const transition = useInvestigationTransition(selectedAssetId)
   const status = currentStatus(investigation)
   const nextTransitions = NEXT_TRANSITIONS[status]
-  const canAct = actorName.trim().length > 0 && Boolean(recommendation)
+  const canAct = Boolean(recommendation)
 
   function handleTransition(nextStatus: InvestigationStatus) {
     if (!recommendation || !canAct) return
@@ -79,8 +79,8 @@ export function ActionPlaybook({
       {
         recommendation_id: recommendation.id,
         status: nextStatus,
-        actor_id: actorName.trim(),
-        actor_display_name: actorName.trim(),
+        actor_id: operator.id,
+        actor_display_name: `${operator.displayName} — ${operator.role}`,
         notes: notes.trim() ? notes.trim() : undefined,
       },
       {
@@ -118,14 +118,6 @@ export function ActionPlaybook({
             </p>
           )}
         </div>
-        {loading && !error && (
-          <span
-            className="text-[10px] uppercase tracking-wide"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            Refreshing…
-          </span>
-        )}
       </div>
 
       {error ? (
@@ -171,20 +163,47 @@ export function ActionPlaybook({
             )}
             {nextTransitions.length > 0 ? (
               <div className="mt-3 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="text-[10px] uppercase tracking-wide"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Acting as
+                  </span>
+                  <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Operator">
+                    {OPERATORS.map((candidate) => {
+                      const isActive = candidate.id === operator.id
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={isActive}
+                          onClick={() => selectOperator(candidate.id)}
+                          className="rounded border px-2 py-1 text-[11px] font-medium transition-colors"
+                          style={{
+                            borderColor: isActive
+                              ? 'var(--focus-ring)'
+                              : 'var(--surface-border)',
+                            background: isActive
+                              ? 'var(--surface-raised)'
+                              : 'transparent',
+                            color: 'var(--text-primary)',
+                          }}
+                        >
+                          {candidate.displayName}
+                          <span
+                            className="ml-1 font-normal"
+                            style={{ color: 'var(--text-muted)' }}
+                          >
+                            {candidate.role}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  <input
-                    type="text"
-                    value={actorName}
-                    onChange={(event) => setActorName(event.target.value)}
-                    placeholder="Your name"
-                    aria-label="Your name"
-                    className="rounded border px-2 py-1 text-xs"
-                    style={{
-                      borderColor: 'var(--surface-border)',
-                      background: 'var(--surface-raised)',
-                      color: 'var(--text-primary)',
-                    }}
-                  />
                   <input
                     type="text"
                     value={notes}

@@ -6,7 +6,7 @@ describe('ProductHeader', () => {
   afterEach(() => {
     cleanup()
   })
-  it('renders LIVE as primary status and demotes platform degraded', () => {
+  it('renders LIVE as primary status and demotes a platform error', () => {
     render(
       <ProductHeader
         platformName="ODIS Platform"
@@ -18,8 +18,22 @@ describe('ProductHeader', () => {
 
     expect(screen.getByRole('heading', { name: 'ODIS' })).toBeInTheDocument()
     expect(screen.getByText('Live')).toBeInTheDocument()
-    expect(screen.getByText('Platform degraded')).toBeInTheDocument()
+    expect(screen.getByText('Platform unavailable')).toBeInTheDocument()
     expect(screen.queryByText(/Monitoring Console/i)).not.toBeInTheDocument()
+  })
+
+  it('distinguishes a non-critical degraded dependency from a platform error', () => {
+    render(
+      <ProductHeader
+        platformStatus="degraded"
+        sseConnectionState="connected"
+      />,
+    )
+
+    expect(
+      screen.getByText('Platform degraded (non-critical dependency)'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Platform unavailable')).not.toBeInTheDocument()
   })
 
   it('hides platform label when healthy', () => {

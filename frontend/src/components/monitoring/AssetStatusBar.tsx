@@ -95,7 +95,6 @@ function StatusSkeleton() {
 export function AssetStatusBar({
   selectedAssetId,
   digitalTwin,
-  loading,
   error,
 }: AssetStatusBarProps) {
   const operationalState = digitalTwin?.operational_state
@@ -128,14 +127,6 @@ export function AssetStatusBar({
                 >
                   {digitalTwin.asset_name || digitalTwin.asset_id}
                 </h2>
-                {loading && (
-                  <span
-                    className="text-[10px] uppercase tracking-wide"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    Refreshing…
-                  </span>
-                )}
               </div>
               <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {digitalTwin.asset_type}

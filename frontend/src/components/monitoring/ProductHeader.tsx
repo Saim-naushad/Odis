@@ -2,7 +2,7 @@ import type { MonitoringSseConnectionState } from '../../monitoring/useMonitorin
 
 interface ProductHeaderProps {
   platformName?: string
-  platformStatus: 'unknown' | 'ok' | 'error'
+  platformStatus: 'unknown' | 'ok' | 'degraded' | 'error'
   platformErrorMessage?: string
   sseConnectionState: MonitoringSseConnectionState
   lastUpdatedAt?: Date
@@ -40,9 +40,14 @@ export function ProductHeader({
   const platformLabel =
     platformStatus === 'ok'
       ? 'Platform healthy'
-      : platformStatus === 'error'
-        ? 'Platform degraded'
-        : 'Platform unknown'
+      : platformStatus === 'degraded'
+        ? 'Platform degraded (non-critical dependency)'
+        : platformStatus === 'error'
+          ? 'Platform unavailable'
+          : 'Platform unknown'
+
+  const platformLabelColor =
+    platformStatus === 'error' ? 'var(--status-warning)' : 'var(--text-muted)'
 
   const showPlatformSecondary = platformStatus !== 'ok'
 
@@ -82,7 +87,7 @@ export function ProductHeader({
           </div>
 
           {showPlatformSecondary && (
-            <span style={{ color: 'var(--text-muted)' }}>{platformLabel}</span>
+            <span style={{ color: platformLabelColor }}>{platformLabel}</span>
           )}
 
           {lastUpdatedAt && (

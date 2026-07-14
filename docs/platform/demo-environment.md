@@ -154,6 +154,60 @@ SIMULATOR_TRANSPORT=http python -m backend.simulator --scenario normal_operation
 
 ---
 
+## Reproducible screenshots & demo video
+
+`demo_presentation` is already deterministic and safe to re-record from: the
+simulator advances plant physics with a first-order-lag model (no RNG), and
+`PRESENTATION_PHASES` (`backend/simulator/scenario_script.py`) is a fixed,
+ordered phase list. Re-running from a clean database reproduces the same
+narrative beats in the same order every time — no new "demo mode" subsystem
+is needed, only a repeatable procedure.
+
+### Recording procedure
+
+```bash
+docker compose down -v   # clean state — required for a reproducible run
+docker compose --profile demo up --build -d
+docker compose logs -f demo-plant   # watch for phase-change lines as your recording cue
+```
+
+The simulator now logs a line on every scripted phase transition:
+
+```
+[demo:demo_presentation] phase changed -> cooling_degradation (target=fuel-cell-stack-01)
+```
+
+Use these lines as the on-screen cue for when to capture each beat, instead
+of estimating from wall-clock time.
+
+### Approximate timing (default cadence)
+
+Phase durations are defined in *simulated* seconds; at the default cadence
+(`SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=15`, `SIMULATOR_SIM_DT_SECONDS=45`)
+each tick advances sim-time 3x faster than real time
+(`sim_dt_seconds / core_interval`). That gives this real-world timeline for
+the full `demo_presentation` script:
+
+| Real time (mm:ss) | Phase | What to capture |
+|---|---|---|
+| 00:00 | `normal_operation` starts | Fleet strip, all four assets healthy — good for an optional "baseline" shot |
+| 02:00 | `cooling_degradation` starts on stack-01 | Health score beginning to drop |
+| ~04:00–08:00 | mid cooling degradation | Recommendation/notification appear once thresholds are crossed — this is the primary hero shot (fleet overview + investigation timeline) |
+| 08:00 | `recovery` starts | Health trending back up |
+| 12:00 | `hydrogen_supply_issue` starts on stack-01 | Second fault type, alternate recommendation category |
+| 16:00 | `recovery` starts | Final recovery |
+| 18:00 | script ends, loops on `normal_operation` | — |
+
+Total script length: **~18 minutes** real time. If any of the cadence env
+vars above are overridden, recompute using the same ratio — don't hand-tune
+against a specific run's wall-clock timing, since it drifts with config.
+
+Reshoot `docs/assets/dashboard-*.png` from a clean run whenever the layout
+changes materially; the phase-change log lines make repeat takes consistent
+without re-deriving timing by hand.
+
+---
+
 ## Validation
 
 Demo acceptance requires a **clean database**. Reset volumes before validation:

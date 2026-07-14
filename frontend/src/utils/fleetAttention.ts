@@ -1,12 +1,10 @@
 import type { MonitoringAssetResponse } from '../types/monitoring'
 
 /**
- * Fleet strip ordering for PR140.
- *
- * Future: replace with `GET /monitoring/fleet-summary` returning per-asset
- * `{ id, asset_name, health_score, health_status, recommendation_priority,
- * has_open_notification }` to enable true cross-fleet attention ranking
- * without N+1 digital-twin fetches.
+ * Fleet strip ordering: alphabetical by id, with the selected asset pinned
+ * first. `MonitoringAssetResponse` already carries a per-asset health
+ * snapshot (see PR151), so this only controls chip order, not what each
+ * chip displays.
  */
 export function sortAssetsForFleetStrip(
   assets: MonitoringAssetResponse[],

@@ -10,6 +10,10 @@ export interface PlatformMetadataResponse {
 
 export interface MonitoringAssetResponse {
   id: string
+  name?: string | null
+  health_status?: string | null
+  health_score?: number | null
+  has_active_notification?: boolean
 }
 
 export interface OperationalSituationResponse {
