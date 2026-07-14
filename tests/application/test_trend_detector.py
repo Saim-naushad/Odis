@@ -95,3 +95,57 @@ def test_unordered_timestamps_are_sorted_before_classification(
     result = detector.detect(tuple(reversed(observations)))
 
     assert result.direction == TrendDirection.INCREASING
+
+
+def test_oscillating_signal_with_no_net_drift_is_stable(
+    detector: TrendDetector,
+) -> None:
+    # Endpoints equal (already covered above); this checks a window that
+    # oscillates without ever returning to its starting value, the shape a
+    # first-vs-last or naive endpoint comparison misreads as "trending"
+    # whenever the window happens to start and end at different points in
+    # the cycle.
+    observations = build_observation_sequence(
+        [50, 65, 80, 65, 50, 35, 20, 35, 50, 65, 80, 65, 52]
+    )
+
+    result = detector.detect(observations)
+
+    assert result.direction == TrendDirection.STABLE
+
+
+def test_noisy_but_real_decline_is_detected_despite_oscillation(
+    detector: TrendDetector,
+) -> None:
+    # Shaped like real Plant Alpha telemetry under a genuine fault: a
+    # sustained decline riding on top of oscillation large enough that a
+    # step-to-step delta-sign majority vote reads close to 50/50 and misses
+    # it (verified against real simulator output during development).
+    observations = build_observation_sequence(
+        [
+            137.2,
+            142.4,
+            120.4,
+            95.9,
+            85.6,
+            94.8,
+            112.6,
+            122.1,
+            113.7,
+            92.9,
+            74.7,
+            71.4,
+            82.3,
+            95.5,
+            97.9,
+            86.1,
+            68.2,
+            58.3,
+            61.9,
+            75.5,
+        ]
+    )
+
+    result = detector.detect(observations)
+
+    assert result.direction == TrendDirection.DECREASING

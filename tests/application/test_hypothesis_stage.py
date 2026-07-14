@@ -50,7 +50,7 @@ def test_hypothesis_stage_generates_load_change_by_default() -> None:
 
 
 def test_hypothesis_stage_generates_sensor_drift_for_high_variation() -> None:
-    observations = build_observation_sequence([10.0, 30.0, 5.0, 40.0])
+    observations = build_observation_sequence([10.0, 90.0, 5.0, 100.0])
     context = _context_with_stages(observations)
 
     assert context.artifacts.hypotheses[0].kind == HypothesisKind.SENSOR_DRIFT

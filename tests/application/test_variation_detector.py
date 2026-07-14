@@ -85,3 +85,19 @@ def test_unordered_timestamps_are_sorted_before_classification(
     result = detector.detect(tuple(reversed(observations)))
 
     assert result.level == VariationLevel.HIGH
+
+
+def test_threshold_clears_healthy_plant_alpha_current_cycling(
+    detector: VariationDetector,
+) -> None:
+    # Real windowed current range observed under NormalOperationScenario's
+    # designed sinusoidal load cycling (verified against live simulator
+    # output, worst case across many sliding windows): well under the
+    # calibrated threshold, so normal operation never falsely reads HIGH.
+    observations = build_observation_sequence(
+        [112.1, 132.1, 143.0, 135.3, 115.0, 98.9, 100.2, 117.8]
+    )
+
+    result = detector.detect(observations)
+
+    assert result.level == VariationLevel.LOW

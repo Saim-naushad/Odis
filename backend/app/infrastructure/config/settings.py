@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "ODIS Platform"
-    app_version: str = "0.1.0"
+    app_version: str = "1.0.0"
     environment: str = "development"
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 

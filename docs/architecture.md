@@ -136,6 +136,12 @@ Each `ReasoningSession.run()` executes the following stages in order:
 
 When observations include multiple measurement types, single-measurement detectors use the first measurement type encountered; relationship analysis uses the full group. This lets profiles evaluate cross-measurement evidence without requiring every detector to accept heterogeneous sequences today.
 
+#### Known limitation: single primary measurement per run
+
+`TrendDetector` and `VariationDetector` run once per reasoning cycle, against one primary measurement type. This is sufficient when a domain's distinct fault conditions all manifest in the same channel, but insufficient when they don't: analysis on the Plant Alpha fuel-cell simulator found that a cooling-degradation fault and a hydrogen-supply fault are **physically orthogonal** — the former only ever shows up in `stack_temperature`, the latter only in `current`/`fuel_flow` — so no single fixed primary measurement can discriminate both. Forcing one profile-declared preference to serve every fault family the profile handles necessarily improves detection of one fault type at the expense of another.
+
+Fixing this properly means either running detectors per measurement-type group and combining the results, or having `OperationalSituationAssessor`/`DecisionPlanner` reason over multiple signals instead of one — both cross into the assessment/planning coupling described in `CLAUDE.md` (assessment wording and the planner's text matching must change together) and are out of scope for an incremental calibration change. Multi-signal reasoning — detectors operating on multiple measurement-type groups per run, with assessment/planning able to consume more than one signal — is the first architectural milestone planned after v1.0, not something forced into this release. Until then, primary-measurement selection stays the existing deterministic "first measurement type encountered" behavior; see `primary_measurement_observations()` in `src/application/reasoning/context.py`.
+
 ```mermaid
 flowchart TB
     source["ObservationSource"]

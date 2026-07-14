@@ -16,7 +16,7 @@ def test_root_returns_platform_metadata() -> None:
     assert response.json() == {
         "platform_name": "ODIS Test Platform",
         "reasoning_engine_version": "v1",
-        "platform_phase": "phase-2",
+        "platform_phase": "2",
     }
 
 

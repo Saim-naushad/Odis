@@ -71,7 +71,7 @@ Example for owner `acme-corp`:
 
 ```
 ghcr.io/acme-corp/odis-api:latest
-ghcr.io/acme-corp/odis-worker:0.1.0
+ghcr.io/acme-corp/odis-worker:1.0.0
 ghcr.io/acme-corp/odis-frontend:abc1234
 ```
 
@@ -90,7 +90,7 @@ Each successful push to `main` applies three tag types to every image:
 | Tag | Source | Example |
 |-----|--------|---------|
 | `latest` | Default rolling tag for `main` | `ghcr.io/<owner>/odis-api:latest` |
-| Semver | `version` in `pyproject.toml` | `ghcr.io/<owner>/odis-api:0.1.0` |
+| Semver | `version` in `pyproject.toml` | `ghcr.io/<owner>/odis-api:1.0.0` |
 | Git SHA | Short commit SHA | `ghcr.io/<owner>/odis-api:abc1234` |
 
 Bump `version` in `pyproject.toml` before release-aligned merges to keep semver tags meaningful. The `latest` tag always tracks the most recent `main` build.

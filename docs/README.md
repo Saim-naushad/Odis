@@ -56,6 +56,14 @@ Portfolio assets for the monitoring dashboard live in [`assets/`](assets/).
 |----------|-------------|
 | [Simulator](simulator.md) | Plant Alpha simulator internals, scenarios, and publish cadence |
 
+## Release
+
+| Document | Description |
+|----------|-------------|
+| [Release Notes](../RELEASE_NOTES.md) | v1.0.0 summary by subsystem |
+| [Screenshot Checklist](release/screenshot-checklist.md) | Shot list for portfolio and release screenshots |
+| [Demo Script](release/demo-script.md) | 3–5 minute narrated recording script |
+
 ## Research
 
 Conceptual and forward-looking documents. Not all concepts are fully implemented.

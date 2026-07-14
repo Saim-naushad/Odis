@@ -16,6 +16,7 @@ from application.reasoning.context import ReasoningContext
 from application.reasoning.evidence_generation_stage import EvidenceGenerationStage
 from application.reasoning.explanation_stage import ExplanationStage
 from application.reasoning.hypothesis_stage import HypothesisStage
+from application.reasoning.observation_window import bound_recent_observations
 from application.reasoning.planning_stage import PlanningStage
 from application.reasoning.signal_extraction_stage import SignalExtractionStage
 from application.reasoning.stage import ReasoningStage
@@ -52,6 +53,25 @@ from domain.value_objects.detected_trend import DetectedTrend
 from domain.value_objects.detected_variation import DetectedVariation
 
 
+@dataclass(frozen=True, slots=True)
+class ReasoningSessionConfig:
+    """Tunable reasoning behavior for a `ReasoningSession`.
+
+    Kept separate from the session's constructor parameters, which are all
+    collaborators (repositories, event publisher — infrastructure seams).
+    `observation_window` and future reasoning-behavior parameters belong
+    here instead, so tuning a session doesn't mean growing its dependency
+    list.
+    """
+
+    observation_window: int | None = None
+    """Bound each measurement type to its `observation_window` most-recent
+    observations before reasoning (see `bound_recent_observations`). `None`
+    (the default) reasons over the full observation sequence passed to
+    `run`, unchanged — existing callers see no behavior change unless they
+    opt in."""
+
+
 @dataclass(frozen=True)
 class ReasoningResult:
     run: ReasoningRun
@@ -73,6 +93,7 @@ class ReasoningSession:
     def __init__(
         self,
         profile: OperationalProfile | None = None,
+        config: ReasoningSessionConfig | None = None,
         observation_repository: ObservationRepository | None = None,
         situation_repository: SituationRepository | None = None,
         decision_context_repository: DecisionContextRepository | None = None,
@@ -85,6 +106,7 @@ class ReasoningSession:
         event_publisher: EventPublisher | None = None,
     ) -> None:
         self._profile = profile or OperationalProfile.default()
+        self._config = config or ReasoningSessionConfig()
         self._observation_repository = observation_repository
         self._situation_repository = situation_repository
         self._decision_context_repository = decision_context_repository
@@ -129,6 +151,11 @@ class ReasoningSession:
                     run_id=run.id,
                     started_at=run.started_at,
                 )
+            )
+
+        if self._config.observation_window is not None:
+            observations = bound_recent_observations(
+                observations, window=self._config.observation_window
             )
 
         for observation in observations:

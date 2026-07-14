@@ -8,7 +8,10 @@ from application.structured_assessment_repository import StructuredAssessmentRep
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.observation_service import ObservationService
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
-from backend.app.application.reasoning_config import DEFAULT_OPERATIONAL_PROFILE
+from backend.app.application.reasoning_config import (
+    DEFAULT_OPERATIONAL_PROFILE,
+    DEFAULT_REASONING_SESSION_CONFIG,
+)
 from backend.app.application.reasoning_job_queue import DatabaseReasoningJobQueue
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.infrastructure.repositories.decision_context_repository import (
@@ -50,6 +53,7 @@ def create_observation_service(
     session = uow.session
     reasoning_session = ReasoningSession(
         profile=DEFAULT_OPERATIONAL_PROFILE,
+        config=DEFAULT_REASONING_SESSION_CONFIG,
         situation_repository=SqlAlchemySituationRepository(session),
         decision_context_repository=SqlAlchemyDecisionContextRepository(session),
         decision_plan_repository=SqlAlchemyDecisionPlanRepository(session),

@@ -76,7 +76,7 @@ Observations reference an asset and measurement type but do not own them.
 - Produce recommendations
 - Account for variability within the sequence (see [Extending ODIS](#extending-odis))
 
-The current `TrendDetector` compares the first and last values after timestamp ordering. It is intentionally simple.
+`TrendDetector` compares the mean of the first half of the sequence against the mean of the second half, normalized by the sequence's own spread — not a first-vs-last comparison. Endpoint comparison misreads any cyclical signal as "trending" whenever the window happens to start and end at different points in the oscillation; per-step delta-sign majority voting is also too weak in practice, since a slow real drift superimposed on larger-amplitude oscillation produces a near-50/50 split of up/down steps (verified against real Plant Alpha telemetry, not just synthetic sequences). Split-half comparison cancels oscillation far more effectively while staying scale-independent across measurement types.
 
 ---
 
@@ -172,7 +172,9 @@ Beyond the core evidence-to-decision chain, `ReasoningSession` also executes:
 | Structured assessment | `StructuredAssessment` | Machine-readable summary of signals, relationships, and expectation flags |
 | Planning context | `PlanningContext` | Planning-relevant facts derived from structured assessment |
 
-When observations include multiple measurement types, single-measurement detectors use the primary measurement type; relationship analysis uses the full observation group. See [Architecture](architecture.md) for the complete stage order.
+When observations include multiple measurement types, single-measurement detectors use the primary measurement type; relationship analysis uses the full observation group. See [Architecture](architecture.md) for the complete stage order, and its "Known limitation: single primary measurement per run" for why this is insufficient when a domain's distinct fault conditions manifest in different, unrelated measurement channels.
+
+`ReasoningSession` optionally bounds the observations it reasons over via `ReasoningSessionConfig(observation_window=N)` — each measurement type is trimmed to its `N` most-recent observations before any detector runs, so trend/variation signals reflect recent behavior rather than an ever-growing, unbounded history. `None` (the default) reasons over the full sequence passed to `run()`, unchanged from prior behavior.
 
 ## Executable vs. conceptual stages
 

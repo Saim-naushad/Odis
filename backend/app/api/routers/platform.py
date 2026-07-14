@@ -11,7 +11,7 @@ from backend.app.infrastructure.config.settings import Settings
 router = APIRouter(tags=["platform"])
 
 REASONING_ENGINE_VERSION = "v1"
-PLATFORM_PHASE = "phase-2"
+PLATFORM_PHASE = "2"
 
 
 @router.get("/", response_model=PlatformMetadataResponse)

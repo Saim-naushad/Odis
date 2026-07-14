@@ -139,9 +139,10 @@ Configuration loads from `.env` (see `.env.example`).
 ODIS is early-stage. The following reflect the implementation today:
 
 - **MVP, not production-hardened** — no auth, multi-tenancy, or SLA guarantees; suitable for development, demonstration, and portfolio use
-- **Reasoning scalability** — each job reloads full per-asset observation history; queue depth can grow on long demo sessions without bounded reasoning windows
+- **Reasoning scalability** — each job still reloads full per-asset observation history from the database; queue depth can grow on long demo sessions. `ReasoningSession` now bounds the observation *window it reasons over* (`ReasoningSessionConfig.observation_window`), which fixes stale data lingering in trend/variation signals, but the underlying database read itself is not yet bounded
 - **Placeholder planning rules** — `DecisionPlanner` uses generic substring matching on assessment text; production policy engines are not integrated
 - **Limited signal types** — trend and variation detection are implemented; anomaly and rate-of-change are not separate first-class signals yet
+- **Single primary measurement per reasoning run** — trend/variation detectors, evidence, hypotheses, and assessment all key off one measurement type per run. Distinct fault families that manifest in different, physically unrelated channels (verified on Plant Alpha: a cooling fault only shows up in `stack_temperature`, a fuel-supply fault only in `current`) can't both be reliably discriminated by one fixed preference. Multi-signal reasoning is the first planned architectural milestone after v1.0 — see `docs/architecture.md`'s "Known limitation: single primary measurement per run"
 - **No closed-loop execution** — action and outcome records are persisted but not wired to external control systems
 - **Demo asset metadata** — the four Plant Alpha assets resolve rich names, types, and locations from a static catalog; any other asset id falls back to a derived placeholder with no registry-backed identity
 - **No OPC UA or SCADA connectors** — MQTT and HTTP ingestion are implemented; industrial protocol breadth is limited

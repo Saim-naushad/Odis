@@ -93,7 +93,6 @@ function StatusSkeleton() {
 }
 
 export function AssetStatusBar({
-  selectedAssetId,
   digitalTwin,
   error,
 }: AssetStatusBarProps) {
@@ -225,8 +224,6 @@ export function AssetStatusBar({
             {new Date(operationalState.last_updated).toLocaleString()}
           </p>
         </div>
-      ) : selectedAssetId ? (
-        <StatusSkeleton />
       ) : (
         <StatusSkeleton />
       )}
