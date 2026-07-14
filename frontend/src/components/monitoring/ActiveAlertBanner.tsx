@@ -47,12 +47,12 @@ export function ActiveAlertBanner({ notification }: ActiveAlertBannerProps) {
         {notification.status}
       </span>
       <p
-        className="min-w-0 flex-1 truncate text-sm font-semibold"
+        className="min-w-0 flex-1 text-sm font-semibold sm:truncate"
         style={{ color: 'var(--text-primary)' }}
       >
         {notification.title}
       </p>
-      <span className="text-[10px] shrink-0" style={{ color: 'var(--text-muted)' }}>
+      <span className="basis-full text-[10px] shrink-0 sm:basis-auto" style={{ color: 'var(--text-muted)' }}>
         {new Date(notification.created_at).toLocaleString()}
       </span>
     </section>

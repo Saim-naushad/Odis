@@ -180,31 +180,46 @@ The simulator now logs a line on every scripted phase transition:
 Use these lines as the on-screen cue for when to capture each beat, instead
 of estimating from wall-clock time.
 
-### Approximate timing (default cadence)
+### Verified timing (default cadence)
 
 Phase durations are defined in *simulated* seconds; at the default cadence
 (`SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=15`, `SIMULATOR_SIM_DT_SECONDS=45`)
 each tick advances sim-time 3x faster than real time
-(`sim_dt_seconds / core_interval`). That gives this real-world timeline for
-the full `demo_presentation` script. It is also the recommended recording and
-narration order — each phase builds on the last (baseline, fault, response,
-recovery, second fault type), so cutting or reordering loses that narrative:
+(`sim_dt_seconds / core_interval`). Naively that predicts a real-world
+timeline of 00:00 / 02:00 / 08:00 / 12:00 / 16:00 / 18:00 for the phase
+boundaries below — but the simulator's first tick fires immediately at
+process start rather than after waiting one publish interval, so the whole
+schedule lands **15 seconds earlier** than that formula predicts. Confirmed
+against `[demo:demo_presentation] phase changed -> ...` log timestamps across
+two independent clean-database runs (`docker compose logs -t demo-plant`):
+both landed the first transition at 1:45.0–1:45.3 and held every later
+boundary within 0.2s of the corrected table below — not measurement noise.
+Each phase's own *duration* (6:00 / 4:00 / 4:00 / 2:00) already matched the
+formula exactly; only the whole-script start offset was off by one tick.
+
+This is also the recommended recording and narration order — each phase
+builds on the last (baseline, fault, response, recovery, second fault type),
+so cutting or reordering loses that narrative:
 
 | Real time (mm:ss) | Phase | What to capture | Talking point |
 |---|---|---|---|
 | 00:00 | `normal_operation` starts | Fleet strip, all four assets healthy — good for an optional "baseline" shot | All four Plant Alpha stacks healthy; telemetry is live over MQTT, not mocked |
-| 02:00 | `cooling_degradation` starts on stack-01 | Health score beginning to drop | A fault is injected in the simulator's physics model — not a scripted UI state |
-| ~04:00–08:00 | mid cooling degradation | Recommendation/notification appear once thresholds are crossed — this is the primary hero shot (fleet overview + investigation timeline) | The recommendation and priority come from the deterministic reasoning pipeline (evidence → signal → assessment → decision), traceable in the investigation timeline — not a black-box ML call |
-| 08:00 | `recovery` starts | Health trending back up | Reasoning re-assesses on new evidence automatically; no manual reset |
-| 12:00 | `hydrogen_supply_issue` starts on stack-01 | Second fault type, alternate recommendation category | Same detectors and planner produce a different, correctly-categorized recommendation for an unrelated fault mode |
-| 16:00 | `recovery` starts | Final recovery | Second recovery closes the loop — good moment to show the investigation lifecycle (acknowledge → investigating → resolved) if not shown earlier |
-| 18:00 | script ends, loops on `normal_operation` | — | — |
+| 01:45 | `cooling_degradation` starts on stack-01 | Health score beginning to drop | A fault is injected in the simulator's physics model — not a scripted UI state |
+| ~03:45–07:45 | mid cooling degradation | Recommendation/notification appear once thresholds are crossed — this is the primary hero shot (fleet overview + investigation timeline) | The recommendation and priority come from the deterministic reasoning pipeline (evidence → signal → assessment → decision), traceable in the investigation timeline — not a black-box ML call |
+| 07:45 | `recovery` starts | Health trending back up | Reasoning re-assesses on new evidence automatically; no manual reset |
+| 11:45 | `hydrogen_supply_issue` starts on stack-01 | Second fault type, alternate recommendation category | Same detectors and planner produce a different, correctly-categorized recommendation for an unrelated fault mode |
+| 15:45 | `recovery` starts | Final recovery | Second recovery closes the loop — good moment to show the investigation lifecycle (acknowledge → investigating → resolved) if not shown earlier |
+| 17:45 | script holds in `recovery`/`normal_operation`; no further phase-change line observed within an hour of continued running | — | — |
 
-Total script length: **~18 minutes** real time. If any of the cadence env
-vars above are overridden, recompute using the same ratio — don't hand-tune
-against a specific run's wall-clock timing, since it drifts with config.
+Total script length to the final recovery: **~17:45** real time. Use the
+`phase changed` log lines as your recording cue regardless — they are exact;
+this table is for planning the session, not for cutting against a stopwatch.
+If any of the cadence env vars above are overridden, recompute using the same
+ratio and re-verify against a fresh run's log timestamps rather than
+hand-tuning the formula, since the fixed one-tick head start doesn't scale
+linearly with the cadence values.
 
-For a video under ~5 minutes, the ~04:00–08:00 cooling-degradation window plus
+For a video under ~5 minutes, the ~03:45–07:45 cooling-degradation window plus
 one investigation-lifecycle transition is the minimum viable cut: it shows
 live ingestion, a real fault, an explainable recommendation, and an operator
 response in one continuous segment.

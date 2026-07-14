@@ -99,7 +99,7 @@ export function InvestigationRail({
 
   return (
     <aside
-      className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start"
+      className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto"
       aria-label="Investigation"
     >
       <div className="flex items-center justify-between">
@@ -114,7 +114,7 @@ export function InvestigationRail({
         </span>
       </div>
 
-      <div className="min-h-[220px] flex-1 overflow-hidden">
+      <div className="flex min-h-[220px] flex-1 flex-col overflow-hidden">
         <Timeline
           events={events}
           loading={loading}
@@ -131,7 +131,7 @@ export function InvestigationRail({
             Select a timeline event to inspect context and correlate with telemetry.
           </p>
         ) : (
-          <div className="space-y-3 text-xs">
+          <div className="max-h-[40vh] space-y-3 overflow-y-auto pr-1 text-xs">
             {selectedEvent && (
               <div>
                 <h4

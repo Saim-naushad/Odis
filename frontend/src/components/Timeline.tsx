@@ -34,7 +34,7 @@ export function Timeline({
     events.length > 0 ? events[events.length - 1].id : undefined
 
   return (
-    <section className="flex h-full flex-col rounded border border-slate-800 bg-slate-900/40 p-4">
+    <section className="flex min-h-0 flex-1 flex-col rounded border border-slate-800 bg-slate-900/40 p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
           Timeline
@@ -55,7 +55,7 @@ export function Timeline({
           )}
         </div>
       )}
-      <div className="mt-3 flex-1 overflow-y-auto rounded border border-slate-800 bg-slate-950/60">
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto rounded border border-slate-800 bg-slate-950/60">
         {events.length > 0 ? (
           <ul className="divide-y divide-slate-800 text-xs">
             {events.map((event) => {

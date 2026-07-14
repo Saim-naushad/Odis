@@ -10,7 +10,11 @@ for exact startup and timing mechanics.
 and let `normal_operation` run for at least a minute before hitting record —
 see the **Known risk** note at the end of this document. Watch
 `docker compose logs -f demo-plant` for phase-change lines and use them as
-cues instead of a stopwatch.
+cues instead of a stopwatch. `cooling_degradation` starts at **1:45** into
+the script, not 2:00 — see
+[Demo Environment → Verified timing](../platform/demo-environment.md#verified-timing-default-cadence)
+for the measured, log-verified phase boundaries this script's cue points are
+built around.
 
 Target run time: **4 minutes**. Cut points are marked if you need to trim to 3.
 
