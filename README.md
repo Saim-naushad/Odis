@@ -10,13 +10,11 @@ ODIS is an industrial operations platform that turns telemetry from physical equ
 
 The repository contains both a standalone reasoning engine and a complete demonstration platform, including a physics-based simulator, an event-driven backend, and a live operator dashboard.
 
-<!--
-Insert Hero Screenshot
 
 <p align="center">
-  <img src="docs/assets/dashboard-overview.png" width="900" alt="ODIS Dashboard Overview">
+  <img src="docs/assets/dashboard-overview.png" width="100%" alt="ODIS Dashboard Overview">
 </p>
--->
+
 
 ## How it works
 
@@ -50,13 +48,11 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 
 **Investigation workflow** (`InvestigationService`) — Operator response to recommendations is stored as an append-only sequence of transitions (`ACKNOWLEDGED → INVESTIGATING → RESOLVED`) rather than a mutable status field, preserving a complete operational history. See [docs/platform/platform-architecture.md#operator-investigation-lifecycle](docs/platform/platform-architecture.md#operator-investigation-lifecycle).
 
-<!--
-Insert Investigation Screenshot
 
 <p align="center">
-  <img src="docs/assets/dashboard-investigation.png" width="850" alt="Investigation Workflow">
+  <img src="docs/assets/dashboard-investigation.png" width="90%" alt="Investigation Workflow">
 </p>
--->
+
 
 ## Key capabilities
 
@@ -97,13 +93,11 @@ Nothing in the core reasoning pipeline relies on a trained model. Every recommen
 | [`k8s/`](k8s/) | Kubernetes deployment manifests |
 | [`infra/`](infra/) | Docker images, Prometheus, Grafana, and infrastructure provisioning |
 
-<!--
-Insert Telemetry Screenshot
 
 <p align="center">
-  <img src="docs/assets/dashboard-telemetry.png" width="850" alt="Telemetry Visualization">
+  <img src="docs/assets/dashboard-telemetry.png" width="90%" alt="Telemetry Visualization">
 </p>
--->
+
 
 ## Quick start
 
@@ -125,13 +119,11 @@ Open the dashboard at:
 http://localhost:8080
 ```
 
-<!--
-Insert Active Incident Screenshot
+
 
 <p align="center">
-  <img src="docs/assets/dashboard-incident.png" width="850" alt="Live Investigation">
+  <img src="docs/assets/dashboard-incident.png" width="90%" alt="Live Investigation">
 </p>
--->
 
 For the complete walkthrough, expected simulator timeline, and validation steps, see the [Demo Environment Guide](docs/platform/demo-environment.md).
 
