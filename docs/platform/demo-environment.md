@@ -186,21 +186,28 @@ Phase durations are defined in *simulated* seconds; at the default cadence
 (`SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=15`, `SIMULATOR_SIM_DT_SECONDS=45`)
 each tick advances sim-time 3x faster than real time
 (`sim_dt_seconds / core_interval`). That gives this real-world timeline for
-the full `demo_presentation` script:
+the full `demo_presentation` script. It is also the recommended recording and
+narration order — each phase builds on the last (baseline, fault, response,
+recovery, second fault type), so cutting or reordering loses that narrative:
 
-| Real time (mm:ss) | Phase | What to capture |
-|---|---|---|
-| 00:00 | `normal_operation` starts | Fleet strip, all four assets healthy — good for an optional "baseline" shot |
-| 02:00 | `cooling_degradation` starts on stack-01 | Health score beginning to drop |
-| ~04:00–08:00 | mid cooling degradation | Recommendation/notification appear once thresholds are crossed — this is the primary hero shot (fleet overview + investigation timeline) |
-| 08:00 | `recovery` starts | Health trending back up |
-| 12:00 | `hydrogen_supply_issue` starts on stack-01 | Second fault type, alternate recommendation category |
-| 16:00 | `recovery` starts | Final recovery |
-| 18:00 | script ends, loops on `normal_operation` | — |
+| Real time (mm:ss) | Phase | What to capture | Talking point |
+|---|---|---|---|
+| 00:00 | `normal_operation` starts | Fleet strip, all four assets healthy — good for an optional "baseline" shot | All four Plant Alpha stacks healthy; telemetry is live over MQTT, not mocked |
+| 02:00 | `cooling_degradation` starts on stack-01 | Health score beginning to drop | A fault is injected in the simulator's physics model — not a scripted UI state |
+| ~04:00–08:00 | mid cooling degradation | Recommendation/notification appear once thresholds are crossed — this is the primary hero shot (fleet overview + investigation timeline) | The recommendation and priority come from the deterministic reasoning pipeline (evidence → signal → assessment → decision), traceable in the investigation timeline — not a black-box ML call |
+| 08:00 | `recovery` starts | Health trending back up | Reasoning re-assesses on new evidence automatically; no manual reset |
+| 12:00 | `hydrogen_supply_issue` starts on stack-01 | Second fault type, alternate recommendation category | Same detectors and planner produce a different, correctly-categorized recommendation for an unrelated fault mode |
+| 16:00 | `recovery` starts | Final recovery | Second recovery closes the loop — good moment to show the investigation lifecycle (acknowledge → investigating → resolved) if not shown earlier |
+| 18:00 | script ends, loops on `normal_operation` | — | — |
 
 Total script length: **~18 minutes** real time. If any of the cadence env
 vars above are overridden, recompute using the same ratio — don't hand-tune
 against a specific run's wall-clock timing, since it drifts with config.
+
+For a video under ~5 minutes, the ~04:00–08:00 cooling-degradation window plus
+one investigation-lifecycle transition is the minimum viable cut: it shows
+live ingestion, a real fault, an explainable recommendation, and an operator
+response in one continuous segment.
 
 Reshoot `docs/assets/dashboard-*.png` from a clean run whenever the layout
 changes materially; the phase-change log lines make repeat takes consistent

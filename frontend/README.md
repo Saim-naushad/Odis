@@ -1,7 +1,12 @@
 ## Frontend – ODIS Monitoring Console
 
-This package contains the first React + TypeScript monitoring dashboard for ODIS.
-It is a read-only operational console that connects to the existing FastAPI backend.
+React 19 + TypeScript + Vite operator console for the ODIS platform. It is a
+single page (no router) that connects to the FastAPI backend for fleet
+health, telemetry, recommendations, and the investigation timeline.
+
+For the composed layout and overall dashboard behavior, see
+`MonitoringDashboard.tsx` and `components/monitoring/*`. For platform-level
+architecture, see [Platform Architecture](../docs/platform/platform-architecture.md).
 
 ### Setup
 
@@ -15,7 +20,7 @@ npm install
 
 ### Development
 
-Start the FastAPI backend (from the repo root, command may vary):
+Start the FastAPI backend (from the repo root):
 
 ```bash
 uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
@@ -28,30 +33,34 @@ cd frontend
 npm run dev
 ```
 
-By default Vite runs on `http://localhost:5173`.
+By default Vite runs on `http://localhost:5173` and proxies `/api/*` to
+`http://localhost:8000`, stripping the `/api` prefix.
 
-### Backend connection
+### State and real-time updates
 
-The frontend talks to the existing Monitoring API via a dev-time proxy:
-
-- All HTTP calls are made against the `/api` prefix from the browser.
-- `vite.config.ts` configures a proxy that forwards `/api/*` to the FastAPI app on `http://localhost:8000` and strips the `/api` prefix.
+State is entirely React Query. `GET /monitoring/events` (Server-Sent Events)
+pushes targeted cache invalidation as reasoning results, telemetry, and
+investigation transitions change; a 60-second poll is a fallback used only
+when SSE is disconnected.
 
 Key backend endpoints used:
 
-- `GET /health` – platform liveness.
-- `GET /` – platform metadata.
 - `GET /monitoring/assets` – list known assets.
-- `GET /monitoring/assets/{asset_id}/latest` – latest reasoning result for an asset.
-- `GET /monitoring/assets/{asset_id}/history` – reasoning history for an asset.
-- `GET /monitoring/runs/{run_id}` – full reasoning run details, including reasoning trace.
+- `GET /monitoring/assets/{asset_id}/digital-twin` – composed read model (state, recommendation, telemetry, forecast, investigation status).
+- `GET /monitoring/assets/{asset_id}/telemetry` and `/telemetry/aggregate` – raw and rolled-up telemetry history.
+- `GET /monitoring/assets/{asset_id}/timeline` – reasoning and investigation events.
+- `POST /monitoring/assets/{asset_id}/investigation` – operator investigation transitions (acknowledge / investigate / resolve).
+- `GET /monitoring/events` – SSE stream for real-time cache invalidation.
 
 ### Architecture
 
-- **`src/api`** – thin API client layer wrapping `fetch` and typed per-endpoint functions.
+- **`src/api`** – thin API client layer wrapping `fetch`, including the SSE client.
 - **`src/types`** – TypeScript interfaces mirroring the FastAPI response schemas.
-- **`src/hooks`** – `useMonitoringDashboard` orchestrates polling and state for the dashboard.
-- **`src/components`** – small, presentational components for header, asset list, details, reasoning trace, and run history.
-- **`src/pages`** – `MonitoringDashboard` page that composes the layout into a single operational console.
+- **`src/hooks`** – `useMonitoringDashboard`, `useMonitoringSse`, `useInvestigationTransition`, `useTelemetryVisualization`.
+- **`src/monitoring`** – SSE event dispatcher and event-type definitions.
+- **`src/components/monitoring`** – presentational components composing the dashboard (fleet strip, telemetry, investigation timeline, recommendations).
+- **`src/pages`** – `MonitoringDashboard`, the single page that composes the console.
 
-No authentication or mutation is implemented; all views are read-only. Tailwind CSS is used for layout and an industrial, console-style aesthetic.
+Operators can transition an asset's investigation status (acknowledge,
+investigate, resolve) from the dashboard; all other views are read-only.
+Tailwind CSS is used for layout and an industrial, console-style aesthetic.
