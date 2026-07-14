@@ -83,6 +83,15 @@ class PipelineDriver:
     def machine_state(self) -> FuelCellMachineState:
         return self.fleet.machine(self.asset_id).state
 
+    def telemetry(self, measurement_type: str) -> list[dict[str, Any]]:
+        response = self.api_client.get(
+            f"/monitoring/assets/{self.asset_id}/telemetry",
+            params={"measurement_type": measurement_type},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return cast(list[dict[str, Any]], payload[0]["samples"] if payload else [])
+
     def run_details(self) -> dict[str, Any]:
         twin = self.digital_twin()
         response = self.api_client.get(

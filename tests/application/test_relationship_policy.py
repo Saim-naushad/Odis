@@ -71,13 +71,19 @@ def test_default_policy_preserves_contradiction_behavior() -> None:
 
 
 def test_custom_policy_is_honored() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations per measurement
+    # type are required before TrendDetector trusts a directional reading.
     policy = FakePolicy()
 
     flow_rate = MeasurementType(name="flow_rate")
     pressure = MeasurementType(name="pressure")
 
-    flow_obs = build_observation_sequence([10, 20, 30], measurement_type=flow_rate)
-    pressure_obs = build_observation_sequence([30, 20, 10], measurement_type=pressure)
+    flow_obs = build_observation_sequence(
+        [10, 20, 30, 40, 50, 60, 70, 80], measurement_type=flow_rate
+    )
+    pressure_obs = build_observation_sequence(
+        [80, 70, 60, 50, 40, 30, 20, 10], measurement_type=pressure
+    )
     group = ObservationGroup(asset_id="asset-1", observations=flow_obs + pressure_obs)
 
     correlations = CorrelationDetector(policy=policy).detect(group)
@@ -90,7 +96,7 @@ def test_custom_policy_is_honored() -> None:
     )
 
     pressure_inc_obs = build_observation_sequence(
-        [30, 40, 50],
+        [30, 40, 50, 60, 70, 80, 90, 100],
         measurement_type=pressure,
     )
     group_inc = ObservationGroup(

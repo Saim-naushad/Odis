@@ -137,15 +137,18 @@ def test_compare_identical_runs() -> None:
 
 
 def test_compare_different_assessment() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for the left run to classify as "increasing" rather than STABLE, which
+    # would otherwise match the flat right run's assessment.
     session, replayer, *_ = _build_session_stack()
     left_run_id = _run_session(
         session,
-        [32.0, 36.5, 41.0, 45.5, 50.0],
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5],
         id_prefix="left",
     )
     right_run_id = _run_session(
         session,
-        [50.0, 50.0, 50.0, 50.0, 50.0],
+        [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0],
         id_prefix="right",
     )
     comparator = ReasoningComparator(replayer)

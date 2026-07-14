@@ -168,15 +168,19 @@ def test_analyze_multiple_previous_recurrences() -> None:
 
 
 def test_analyze_assessment_changed_is_not_a_recurrence() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for the real reasoning pipeline to classify the "previous" run as
+    # "increasing" rather than STABLE - which would otherwise match the flat
+    # "current" run's assessment and register as a false recurrence.
     session, replayer, history, *_ = _build_session_stack()
     previous_run_id = _run_session(
         session,
-        [32.0, 36.5, 41.0, 45.5, 50.0],
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5],
         id_prefix="prev",
     )
     current_run_id = _run_session(
         session,
-        [50.0, 50.0, 50.0, 50.0, 50.0],
+        [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0],
         id_prefix="curr",
     )
     analyzer = RecurrenceAnalyzer(history, replayer)
@@ -199,7 +203,7 @@ def test_analyze_priority_changed_is_not_a_recurrence() -> None:
     ) = _build_session_stack()
     previous_run_id = _run_session(
         session,
-        [32.0, 36.5, 41.0, 45.5, 50.0],
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5],
         id_prefix="prev",
     )
     current_run_id = _clone_run_with_plan(

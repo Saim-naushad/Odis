@@ -20,6 +20,17 @@ _STABLE_EPSILON = 1e-9
 # margin on both sides.
 _TREND_RATIO_THRESHOLD = 0.8
 
+# Minimum window size before a directional classification is trusted at all.
+# Plant Alpha's normal-operation load cycle is ~7 core observations per cycle
+# at the default demo cadence (see DEFAULT_REASONING_SESSION_CONFIG's comment
+# in backend/app/application/reasoning_config.py). Below one full cycle's
+# worth of history, a first-half/second-half split cannot span comparable
+# phase points of the oscillation, so the ratio degenerates toward a raw
+# endpoint comparison — verified against real Plant Alpha telemetry: ratios
+# spike as high as 2.2x threshold at n=2-7 (a healthy, unfaulted asset), then
+# settle under 0.72 from n=8 onward and stay there through at least n=24.
+_MIN_SAMPLES_FOR_DIRECTIONAL_TREND = 8
+
 
 class TrendDetector:
     def detect(self, observations: Sequence[Observation]) -> DetectedTrend:
@@ -69,10 +80,10 @@ def _split_half_direction(ordered: Sequence[Observation]) -> TrendDirection:
     """
     values = [observation.value for observation in ordered]
     n = len(values)
-    mid = n // 2
-    if mid == 0:
+    if n < _MIN_SAMPLES_FOR_DIRECTIONAL_TREND:
         return TrendDirection.STABLE
 
+    mid = n // 2
     first_half_mean = statistics.fmean(values[:mid])
     second_half_mean = statistics.fmean(values[n - mid :])
     shift = second_half_mean - first_half_mean

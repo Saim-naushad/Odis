@@ -191,20 +191,23 @@ def test_create_second_observation_runs_reasoning_and_persists_artifacts(
     observation_service: ObservationService,
     db_session: Session,
 ) -> None:
-    first = build_observation(
-        id="obs-reason-1",
-        value=30.0,
-        timestamp=build_observation().timestamp,
-    )
-    second = build_observation(
-        id="obs-reason-2",
-        value=45.0,
-        timestamp=build_observation().timestamp.replace(hour=13),
-    )
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
+    base_timestamp = build_observation().timestamp
+    observations = [
+        build_observation(
+            id=f"obs-reason-{index}",
+            value=value,
+            timestamp=base_timestamp.replace(hour=10 + index),
+        )
+        for index, value in enumerate(
+            [30.0, 33.0, 36.0, 39.0, 42.0, 45.0, 48.0, 51.0], start=1
+        )
+    ]
 
-    observation_service.create(first)
-    observation_service.create(second)
-    observation_service.run_reasoning_for_asset(first.asset_id)
+    for observation in observations:
+        observation_service.create(observation)
+    observation_service.run_reasoning_for_asset(observations[0].asset_id)
 
     from sqlalchemy import select
 
@@ -238,7 +241,9 @@ def test_create_second_observation_runs_reasoning_and_persists_artifacts(
 
     situation = situation_repository.get(index.situation_id)
     assert situation is not None
-    assert situation.observation_ids == ("obs-reason-1", "obs-reason-2")
+    assert situation.observation_ids == tuple(
+        observation.id for observation in observations
+    )
 
     context = context_repository.get(index.context_id)
     assert context is not None

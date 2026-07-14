@@ -530,45 +530,21 @@ def test_notification_endpoint_returns_latest_notification_when_created(
 ) -> None:
     asset_id = "asset-notification"
 
-    # Run 1: stable (LOW priority) -> no notification
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-n-1",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:00:00Z",
-            value=10.0,
-        ),
-    )
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-n-2",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:01:00Z",
-            value=10.0,
-        ),
-    )
-
-    # Run 2: rising trend (MEDIUM/HIGH priority) -> notification created
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-n-3",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:02:00Z",
-            value=20.0,
-        ),
-    )
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-n-4",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:03:00Z",
-            value=30.0,
-        ),
-    )
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for the reasoning pipeline to classify a direction rather than STABLE:
+    # a flat run (stable, LOW priority) followed by a clear rising run
+    # (HIGH priority) -> notification created.
+    values = [10.0, 10.0, 10.0, 10.0, 10.0, 20.0, 30.0, 40.0]
+    for index, value in enumerate(values, start=1):
+        api_client.post(
+            "/observations",
+            json=_observation_payload(
+                observation_id=f"obs-n-{index}",
+                asset_id=asset_id,
+                timestamp=f"2026-01-01T10:{index:02d}:00Z",
+                value=value,
+            ),
+        )
 
     response = api_client.get(f"/monitoring/assets/{asset_id}/notification")
 
@@ -592,45 +568,21 @@ def test_notification_endpoint_returns_latest_notification_when_created(
 def test_timeline_includes_health_and_risk_transitions(api_client: TestClient) -> None:
     asset_id = "asset-state-transitions"
 
-    # Run 1: stable (LOW priority)
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-trans-1",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:00:00Z",
-            value=10.0,
-        ),
-    )
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-trans-2",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:01:00Z",
-            value=10.0,
-        ),
-    )
-
-    # Run 2: increasing trend (HIGH priority)
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-trans-3",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:02:00Z",
-            value=20.0,
-        ),
-    )
-    api_client.post(
-        "/observations",
-        json=_observation_payload(
-            observation_id="obs-trans-4",
-            asset_id=asset_id,
-            timestamp="2026-01-01T10:03:00Z",
-            value=30.0,
-        ),
-    )
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for the reasoning pipeline to classify a direction rather than STABLE:
+    # a flat run (stable, LOW priority) followed by a clear rising run
+    # (HIGH priority).
+    values = [10.0, 10.0, 10.0, 10.0, 10.0, 20.0, 30.0, 40.0]
+    for index, value in enumerate(values, start=1):
+        api_client.post(
+            "/observations",
+            json=_observation_payload(
+                observation_id=f"obs-trans-{index}",
+                asset_id=asset_id,
+                timestamp=f"2026-01-01T10:{index:02d}:00Z",
+                value=value,
+            ),
+        )
 
     response = api_client.get(f"/monitoring/assets/{asset_id}/timeline")
     assert response.status_code == 200

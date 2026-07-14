@@ -23,11 +23,17 @@ def test_no_relationships_returns_empty_analysis() -> None:
 
 
 def test_correlations_only() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations per measurement
+    # type are required before TrendDetector trusts a directional reading.
     temperature = MeasurementType(name="temperature")
     pressure = MeasurementType(name="pressure")
 
-    temp_obs = build_observation_sequence([10, 20, 30], measurement_type=temperature)
-    pressure_obs = build_observation_sequence([30, 20, 10], measurement_type=pressure)
+    temp_obs = build_observation_sequence(
+        [10, 20, 30, 40, 50, 60, 70, 80], measurement_type=temperature
+    )
+    pressure_obs = build_observation_sequence(
+        [80, 70, 60, 50, 40, 30, 20, 10], measurement_type=pressure
+    )
     group = ObservationGroup(asset_id="asset-1", observations=temp_obs + pressure_obs)
 
     analysis = RelationshipAnalyzer().analyze(group)
@@ -40,8 +46,12 @@ def test_contradictions_only() -> None:
     temperature = MeasurementType(name="temperature")
     pressure = MeasurementType(name="pressure")
 
-    temp_obs = build_observation_sequence([10, 20, 30], measurement_type=temperature)
-    pressure_obs = build_observation_sequence([30, 40, 50], measurement_type=pressure)
+    temp_obs = build_observation_sequence(
+        [10, 20, 30, 40, 50, 60, 70, 80], measurement_type=temperature
+    )
+    pressure_obs = build_observation_sequence(
+        [30, 40, 50, 60, 70, 80, 90, 100], measurement_type=pressure
+    )
     group = ObservationGroup(asset_id="asset-1", observations=temp_obs + pressure_obs)
 
     analysis = RelationshipAnalyzer().analyze(group)

@@ -185,10 +185,7 @@ class ObservationService:
             primary_observations[:-1] if len(primary_observations) >= 2 else []
         )
         trend_start = time.perf_counter()
-        prev_trend = analyze_trend_diagnostics(
-            previous_primary,
-            observation_window=5,
-        )
+        prev_trend = analyze_trend_diagnostics(previous_primary)
         record_trend_analysis_duration(time.perf_counter() - trend_start)
 
         reasoning_start = time.perf_counter()
@@ -215,10 +212,7 @@ class ObservationService:
             notification = NotificationPolicyEngine().compute(recommendation)
 
         trend_start = time.perf_counter()
-        new_trend = analyze_trend_diagnostics(
-            primary_observations,
-            observation_window=5,
-        )
+        new_trend = analyze_trend_diagnostics(primary_observations)
         record_trend_analysis_duration(time.perf_counter() - trend_start)
 
         if self._event_bus is not None:

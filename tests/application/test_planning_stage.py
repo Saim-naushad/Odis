@@ -39,8 +39,10 @@ def test_planning_stage_requires_assessment() -> None:
 
 
 def test_planning_stage_preserves_existing_planner_output() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     context = PlanningStage().run(
-        _assessed_context([32.0, 36.5, 41.0, 45.5, 50.0])
+        _assessed_context([32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5])
     )
     summary = context.artifacts.assessment_summary
     decision_context = context.artifacts.decision_context

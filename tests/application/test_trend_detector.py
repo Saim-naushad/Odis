@@ -17,7 +17,9 @@ def detector() -> TrendDetector:
 def test_increasing_observations_are_classified_as_increasing(
     detector: TrendDetector,
 ) -> None:
-    observations = build_observation_sequence([10, 20, 30])
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # before a directional classification is trusted at all.
+    observations = build_observation_sequence([10, 20, 30, 40, 50, 60, 70, 80])
 
     result = detector.detect(observations)
 
@@ -27,11 +29,26 @@ def test_increasing_observations_are_classified_as_increasing(
 def test_decreasing_observations_are_classified_as_decreasing(
     detector: TrendDetector,
 ) -> None:
-    observations = build_observation_sequence([30, 20, 10])
+    observations = build_observation_sequence([80, 70, 60, 50, 40, 30, 20, 10])
 
     result = detector.detect(observations)
 
     assert result.direction == TrendDirection.DECREASING
+
+
+def test_short_windows_are_classified_as_stable_regardless_of_direction(
+    detector: TrendDetector,
+) -> None:
+    # Below _MIN_SAMPLES_FOR_DIRECTIONAL_TREND, a first-half/second-half split
+    # can't span comparable phase points of real oscillating telemetry, so a
+    # short window is treated as STABLE even when its raw values look like a
+    # clear ramp - verified against real Plant Alpha telemetry, where windows
+    # this short produced spurious trend flips on healthy, unfaulted assets.
+    observations = build_observation_sequence([10, 20, 30, 40, 50, 60, 70])
+
+    result = detector.detect(observations)
+
+    assert result.direction == TrendDirection.STABLE
 
 
 def test_equal_first_and_last_values_are_classified_as_stable(
@@ -90,7 +107,7 @@ def test_mixed_measurement_types_are_rejected(detector: TrendDetector) -> None:
 def test_unordered_timestamps_are_sorted_before_classification(
     detector: TrendDetector,
 ) -> None:
-    observations = build_observation_sequence([10, 20, 30])
+    observations = build_observation_sequence([10, 20, 30, 40, 50, 60, 70, 80])
 
     result = detector.detect(tuple(reversed(observations)))
 

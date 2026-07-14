@@ -3,27 +3,26 @@ from datetime import UTC, datetime
 from application.contradiction_detector import ContradictionDetector
 from application.observation_group import ObservationGroup
 from domain.value_objects.measurement_type import MeasurementType
-from tests.builders import build_observation, build_observation_sequence
+from tests.builders import build_observation_sequence
 
 
 def test_increasing_temperature_and_increasing_pressure_emits_contradiction() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations per measurement
+    # type are required before TrendDetector trusts a directional reading.
     temperature = MeasurementType(name="temperature")
     pressure = MeasurementType(name="pressure")
 
-    temp_obs = build_observation_sequence([10, 20, 30], measurement_type=temperature)
-    pressure_obs = build_observation_sequence([30, 40, 50], measurement_type=pressure)
+    temp_obs = build_observation_sequence(
+        [10, 20, 30, 40, 50, 60, 70, 80], measurement_type=temperature
+    )
+    pressure_obs = build_observation_sequence(
+        [30, 40, 50, 60, 70, 80, 90, 100], measurement_type=pressure
+    )
 
     # Mix ordering inside the group to ensure ordering independence.
     group = ObservationGroup(
         asset_id="asset-1",
-        observations=(
-            temp_obs[1],
-            pressure_obs[2],
-            temp_obs[0],
-            pressure_obs[0],
-            temp_obs[2],
-            pressure_obs[1],
-        ),
+        observations=tuple(reversed(temp_obs)) + tuple(reversed(pressure_obs)),
     )
 
     contradictions = ContradictionDetector().detect(group)
@@ -68,34 +67,24 @@ def test_ordering_independence_is_based_on_timestamps() -> None:
 
     base = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
-    temp_early = build_observation(
-        id="temp-early",
-        timestamp=base,
+    temp_obs = build_observation_sequence(
+        [10, 20, 30, 40, 50, 60, 70, 80],
         measurement_type=temperature,
-        value=10,
+        start=base,
+        id_prefix="temp",
     )
-    temp_late = build_observation(
-        id="temp-late",
-        timestamp=base.replace(hour=13),
-        measurement_type=temperature,
-        value=20,
-    )
-    pressure_early = build_observation(
-        id="pressure-early",
-        timestamp=base,
+    pressure_obs = build_observation_sequence(
+        [30, 40, 50, 60, 70, 80, 90, 100],
         measurement_type=pressure,
-        value=30,
-    )
-    pressure_late = build_observation(
-        id="pressure-late",
-        timestamp=base.replace(hour=13),
-        measurement_type=pressure,
-        value=40,
+        start=base,
+        id_prefix="pressure",
     )
 
+    # Observations are passed out of chronological order to ensure the
+    # detector sorts by timestamp rather than relying on input order.
     group = ObservationGroup(
         asset_id="asset-1",
-        observations=(temp_late, pressure_early, pressure_late, temp_early),
+        observations=tuple(reversed(temp_obs)) + tuple(reversed(pressure_obs)),
     )
 
     contradictions = ContradictionDetector().detect(group)

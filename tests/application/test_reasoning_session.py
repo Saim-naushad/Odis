@@ -45,8 +45,12 @@ from tests.builders import build_goal, build_observation, build_observation_sequ
 
 
 def test_reasoning_session_runs_the_operational_pipeline() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     goal = build_goal()
-    observations = build_observation_sequence([32.0, 36.5, 41.0, 45.5, 50.0])
+    observations = build_observation_sequence(
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5]
+    )
 
     result = ReasoningSession().run(goal, observations)
 
@@ -149,18 +153,27 @@ def test_explicit_pipeline_preserves_assessment_and_planning_outputs(
 
 
 def test_reasoning_session_evaluates_fuel_cell_profile_expectations() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations per measurement
+    # type are required for TrendDetector to classify a direction rather than
+    # STABLE. History is extended backward, keeping the latest (current)
+    # reading the same, since expectation evaluation checks the latest value.
     profile = FuelCellOperationalProfile.default()
     goal = build_goal()
     temperature = MeasurementType(name="stack_temperature")
     observations = (
-        *build_observation_sequence([62.0, 64.0, 66.0], measurement_type=temperature),
+        *build_observation_sequence(
+            [52.0, 54.0, 56.0, 58.0, 60.0, 62.0, 64.0, 66.0],
+            measurement_type=temperature,
+        ),
         *(
             build_observation(
                 value=value,
                 measurement_type=MeasurementType(name="stack_pressure"),
                 id=f"pressure-{index}",
             )
-            for index, value in enumerate([155.0, 153.0, 151.0])
+            for index, value in enumerate(
+                [165.0, 163.0, 161.0, 159.0, 157.0, 155.0, 153.0, 151.0]
+            )
         ),
     )
 
@@ -309,8 +322,12 @@ def test_previously_saved_observation_aborts_before_reasoning_completes() -> Non
 
 
 def test_reasoning_session_without_publisher_still_works() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     goal = build_goal()
-    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    observations = build_observation_sequence(
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5]
+    )
 
     result = ReasoningSession().run(goal, observations)
 
@@ -491,8 +508,12 @@ def test_duplicate_run_index_propagates_failure() -> None:
 
 
 def test_reasoning_session_without_index_repository_is_unchanged() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     goal = build_goal()
-    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    observations = build_observation_sequence(
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5]
+    )
 
     result = ReasoningSession().run(goal, observations)
 
@@ -554,8 +575,12 @@ def test_duplicate_registry_run_id_propagates_failure() -> None:
 
 
 def test_reasoning_session_without_registry_is_unchanged() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     goal = build_goal()
-    observations = build_observation_sequence([32.0, 36.5, 41.0])
+    observations = build_observation_sequence(
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5]
+    )
 
     result = ReasoningSession().run(goal, observations)
 

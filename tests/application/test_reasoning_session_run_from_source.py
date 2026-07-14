@@ -54,8 +54,12 @@ def test_empty_source_propagates_existing_validation_behavior() -> None:
 
 
 def test_populated_source_matches_direct_run_result() -> None:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     goal = build_goal()
-    observations = build_observation_sequence([32.0, 36.5, 41.0, 45.5, 50.0])
+    observations = build_observation_sequence(
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5]
+    )
     session = ReasoningSession()
     source = FakeObservationSource(observations=tuple(observations))
 

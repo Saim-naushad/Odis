@@ -21,8 +21,10 @@ def test_heatwave_scenario_produces_increasing_operational_response() -> None:
         id="goal-grid-stability",
         description="Maintain grid stability during peak demand",
     )
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     observations = build_observation_sequence(
-        [32.0, 36.5, 41.0, 45.5, 50.0],
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5],
         asset_id=asset.id,
         unit="celsius",
     )

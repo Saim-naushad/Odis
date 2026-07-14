@@ -149,9 +149,12 @@ def test_analyze_high_to_low() -> None:
         reasoning_run_index_repository,
         decision_plan_repository,
     ) = _build_session_stack()
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for the real reasoning pipeline to classify this as "increasing" (and
+    # therefore HIGH priority) rather than STABLE.
     previous_run_id = _run_session(
         session,
-        [32.0, 36.5, 41.0, 45.5, 50.0],
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5],
         id_prefix="prev",
     )
     current_run_id = _clone_run_with_plan(

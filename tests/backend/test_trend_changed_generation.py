@@ -90,16 +90,21 @@ def _obs(idx: int, value: float) -> Observation:
 
 def test_observation_service_emits_trend_changed_when_direction_becomes_meaningful(
 ) -> None:
-    # Window behavior:
-    # prev window (obs-0..obs-4): unstable due to outlier, classified as stable.
-    # new window (obs-1..obs-5): sustained rising, classified as rising.
+    # Window behavior (window size = _MIN_SAMPLES_FOR_DIRECTIONAL_TREND):
+    # prev window (obs-0..obs-7): outlier at the front nets to no change
+    # against the ramp's endpoint, classified as stable.
+    # new window (obs-1..obs-8): outlier drops out of the front, leaving a
+    # clean, steady ramp - classified as rising with high stability.
     observations = [
-        _obs(0, 20.0),
+        _obs(0, 22.0),
         _obs(1, 10.0),
-        _obs(2, 11.0),
-        _obs(3, 12.0),
-        _obs(4, 13.0),
-        _obs(5, 14.0),
+        _obs(2, 12.0),
+        _obs(3, 14.0),
+        _obs(4, 16.0),
+        _obs(5, 18.0),
+        _obs(6, 20.0),
+        _obs(7, 22.0),
+        _obs(8, 24.0),
     ]
     uow = _FakeUow()
     repo = _FakeObservationRepository(observations)

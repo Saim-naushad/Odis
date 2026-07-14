@@ -163,10 +163,9 @@ def build_explainable_decision(
     )
     trend_analysis = analyze_trend(
         primary_observations,
-        observation_window=5,
         measurement_label=measurement_type,
     )
-    diagnostics = analyze_trend_diagnostics(primary_observations, observation_window=5)
+    diagnostics = analyze_trend_diagnostics(primary_observations)
     evidence = _build_legacy_evidence(
         trend_analysis=trend_analysis,
         primary_observations=primary_observations,

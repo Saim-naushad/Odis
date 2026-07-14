@@ -25,7 +25,9 @@ def _obs(*, idx: int, value: float) -> Observation:
 
 
 def test_analyze_trend_rising_is_detected() -> None:
-    analysis = analyze_trend([_obs(idx=i, value=10 + i) for i in range(5)])
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # before a directional classification is trusted at all.
+    analysis = analyze_trend([_obs(idx=i, value=10 + i) for i in range(8)])
     assert analysis.direction == "rising"
     assert analysis.rate_of_change > 0
     assert analysis.stability_score >= 60
@@ -33,7 +35,7 @@ def test_analyze_trend_rising_is_detected() -> None:
 
 
 def test_analyze_trend_falling_is_detected() -> None:
-    analysis = analyze_trend([_obs(idx=i, value=10 - i) for i in range(5)])
+    analysis = analyze_trend([_obs(idx=i, value=10 - i) for i in range(8)])
     assert analysis.direction == "falling"
     assert analysis.rate_of_change < 0
     assert analysis.stability_score >= 60
@@ -41,15 +43,25 @@ def test_analyze_trend_falling_is_detected() -> None:
 
 
 def test_analyze_trend_stable_is_detected() -> None:
-    analysis = analyze_trend([_obs(idx=i, value=42.0) for i in range(5)])
+    analysis = analyze_trend([_obs(idx=i, value=42.0) for i in range(8)])
     assert analysis.direction == "stable"
     assert abs(analysis.rate_of_change) < 1e-9
     assert analysis.volatility_score <= 5
     assert "stable" in analysis.summary
 
 
+def test_analyze_trend_short_window_is_classified_as_stable() -> None:
+    # Below _MIN_SAMPLES_FOR_DIRECTIONAL_TREND, a window can land entirely on
+    # a monotonic slice of real oscillating telemetry and misread as a trend
+    # - verified against real Plant Alpha data, where a 5-sample window
+    # misclassified direction on 5 of 23 sliding-window steps for a healthy,
+    # unfaulted asset.
+    analysis = analyze_trend([_obs(idx=i, value=10 + i) for i in range(5)])
+    assert analysis.direction == "stable"
+
+
 def test_analyze_trend_volatile_observations_score_high_volatility() -> None:
-    values = [10.0, 20.0, 5.0, 25.0, 8.0]
+    values = [10.0, 20.0, 5.0, 25.0, 8.0, 22.0, 6.0, 24.0]
     analysis = analyze_trend([_obs(idx=i, value=v) for i, v in enumerate(values)])
     assert analysis.volatility_score >= 45
     assert analysis.stability_score <= 70
@@ -64,8 +76,8 @@ def test_confidence_increases_when_trend_is_consistent() -> None:
         recommendation="Investigate",
         justification="test",
     )
-    stable_observations = [_obs(idx=i, value=10 + i) for i in range(5)]
-    volatile_values = [10.0, 20.0, 5.0, 25.0, 8.0]
+    stable_observations = [_obs(idx=i, value=10 + i) for i in range(8)]
+    volatile_values = [10.0, 20.0, 5.0, 25.0, 8.0, 22.0, 6.0, 24.0]
     volatile_observations = [
         _obs(idx=i, value=v) for i, v in enumerate(volatile_values)
     ]

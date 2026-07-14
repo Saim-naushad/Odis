@@ -100,24 +100,32 @@ alternative-hypotheses panel in the investigation rail.
 
 ---
 
-## Known risk — verify before recording
+## Resolved risk — healthy peers misreading WARNING/CRITICAL
 
-During a validation run of this script (2026-07-14), all four fleet assets
-reached `CRITICAL` health simultaneously during the `cooling_degradation`
-phase, not just the intended fault target (`fuel-cell-stack-01`). Traced to
-`backend/app/application/operational_state_engine.py`: `health_score` applies
-a flat `priority_penalty` (45 points for `"high"`) driven by
-`DecisionPlanner`'s output, and the planner is the documented placeholder
-(substring/casefold matching on assessment text — see `README.md`'s
-"Placeholder planning rules" limitation and `CLAUDE.md`). It isn't a new
-regression — the underlying limitation is already disclosed — but the
-demo-visible consequence (three "healthy peer" assets reading CRITICAL
-alongside the actual fault) undercuts the "only one stack faults" narrative
-this script is built around.
+Two related issues were found and fixed during v1.0 hardening, both outside
+the core reasoning pipeline and the `DecisionPlanner`; see
+[Demo Environment → Known limitations](../platform/demo-environment.md#known-limitations)
+for the full root-cause writeup:
 
-**Before recording:** do a dry run of the exact `cooling_degradation` window
-you intend to shoot and confirm `fuel-cell-stack-02/03/04` show
-`NORMAL`/`WARNING`, not `CRITICAL`, in the fleet strip. If they don't, this
-needs maintainer triage before the session is recorded — narrating around a
-fleet strip that shows every asset as critical will read as a bug on camera,
-even though the reasoning trace behind it is real and correctly evidenced.
+- All four fleet assets reaching `CRITICAL` simultaneously during
+  `cooling_degradation`, not just the intended fault target — a calibration
+  gap in `VariationDetector`/`TrendDetector` and an unbounded observation
+  window (fixed via `ReasoningSessionConfig.observation_window` and a
+  `TrendDetector` rewrite).
+- A smaller residual: individual healthy peers transiently flipping to
+  `WARNING`/`CRITICAL` (a stale `OPEN` notification, since notifications
+  don't auto-clear when health recovers) at session startup and periodically
+  through a session — a minimum-history floor missing from `TrendDetector`
+  and a separate, previously-uncalibrated legacy trend algorithm in the
+  backend platform layer (fixed via a shared minimum-sample floor and a
+  wider window).
+
+Verified on a fresh clean stack: all four assets read `NORMAL` (health score
+90) with no notification present, holding for the duration of a full
+`normal_operation` window before `cooling_degradation` starts.
+
+**Before recording:** still do a dry run of the exact window you intend to
+shoot — that's good practice regardless of fix status — and confirm the
+fleet strip matches the "only one stack faults" narrative this script is
+built around. If it doesn't, this needs maintainer triage before the session
+is recorded.

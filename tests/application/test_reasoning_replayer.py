@@ -25,8 +25,12 @@ from tests.builders import build_goal, build_observation_sequence
 
 
 def _build_persisted_session() -> tuple:
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
     goal = build_goal()
-    observations = build_observation_sequence([32.0, 36.5, 41.0, 45.5, 50.0])
+    observations = build_observation_sequence(
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5]
+    )
     reasoning_run_repository = InMemoryReasoningRunRepository()
     reasoning_run_index_repository = InMemoryReasoningRunIndexRepository()
     observation_repository = InMemoryObservationRepository()

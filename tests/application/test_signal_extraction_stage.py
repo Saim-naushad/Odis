@@ -6,7 +6,11 @@ from tests.builders import build_goal, build_observation_sequence
 
 
 def test_signal_extraction_stage_matches_inline_detector_behavior() -> None:
-    observations = build_observation_sequence([32.0, 36.5, 41.0, 45.5, 50.0])
+    # At least _MIN_SAMPLES_FOR_DIRECTIONAL_TREND observations are required
+    # for TrendDetector to classify this as "increasing" rather than STABLE.
+    observations = build_observation_sequence(
+        [32.0, 36.5, 41.0, 45.5, 50.0, 54.5, 59.0, 63.5]
+    )
     context = ReasoningContext(
         goal=build_goal(),
         observations=observations,
