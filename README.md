@@ -42,17 +42,33 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 
 **Plant Alpha simulator** (`backend/simulator/`) — A four-stack PEM fuel-cell digital twin built on first-order-lag physics rather than random number generation. Cooling faults and hydrogen-supply faults propagate through the appropriate subsystems, producing realistic correlated telemetry instead of independent noise. The simulator publishes over MQTT exactly like a real industrial environment. See [docs/simulator.md](docs/simulator.md).
 
+<br>
+
+<p align="center">
+
+  <img
+
+    src="docs/assets/dashboard-telemetry.png"
+
+    width="82%"
+
+    alt="Telemetry Visualization">
+
+</p>
+
+<br>
+
 **Event-driven backend** (`backend/app/`) — FastAPI and a background worker share one composition root. A transactional outbox guarantees domain events reach Kafka, while an in-process event bus drives cache invalidation and real-time dashboard updates without service polling.
 
 **Digital twin** (`DigitalTwinService`) — A read model that assembles current asset state from monitoring data and forecasts. Cached in Redis and invalidated through domain events, it never re-executes reasoning that has already been performed.
 
 **Investigation workflow** (`InvestigationService`) — Operator response to recommendations is stored as an append-only sequence of transitions (`ACKNOWLEDGED → INVESTIGATING → RESOLVED`) rather than a mutable status field, preserving a complete operational history. See [docs/platform/platform-architecture.md#operator-investigation-lifecycle](docs/platform/platform-architecture.md#operator-investigation-lifecycle).
 
-
+<br>
 <p align="center">
-  <img src="docs/assets/dashboard-investigation.png" width="90%" alt="Investigation Workflow">
+  <img src="docs/assets/dashboard-investigation.png" width="82%" alt="Investigation Workflow">
 </p>
-
+<br>
 
 ## Key capabilities
 
@@ -94,11 +110,6 @@ Nothing in the core reasoning pipeline relies on a trained model. Every recommen
 | [`infra/`](infra/) | Docker images, Prometheus, Grafana, and infrastructure provisioning |
 
 
-<p align="center">
-  <img src="docs/assets/dashboard-telemetry.png" width="90%" alt="Telemetry Visualization">
-</p>
-
-
 ## Quick start
 
 ODIS can be explored in two different ways depending on what you're interested in.
@@ -118,12 +129,13 @@ Open the dashboard at:
 ```
 http://localhost:8080
 ```
-
-
+<br>
 
 <p align="center">
-  <img src="docs/assets/dashboard-incident.png" width="90%" alt="Live Investigation">
+  <img src="docs/assets/dashboard-incident.png" width="82%" alt="Live Investigation">
 </p>
+
+<br>
 
 For the complete walkthrough, expected simulator timeline, and validation steps, see the [Demo Environment Guide](docs/platform/demo-environment.md).
 
