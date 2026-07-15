@@ -1,4 +1,4 @@
-# v1.0.0 Demo Script (3–5 minutes)
+# v1.0.0 Demo Script (~6:40)
 
 Companion to [Screenshot Checklist](screenshot-checklist.md). Both draw from
 the same `demo_presentation` recording session — see
@@ -6,17 +6,21 @@ the same `demo_presentation` recording session — see
 for exact startup and timing mechanics.
 
 **Before recording:** start from a clean database
-(`docker compose down -v && docker compose --profile demo up --build -d`)
-and let `normal_operation` run for at least a minute before hitting record —
-see the **Known risk** note at the end of this document. Watch
-`docker compose logs -f demo-plant` for phase-change lines and use them as
-cues instead of a stopwatch. `cooling_degradation` starts at **1:45** into
-the script, not 2:00 — see
-[Demo Environment → Verified timing](../platform/demo-environment.md#verified-timing-default-cadence)
-for the measured, log-verified phase boundaries this script's cue points are
-built around.
+(`docker compose down -v && docker compose --profile demo up --build -d`).
+`cooling_degradation` starts at **0:30** into the script, but the health
+badge stays a healthy-looking NORMAL for about another minute — watch
+`docker compose logs -f demo-plant` for phase-change lines to know when each
+*scenario* phase starts, but time your CRITICAL/recovered shots off the
+actual dashboard state, not those log lines. See
+[Demo Environment → Verified timing](../platform/demo-environment.md#verified-timing-presentation-cadence)
+for the full measured timeline this script's cue points are built around —
+notably, the CRITICAL alert doesn't appear until **~2:50-3:23**, and health
+doesn't settle back to a held NORMAL until **~6:12**.
 
-Target run time: **4 minutes**. Cut points are marked if you need to trim to 3.
+Target run time: **~6:40** (the full, automatically-resolving walkthrough).
+For a shorter cut, the ~02:50–03:30 CRITICAL window plus one
+investigation-lifecycle transition is the minimum viable segment — see cut
+points marked below.
 
 ---
 
@@ -43,7 +47,7 @@ Target run time: **4 minutes**. Cut points are marked if you need to trim to 3.
 > reads that through a digital twin read model and gets pushed live updates
 > over Server-Sent Events."
 
-*(Cut point if trimming to 3 minutes: compress to two sentences — MQTT → API
+*(Cut point for a shorter highlight: compress to two sentences — MQTT → API
 → worker → dashboard, deterministic pipeline, no ML.)*
 
 ## 3. Simulator (1:00–1:30)
@@ -52,8 +56,10 @@ Target run time: **4 minutes**. Cut points are marked if you need to trim to 3.
 
 > "Plant Alpha is four PEM fuel-cell stacks, modeled with first-order-lag
 > physics — not random noise. Right now they're all cycling through normal
-> load. In a moment, the simulator injects a real fault into stack one's
-> physics model: degrading cooling efficiency. That's not a scripted UI
+> load. The simulator already started degrading stack one's cooling
+> efficiency in the background — you won't see it on the dashboard yet,
+> because the reasoning engine needs a few consistent samples before it
+> trusts a real trend over normal variation. That's not a scripted UI
 > state — it's a change to the simulated plant that the reasoning engine
 > has to detect on its own."
 
@@ -67,10 +73,14 @@ Target run time: **4 minutes**. Cut points are marked if you need to trim to 3.
 > set; it's computed from the same evidence you can inspect in the
 > investigation panel."
 
-## 5. Investigation workflow (2:15–3:15)
+## 5. Investigation workflow (2:15–6:15)
 
-**On screen:** wait for (or already be at) the fault window; show the active
-alert banner, Recommended Action panel, and the investigation timeline.
+**On screen:** wait for the fault window (CRITICAL typically appears around
+~2:50–3:23); show the active alert banner, Recommended Action panel, and the
+investigation timeline. This is the longest section — health holds at
+CRITICAL then WARNING for several minutes before automatically settling
+back to NORMAL around ~6:12, which gives comfortable, unhurried time to
+narrate and demonstrate the operator workflow rather than rushing it.
 
 > "Once the fault crosses a threshold, a prioritized recommendation appears
 > — priority, category, and numbered operator steps. This is where the
@@ -79,12 +89,14 @@ alert banner, Recommended Action panel, and the investigation timeline.
 > overwritten — you can see who acted, when, and why."
 
 **Action:** select an operator, click **Acknowledge**, then **Start
-investigating**. Show the status badge and actor line updating live.
+investigating**, then **Resolve** once health has visibly settled. Show the
+status badge and actor line updating live at each step.
 
-*(Cut point if trimming to 3 minutes: do only "Acknowledge," skip
-"Start investigating.")*
+*(Cut point for a shorter highlight: capture only the ~2:50–3:30 CRITICAL
+window plus "Acknowledge" and cut there — see [Demo Environment → minimum
+viable segment](../platform/demo-environment.md#reproducible-screenshots--demo-video).)*
 
-## 6. Reasoning (3:15–3:50)
+## 6. Reasoning (6:15–6:35)
 
 **On screen:** click a timeline event, show Event Context and the evidence/
 alternative-hypotheses panel in the investigation rail.
@@ -94,7 +106,7 @@ alternative-hypotheses panel in the investigation rail.
 > considered and rejected — like sensor drift instead of a real fault. This
 > is the explainability guarantee: nothing here is a black-box score."
 
-## 7. Closing (3:50–4:00)
+## 7. Closing (6:35–6:40)
 
 **On screen:** back to the fleet overview.
 

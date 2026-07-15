@@ -84,18 +84,22 @@ Realistic ingest: **0.77 jobs/s** (4 assets × 5 core / 30 s + 4 × 3 derived / 
 
 ### Default cadence (presentation — enabled)
 
+`demo_presentation` owns its cadence directly in `backend/simulator/scenario_script.py` (`cadence_for_script`) rather than through Compose environment defaults — the script picks a fast cadence whenever an operator hasn't explicitly overridden one of the three cadence env vars away from the platform default:
+
 | Setting | Value |
 |---------|-------|
 | `SIMULATOR_SCENARIO_SCRIPT` | `demo_presentation` |
-| `SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS` | 15 |
-| `SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS` | 60 |
-| `SIMULATOR_SIM_DT_SECONDS` | 45 |
+| `SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS` | 10 |
+| `SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS` | 30 |
+| `SIMULATOR_SIM_DT_SECONDS` | 90 |
 
-A 12–15 minute presentation accumulates ~240–300 core observations per asset (under the 500-history drain threshold), so the queue remains bounded.
+This is a 9x sim:real ratio (vs. the platform default's 3x) — needed because health-status classification requires ≥8 core samples of a consistent trend (`trend_detector.py` / `time_series_analysis.py`), and a higher ratio compresses enough of the simulator's own load cycle into each phase to keep that classification from competing with the temperature fault signal (see the comment above `_PRESENTATION_CADENCE` for the full rationale, empirically validated against clean-database runs).
+
+A ~6:40 presentation accumulates well under 250 core observations per asset (comfortably under the 500-history drain threshold), so the queue remains bounded — confirmed via `reasoning_jobs_pending` staying at 0 throughout validation runs.
 
 ### Realistic mode (disabled)
 
-`demo_realistic` is implemented but **not enabled** in Compose. At 1,500+ observations per asset, presentation ingest outpaces worker drain; a 2–4 hour run would grow the queue without bound.
+`demo_realistic` is implemented but **not enabled** in Compose, and is unaffected by the presentation cadence above — `cadence_for_script` returns `None` for it, so it runs at whatever `SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS` etc. the operator configures (see [Startup](#startup) for the override command). At 1,500+ observations per asset, presentation-speed ingest outpaces worker drain; a 2–4 hour run would grow the queue without bound.
 
 **Future work (separate PR):** bounded reasoning windows or incremental reasoning — not in PR141.
 
@@ -103,7 +107,7 @@ A 12–15 minute presentation accumulates ~240–300 core observations per asset
 
 | Mode | Max pending jobs | Max oldest-pending age |
 |------|------------------|------------------------|
-| Presentation (~15 min) | 25 | 120 s |
+| Presentation (~6:40) | 25 | 120 s |
 | Realistic (2–4 h) | 50 | 300 s |
 
 `demo_realistic` is enabled only when the Postgres benchmark shows non-positive queue growth at realistic ingest for histories up to 3,000 observations per asset. See benchmark results in this repository's validation output.
@@ -119,7 +123,7 @@ A 12–15 minute presentation accumulates ~240–300 core observations per asset
 | `hydrogen_supply_issue` | Fuel supply factor ramp-down on stack-01 |
 | `sensor_anomaly` | Temperature sensor bias only |
 | `recovery` | Restore cooling, fuel, and sensor bias |
-| `demo_presentation` | ~12 min scripted walkthrough (default) |
+| `demo_presentation` | ~6:40 scripted walkthrough: baseline → cooling degradation → warning/critical → recovery (default) |
 | `demo_realistic` | Long-running script (implemented, **not enabled** — see throughput limits) |
 
 Trend and health changes require **multiple core publish cycles** on `stack_temperature` — not a single multi-metric burst.
@@ -136,6 +140,19 @@ docker compose --profile demo up --build -d
 open http://localhost:8080
 ```
 
+### Long-form realistic validation
+
+`demo_realistic` is unaffected by `demo_presentation`'s fast cadence — it
+runs at whatever cadence you set explicitly:
+
+```bash
+SIMULATOR_SCENARIO_SCRIPT=demo_realistic \
+SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=15 \
+SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS=60 \
+SIMULATOR_SIM_DT_SECONDS=45 \
+  docker compose --profile demo up --build -d
+```
+
 ### Local HTTP fallback (development only — not E2E acceptance)
 
 ```bash
@@ -150,18 +167,24 @@ SIMULATOR_TRANSPORT=http python -m backend.simulator --scenario normal_operation
 2. Use **Last hour** and **Raw** telemetry until ≥1 hour of data exists
 3. Fleet strip populates as observations arrive (~15s per asset)
 4. Health scores appear after ≥2 `stack_temperature` samples (~30s)
-5. Run `demo_presentation` to observe cooling → recovery → hydrogen supply phases on stack-01
+5. Run `demo_presentation` to observe the full baseline → cooling degradation → warning/critical → recovery arc on stack-01 (~6:40)
 
 ---
 
 ## Reproducible screenshots & demo video
 
-`demo_presentation` is already deterministic and safe to re-record from: the
+`demo_presentation` is deterministic and safe to re-record from: the
 simulator advances plant physics with a first-order-lag model (no RNG), and
 `PRESENTATION_PHASES` (`backend/simulator/scenario_script.py`) is a fixed,
 ordered phase list. Re-running from a clean database reproduces the same
 narrative beats in the same order every time — no new "demo mode" subsystem
 is needed, only a repeatable procedure.
+
+As of this PR, `demo_presentation` also owns a bespoke, fast cadence (see
+[Throughput and cadence](#throughput-and-cadence)) so the whole walkthrough —
+healthy baseline, cooling degradation, warning, critical, and a fully-settled
+recovery — takes **~6:40** instead of the previous ~17:45, without touching
+detectors, thresholds, health scoring, or the planner.
 
 ### Recording procedure
 
@@ -171,58 +194,51 @@ docker compose --profile demo up --build -d
 docker compose logs -f demo-plant   # watch for phase-change lines as your recording cue
 ```
 
-The simulator now logs a line on every scripted phase transition:
+The simulator logs a line on every scripted phase transition:
 
 ```
 [demo:demo_presentation] phase changed -> cooling_degradation (target=fuel-cell-stack-01)
 ```
 
-Use these lines as the on-screen cue for when to capture each beat, instead
-of estimating from wall-clock time.
+Use these lines as the on-screen cue for when each *scenario* phase starts —
+but note the health-status badge (NORMAL/WARNING/CRITICAL) lags a phase
+boundary by tens of seconds (see the table below); don't assume the badge
+flips the instant a phase-change line appears.
 
-### Verified timing (default cadence)
+### Verified timing (presentation cadence)
 
-Phase durations are defined in *simulated* seconds; at the default cadence
-(`SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=15`, `SIMULATOR_SIM_DT_SECONDS=45`)
-each tick advances sim-time 3x faster than real time
-(`sim_dt_seconds / core_interval`). Naively that predicts a real-world
-timeline of 00:00 / 02:00 / 08:00 / 12:00 / 16:00 / 18:00 for the phase
-boundaries below — but the simulator's first tick fires immediately at
-process start rather than after waiting one publish interval, so the whole
-schedule lands **15 seconds earlier** than that formula predicts. Confirmed
-against `[demo:demo_presentation] phase changed -> ...` log timestamps across
-two independent clean-database runs (`docker compose logs -t demo-plant`):
-both landed the first transition at 1:45.0–1:45.3 and held every later
-boundary within 0.2s of the corrected table below — not measurement noise.
-Each phase's own *duration* (6:00 / 4:00 / 4:00 / 2:00) already matched the
-formula exactly; only the whole-script start offset was off by one tick.
+`PRESENTATION_PHASES` durations are defined in *simulated* seconds; at the
+presentation cadence (`SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=10`,
+`SIMULATOR_SIM_DT_SECONDS=90`, a 9x sim:real ratio) they map to the real-time
+schedule below. Unlike phase-boundary timing, health-status transitions are
+**not** purely a function of elapsed sim-time — they depend on the platform's
+reasoning/trend-window and notification state (outside the simulator), so
+the table reports what was consistently observed across three independent
+clean-database runs (`docker compose down -v` between each), not just a
+formula prediction:
 
-This is also the recommended recording and narration order — each phase
-builds on the last (baseline, fault, response, recovery, second fault type),
-so cutting or reordering loses that narrative:
-
-| Real time (mm:ss) | Phase | What to capture | Talking point |
+| Real time (mm:ss) | Event | What to capture | Talking point |
 |---|---|---|---|
-| 00:00 | `normal_operation` starts | Fleet strip, all four assets healthy — good for an optional "baseline" shot | All four Plant Alpha stacks healthy; telemetry is live over MQTT, not mocked |
-| 01:45 | `cooling_degradation` starts on stack-01 | Health score beginning to drop | A fault is injected in the simulator's physics model — not a scripted UI state |
-| ~03:45–07:45 | mid cooling degradation | Recommendation/notification appear once thresholds are crossed — this is the primary hero shot (fleet overview + investigation timeline) | The recommendation and priority come from the deterministic reasoning pipeline (evidence → signal → assessment → decision), traceable in the investigation timeline — not a black-box ML call |
-| 07:45 | `recovery` starts | Health trending back up | Reasoning re-assesses on new evidence automatically; no manual reset |
-| 11:45 | `hydrogen_supply_issue` starts on stack-01 | Second fault type, alternate recommendation category | Same detectors and planner produce a different, correctly-categorized recommendation for an unrelated fault mode |
-| 15:45 | `recovery` starts | Final recovery | Second recovery closes the loop — good moment to show the investigation lifecycle (acknowledge → investigating → resolved) if not shown earlier |
-| 17:45 | script holds in `recovery`/`normal_operation`; no further phase-change line observed within an hour of continued running | — | — |
+| 00:00 | `normal_operation` starts | Fleet strip, all four assets NORMAL (score 90) | All four Plant Alpha stacks healthy; telemetry is live over MQTT, not mocked |
+| 00:30 | `cooling_degradation` starts on stack-01 | Health score dips slightly (NORMAL, score 80) — the fault is ramping but not yet classified as a threshold breach | A fault is injected in the simulator's physics model — not a scripted UI state |
+| 02:30 | `recovery` starts (cooling ramp has reached its worst point) | — | The fault's physical peak lags the phase boundary by design (first-order-lag physics) — the alert appears a little after this line, not before |
+| ~02:50–03:23 | stack-01 reaches CRITICAL (score 35) | Primary hero shot: fleet overview + Recommended Action panel + investigation timeline, all populated | The recommendation and priority come from the deterministic reasoning pipeline (evidence → signal → assessment → decision), traceable in the investigation timeline — not a black-box ML call |
+| ~03:30–06:12 | WARNING (score 45), then settles | Health score visibly recovering; good moment to click Acknowledge → Start investigating → Resolve to show the operator lifecycle closing the loop | Reasoning re-assesses on new evidence automatically; the operator lifecycle is a separate, append-only record of who acted, when |
+| ~06:12 onward | stack-01 back to a held NORMAL (score 80) | Final recovery shot | Reasoning settled back to a healthy read automatically, without a manual reset |
+| 06:40 | script holds (no further phase) | — | — |
 
-Total script length to the final recovery: **~17:45** real time. Use the
-`phase changed` log lines as your recording cue regardless — they are exact;
-this table is for planning the session, not for cutting against a stopwatch.
-If any of the cadence env vars above are overridden, recompute using the same
-ratio and re-verify against a fresh run's log timestamps rather than
-hand-tuning the formula, since the fixed one-tick head start doesn't scale
-linearly with the cadence values.
+Total script length to a fully-settled recovery: **~6:40** real time. Use the
+`phase changed` log lines to know when each scenario phase starts, but time
+the CRITICAL/WARNING/recovered screenshots off the actual dashboard state
+(or the digital-twin API), not the log lines — the two are offset by design.
+If the cadence env vars above are overridden, or `PRESENTATION_PHASES`
+durations change, re-verify against a fresh run rather than recomputing by
+formula, since the health-status settling time is not purely ratio-based.
 
-For a video under ~5 minutes, the ~03:45–07:45 cooling-degradation window plus
-one investigation-lifecycle transition is the minimum viable cut: it shows
+For a shorter cut, the ~02:50–03:30 CRITICAL window plus one
+investigation-lifecycle transition is the minimum viable segment: it shows
 live ingestion, a real fault, an explainable recommendation, and an operator
-response in one continuous segment.
+response in under a minute of footage, even though the full run is ~6:40.
 
 Reshoot `docs/assets/dashboard-*.png` from a clean run whenever the layout
 changes materially; the phase-change log lines make repeat takes consistent
@@ -254,11 +270,16 @@ Required checks (fail on error):
 
 Recorded on success: response status, latency, health status/score, recommendation category/priority, notification presence, timeline preview length.
 
-Presentation walkthrough (12–15 minutes, reports timings and queue depth):
+Presentation walkthrough (up to ~7:30, reports timings and queue depth):
 
 ```bash
 ./scripts/validate_demo_environment.sh --walkthrough
 ```
+
+The walkthrough's fault-check start, recovery marker, and overall deadline
+are tuned to `demo_presentation`'s ~6:40 schedule and are overridable via
+`DEMO_FAULT_CHECK_START_SECONDS`, `DEMO_RECOVERY_MARKER_SECONDS`, and
+`DEMO_WALKTHROUGH_DEADLINE_SECONDS` if `PRESENTATION_PHASES` changes.
 
 ### Characterized scenario outcomes (deterministic)
 
@@ -280,6 +301,7 @@ ODIS_DEMO_SMOKE=1 pytest tests/integration/test_demo_mqtt_smoke.py
 
 ## Known limitations
 
+- **Recovery settling time is not just the physical ramp:** `demo_presentation`'s `recovery` phase runs ~250s (not the ~100s its physical ramp alone needs) because returning to a *held, stable* NORMAL reading depends on the platform's trend window and append-only notifications aging out the stale fault classification — this took a consistent ~205-220s of real time within `recovery` across repeated clean runs, independent of the ramp's own length. This is existing platform behavior (not introduced by this PR); `PRESENTATION_PHASES` is sized around it rather than working around it.
 - **Fresh stack for acceptance:** Run acceptance validation on a clean database for deterministic results (`docker compose down -v` before `up` and `./scripts/validate_demo_environment.sh`). Reusing a long-lived volume can leave benchmark assets, large observation history, or elevated digital twin latency that does not reflect a first-run demo.
 - **Digital twin latency grows with session length:** Long-running demo sessions (roughly 15–20 minutes or more) may increase digital twin response time because the current reasoning pipeline reloads growing per-asset observation history on each run.
 - **Expected, not a correctness bug:** That latency behavior is a known scalability characteristic of the present pipeline, tracked for a future performance PR (e.g. bounded reasoning windows). It does not indicate incorrect ingestion, scenario logic, or dashboard behavior.

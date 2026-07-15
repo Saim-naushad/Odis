@@ -16,6 +16,11 @@ SITE_ID="${SIMULATOR_SITE_ID:-plant-alpha}"
 TARGET_ASSET="${DEMO_TARGET_ASSET:-fuel-cell-stack-01}"
 MAX_PENDING="${DEMO_MAX_PENDING_JOBS:-25}"
 TWIN_TIMEOUT_SECONDS="${DEMO_TWIN_TIMEOUT_SECONDS:-30}"
+# `demo_presentation` targets ~6:40 total (baseline ~30s, cooling_degradation
+# ~30s-2:30, recovery ~2:30-6:40) — see backend/simulator/scenario_script.py.
+FAULT_CHECK_START_SECONDS="${DEMO_FAULT_CHECK_START_SECONDS:-130}"
+RECOVERY_MARKER_SECONDS="${DEMO_RECOVERY_MARKER_SECONDS:-370}"
+WALKTHROUGH_DEADLINE_SECONDS="${DEMO_WALKTHROUGH_DEADLINE_SECONDS:-450}"
 WALKTHROUGH=0
 FAILED=0
 
@@ -321,7 +326,7 @@ fi
 
 if [[ "${WALKTHROUGH}" -eq 1 ]]; then
   echo
-  echo "--- walkthrough monitor (presentation mode, up to 15 minutes) ---"
+  echo "--- walkthrough monitor (presentation mode, up to ${WALKTHROUGH_DEADLINE_SECONDS}s) ---"
   walkthrough_start="$(date +%s)"
   assets_ready=0
   twin_ready=0
@@ -337,7 +342,7 @@ if [[ "${WALKTHROUGH}" -eq 1 ]]; then
   queue_growth_fail=0
   prev_pending=""
 
-  deadline=$((walkthrough_start + 900))
+  deadline=$((walkthrough_start + WALKTHROUGH_DEADLINE_SECONDS))
   while [[ "$(date +%s)" -lt "${deadline}" ]]; do
     now="$(date +%s)"
     elapsed=$((now - walkthrough_start))
@@ -413,7 +418,7 @@ if [[ "${WALKTHROUGH}" -eq 1 ]]; then
       prev_pending="${pending_now}"
     fi
 
-    if [[ "${fault_ready}" -eq 0 && "${elapsed}" -ge 180 ]]; then
+    if [[ "${fault_ready}" -eq 0 && "${elapsed}" -ge ${FAULT_CHECK_START_SECONDS} ]]; then
       telemetry_json="$(
         curl -fsS --max-time 30 \
           "${API_BASE_URL}/monitoring/assets/${TARGET_ASSET}/telemetry?measurement_type=stack_temperature&limit=5" 2>/dev/null || true
@@ -462,7 +467,7 @@ if [[ "${WALKTHROUGH}" -eq 1 ]]; then
       fi
     fi
 
-    if [[ "${recovery_ready}" -eq 0 && "${elapsed}" -ge 540 ]]; then
+    if [[ "${recovery_ready}" -eq 0 && "${elapsed}" -ge ${RECOVERY_MARKER_SECONDS} ]]; then
       recovery_ready="${now}"
       echo "event=recovery_window_reached elapsed=${elapsed}s"
     fi

@@ -113,6 +113,12 @@ Settings use the `SIMULATOR_` prefix:
 | `SIMULATOR_SIM_DT_SECONDS` | `45` | Simulation timestep per tick |
 | `SIMULATOR_RUN_ID` | auto | Optional fixed run id for tests |
 
+The three cadence settings above are the platform defaults. `demo_presentation`
+overrides them with its own faster cadence (`cadence_for_script` in
+`backend/simulator/scenario_script.py`) unless you explicitly set one of them
+yourself, in which case your value wins — see
+[Demo Environment → Throughput and cadence](platform/demo-environment.md#throughput-and-cadence).
+
 ---
 
 ## Running

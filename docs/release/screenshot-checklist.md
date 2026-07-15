@@ -33,12 +33,12 @@ recording session, so the whole set is internally consistent.
 
 | # | Filename | Purpose | Simulator phase | What should be visible |
 |---|----------|---------|------------------|-------------------------|
-| 1 | `dashboard-overview.png` | Hero shot for README and release notes — proves the platform is live and healthy | `normal_operation` (00:00, before `cooling_degradation` starts) | Header shows "Platform healthy" and "LIVE"; all four fleet chips with resolved names and NORMAL status; no active alert banner |
-| 2 | `dashboard-cooling-alert.png` | Shows a real fault surfacing as an explainable, prioritized recommendation | `cooling_degradation`, mid-fault (~03:45–07:45 into the script) | Fleet chip for stack-01 in WARNING/CRITICAL with declining health score; active alert banner; Recommended Action panel with priority/urgency/category badges and numbered steps |
-| 3 | `dashboard-investigation-lifecycle.png` | Documents the operator investigation workflow — the newest capability, not shown in any current asset | Same fault window as #2, after clicking "Acknowledge" or "Start investigating" | Recommended Action panel with an investigation-status badge (e.g. ACKNOWLEDGED), the "Acting as [operator]" control, the transition timestamp/actor line, and the next available action button (e.g. "Resolve") |
-| 4 | `dashboard-telemetry.png` | Shows telemetry correlated with reasoning, not just a status summary | `cooling_degradation`, same window as #2 | Telemetry panel with `stack_temperature` or `coolant_flow` trending adversely, time range/resolution controls visible, investigation timeline panel visible alongside it |
+| 1 | `dashboard-overview.png` | Hero shot for README and release notes — proves the platform is live and healthy | `normal_operation` (00:00–00:30, before `cooling_degradation` starts) | Header shows "Platform healthy" and "LIVE"; all four fleet chips with resolved names and NORMAL status; no active alert banner |
+| 2 | `dashboard-cooling-alert.png` | Shows a real fault surfacing as an explainable, prioritized recommendation | CRITICAL window, **~02:50–03:23** into the script | Fleet chip for stack-01 in CRITICAL with a low health score; active alert banner; Recommended Action panel with priority/urgency/category badges and numbered steps |
+| 3 | `dashboard-investigation-lifecycle.png` | Documents the operator investigation workflow — the newest capability, not shown in any current asset | Same window as #2 (CRITICAL persists into WARNING through ~06:12, so there's no rush), after clicking "Acknowledge" or "Start investigating" | Recommended Action panel with an investigation-status badge (e.g. ACKNOWLEDGED), the "Acting as [operator]" control, the transition timestamp/actor line, and the next available action button (e.g. "Resolve") |
+| 4 | `dashboard-telemetry.png` | Shows telemetry correlated with reasoning, not just a status summary | Same window as #2 (**~02:50–06:12**) | Telemetry panel with `stack_temperature` or `coolant_flow` trending adversely, time range/resolution controls visible, investigation timeline panel visible alongside it |
 | 5 | `dashboard-investigation-timeline.png` | Shows the reasoning trace is real evidence, not a canned message | Same window as #2–4, with a timeline event selected | Investigation timeline with multiple reasoning-run and notification events; Event Context panel populated after selecting an event (not the empty "Select a timeline event…" placeholder) |
-| 6 | `dashboard-recovery.png` | Closes the narrative loop — shows reasoning re-assessing automatically, not a manual reset | `recovery`, shortly after it starts (~08:00–09:00) | Health score trending back up on stack-01; alert banner cleared or notification marked resolved; investigation status shows RESOLVED if step #3 was carried through |
+| 6 | `dashboard-recovery.png` | Closes the narrative loop — shows reasoning re-assessing automatically, not a manual reset | `recovery`, once health has settled back to a held NORMAL, **~06:12–06:40** | Health score trending back up on stack-01, holding at NORMAL; alert banner cleared or notification marked resolved; investigation status shows RESOLVED if step #3 was carried through |
 
 Six shots is the target set. If time is limited, 1–4 are the minimum viable
 set — they cover baseline, fault, the new investigation-lifecycle feature,
@@ -47,8 +47,11 @@ demo script.
 
 ## Capture notes
 
-- Use the phase-change log lines from `docker compose logs -f demo-plant` as
-  the cue for each phase — don't estimate from wall-clock time.
+- Use the phase-change log lines from `docker compose logs -f demo-plant` to
+  know when each *scenario* phase starts, but time the CRITICAL/recovered
+  shots off the actual dashboard state (or the digital-twin API) — the
+  health badge lags a phase-change line by tens of seconds, per
+  [Demo Environment → Verified timing](../platform/demo-environment.md#verified-timing-presentation-cadence).
 - Keep browser window width consistent across all shots (the current set
   appears to be a standard 2880px-wide capture, downscaled to 1024px for
   README embedding).

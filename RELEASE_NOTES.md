@@ -92,8 +92,9 @@ system.
   under fault scenarios.
 - Scripted, reproducible scenarios (cooling degradation, hydrogen supply
   issue, sensor anomaly, recovery) plus a `demo_presentation` script that
-  drives a ~12-minute narrated walkthrough with logged phase transitions as
-  recording cues.
+  drives a ~6:40 narrated walkthrough (baseline → cooling degradation →
+  warning/critical → recovery) with logged phase transitions as recording
+  cues, and a long-form `demo_realistic` script for extended validation.
 - Publishes over MQTT in the production path, or directly over HTTP for local
   development without the full Compose stack.
 - Treated strictly as an external boundary: the simulator never writes to

@@ -11,10 +11,46 @@ from backend.simulator.plant import PlantAlphaFleet
 from backend.simulator.publishers.http_publisher import HttpObservationPublisher
 from backend.simulator.publishers.mqtt_publisher import MqttObservationPublisher
 from backend.simulator.scenario_registry import build_scenario
+from backend.simulator.scenario_script import cadence_for_script
 from backend.simulator.telemetry import (
     core_observations_from_machine,
     derived_observations_from_state,
 )
+
+_DEFAULT_CORE_INTERVAL = SimulatorSettings.model_fields[
+    "core_publish_interval_seconds"
+].default
+_DEFAULT_DERIVED_INTERVAL = SimulatorSettings.model_fields[
+    "derived_publish_interval_seconds"
+].default
+_DEFAULT_SIM_DT = SimulatorSettings.model_fields["sim_dt_seconds"].default
+
+
+def _apply_script_cadence(
+    settings: SimulatorSettings,
+    scenario_name: str,
+) -> SimulatorSettings:
+    """Let a scripted scenario set its own cadence unless the operator
+    explicitly overrode one of the cadence settings away from the platform
+    default, in which case that explicit choice wins.
+    """
+    cadence = cadence_for_script(scenario_name)
+    if cadence is None:
+        return settings
+
+    updates: dict[str, float] = {}
+    if settings.core_publish_interval_seconds == _DEFAULT_CORE_INTERVAL:
+        updates["core_publish_interval_seconds"] = (
+            cadence.core_publish_interval_seconds
+        )
+    if settings.derived_publish_interval_seconds == _DEFAULT_DERIVED_INTERVAL:
+        updates["derived_publish_interval_seconds"] = (
+            cadence.derived_publish_interval_seconds
+        )
+    if settings.sim_dt_seconds == _DEFAULT_SIM_DT:
+        updates["sim_dt_seconds"] = cadence.sim_dt_seconds
+
+    return settings.model_copy(update=updates) if updates else settings
 
 
 def _build_publisher(
@@ -75,6 +111,7 @@ def main() -> None:
         settings = settings.model_copy(update={"transport": args.transport})
 
     scenario_name = settings.scenario_script or settings.scenario
+    settings = _apply_script_cadence(settings, scenario_name)
     scenario = build_scenario(scenario_name)
     run_id = settings.resolved_run_id()
     fleet = PlantAlphaFleet.create(
