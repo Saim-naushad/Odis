@@ -56,7 +56,7 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 
 <br>
 <p align="center">
-  <img src="docs/assets/dashboard-investigation.png" width="82%" alt="Investigation Workflow">
+  <img src="docs/assets/dashboard-investigation.png" width="40%" alt="Investigation Workflow">
 </p>
 <br>
 
