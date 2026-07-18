@@ -1,4 +1,4 @@
-"""Deterministic, offline dataset-generation kernel for Plant Alpha (PR161-163).
+"""Deterministic, offline dataset-generation kernel for Plant Alpha (PR161-164).
 
 This package executes single labeled simulation runs without a live MQTT/HTTP
 transport, a wall clock, or the platform's real-time scheduler
@@ -7,10 +7,18 @@ fleet, scenarios, and telemetry mapping unchanged — see `docs/simulator.md`
 for the machine model these build on.
 
 Scope so far: a deterministic run kernel (PR161), a hydrogen-starvation
-voltage correction in the shared physics (PR162), and seeded, bounded
-operating-condition variation — load profile, initial state, sensor noise
-(PR163). No Parquet/pandas export, no dataset splitting, and no ML code
-live here yet.
+voltage correction in the shared physics (PR162), seeded, bounded
+operating-condition variation (PR163), and versioned Parquet dataset
+generation (PR164, `dataset_spec.py`/`run_plan.py`/`export.py`/
+`splits.py`/`manifest.py`/`generate.py`). No ML code lives here yet.
+
+This module deliberately re-exports only the PR161-163 surface, which has
+no third-party dependency beyond the standard library. PR164's Parquet
+generation modules require the optional `pyarrow` dependency
+(`pip install -e ".[dataset]"`) and are intentionally **not** re-exported
+here — import them directly (e.g. `from backend.simulator.dataset.generate
+import generate_dataset`) so that importing anything else in this package,
+or the live simulator, never requires `pyarrow` to be installed.
 """
 
 from __future__ import annotations

@@ -158,3 +158,4 @@ By modeling internal state first and deriving telemetry second, the simulator pr
 
 - [Fuel cell operational profile](profiles/fuel_cell_profile.md)
 - [Platform architecture](platform/platform-architecture.md)
+- [Simulator dataset generation](simulator-dataset-generation.md) — versioned offline Parquet datasets for ML (PR161-164)

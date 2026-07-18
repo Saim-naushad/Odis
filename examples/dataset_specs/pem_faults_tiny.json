@@ -1,0 +1,53 @@
+{
+  "dataset_id": "pem-faults-tiny",
+  "schema_version": "1.0",
+  "simulator_version": "1.0.0",
+  "scenario_plans": [
+    { "scenario_name": "normal_operation", "run_count": 2 },
+    {
+      "scenario_name": "cooling_degradation",
+      "run_count": 2,
+      "fault_start_sim_seconds": 120.0,
+      "fault_duration_sim_seconds": 300.0,
+      "fault_severity": 1.0
+    },
+    {
+      "scenario_name": "hydrogen_supply_issue",
+      "run_count": 2,
+      "fault_start_sim_seconds": 120.0,
+      "fault_duration_sim_seconds": 300.0,
+      "fault_severity": 1.0
+    },
+    {
+      "scenario_name": "sensor_anomaly",
+      "run_count": 2,
+      "fault_start_sim_seconds": 120.0,
+      "fault_duration_sim_seconds": 300.0,
+      "fault_severity": 1.0
+    }
+  ],
+  "seeds": [101, 102, 201, 202, 301, 302, 401, 402],
+  "target_asset_ids": [
+    "fuel-cell-stack-01",
+    "fuel-cell-stack-02",
+    "fuel-cell-stack-03",
+    "fuel-cell-stack-04"
+  ],
+  "duration_sim_seconds": 600.0,
+  "dt_seconds": 30.0,
+  "run_start_time": "2026-01-01T00:00:00+00:00",
+  "operating_condition_ranges": {
+    "load_baseline_percent": [50.0, 70.0],
+    "load_amplitude_percent": [5.0, 18.0],
+    "load_period_seconds": [180.0, 420.0],
+    "load_phase_radians": [0.0, 6.283185307179586],
+    "initial_load_offset_percent": [-5.0, 5.0],
+    "initial_stack_temperature_offset_celsius": [-3.0, 3.0]
+  },
+  "sensor_noise": [
+    { "measurement_name": "voltage", "standard_deviation": 0.005, "clip_std_multiple": 3.0 },
+    { "measurement_name": "current", "standard_deviation": 1.0, "clip_std_multiple": 3.0 }
+  ],
+  "split_proportions": { "train": 0.6, "validation": 0.2, "test": 0.2 },
+  "output_directory": "datasets/pem-faults-tiny"
+}

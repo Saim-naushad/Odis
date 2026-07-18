@@ -15,3 +15,6 @@ dist/
 *.egg-info/
 
 .env
+
+# Generated offline ML datasets (backend/simulator/dataset generate.py output)
+/datasets/

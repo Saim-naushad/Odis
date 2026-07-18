@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
+from typing import Any
 
 # Must match the measurement names `telemetry._CORE_MEASUREMENT_SPECS`
 # produces — sensor noise only makes sense on raw/core channels, not
@@ -66,6 +67,27 @@ class SensorNoiseConfig:
             raise ValueError("standard_deviation must be non-negative")
         if self.clip_std_multiple is not None and self.clip_std_multiple <= 0.0:
             raise ValueError("clip_std_multiple must be positive when set")
+
+    def to_json_dict(self) -> dict[str, object]:
+        """Canonical serialization — reused by `dataset_spec` (spec-level
+        passthrough config) and `export` (the `runs.parquet`
+        `sensor_noise_json` column) so there is exactly one place that
+        defines this shape.
+        """
+        return {
+            "measurement_name": self.measurement_name,
+            "standard_deviation": self.standard_deviation,
+            "clip_std_multiple": self.clip_std_multiple,
+        }
+
+    @classmethod
+    def from_json_dict(cls, data: dict[str, Any]) -> SensorNoiseConfig:
+        clip = data.get("clip_std_multiple")
+        return cls(
+            measurement_name=str(data["measurement_name"]),
+            standard_deviation=float(data["standard_deviation"]),
+            clip_std_multiple=None if clip is None else float(clip),
+        )
 
 
 @dataclass(frozen=True)
