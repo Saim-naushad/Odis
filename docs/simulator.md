@@ -54,7 +54,7 @@ Each `tick(dt_seconds)` applies first-order lag toward subsystem targets:
 
 - **Load** gradually approaches `target_load`
 - **Current** follows load
-- **Voltage** decreases as current rises (polarization)
+- **Voltage** decreases as current rises (polarization), and separately drops under sustained hydrogen starvation (`fuel_supply_factor` below a healthy threshold) via a bounded, monotonic penalty — a lumped correction, not a full electrochemical model. Without it, starvation's own current-limiting could otherwise make voltage *rise* along the polarization relationship alone, which is not a physically defensible fault signature; see `FuelCellMachine._fuel_starvation_voltage_penalty` in `backend/simulator/machine.py`.
 - **Hydrogen flow** follows load
 - **Air flow** tracks hydrogen flow with a stoichiometric ratio
 - **Stack temperature** rises with load, moderated by cooling efficiency

@@ -44,6 +44,17 @@ class FuelCellMachine:
     _MAX_CURRENT_AMPS = 200.0
     _OPEN_CIRCUIT_VOLTAGE = 0.78
     _VOLTAGE_LOAD_COEFFICIENT = 0.06
+    # Below this fuel_supply_factor, current limiting and the starvation
+    # voltage penalty both activate — one shared threshold so "healthy"
+    # means the same thing for both effects.
+    _FUEL_STARVATION_THRESHOLD = 0.98
+    # Matches `set_fuel_supply_factor`'s clamp floor: the most severe
+    # starvation the machine allows.
+    _MIN_FUEL_SUPPLY_FACTOR = 0.4
+    # Sized equal to `_VOLTAGE_LOAD_COEFFICIENT` — see
+    # `_fuel_starvation_voltage_penalty` for why that bound guarantees
+    # starvation can never net a voltage increase.
+    _MAX_STARVATION_VOLTAGE_PENALTY = _VOLTAGE_LOAD_COEFFICIENT
     _BASE_FUEL_FLOW_SLPM = 1.5
     _FUEL_FLOW_LOAD_COEFFICIENT = 1.0
     _AIR_STOICHIOMETRY_RATIO = 4.0
@@ -109,7 +120,9 @@ class FuelCellMachine:
 
     def set_fuel_supply_factor(self, fuel_supply_factor: float) -> None:
         """Scale hydrogen delivery relative to commanded demand (0.4-1.0)."""
-        self._target_fuel_supply_factor = _clamp(fuel_supply_factor, 0.4, 1.0)
+        self._target_fuel_supply_factor = _clamp(
+            fuel_supply_factor, self._MIN_FUEL_SUPPLY_FACTOR, 1.0
+        )
 
     def tick(self, dt_seconds: float = 1.0) -> FuelCellMachineState:
         """Advance internal state by one simulation step."""
@@ -152,6 +165,7 @@ class FuelCellMachine:
         target_voltage = (
             self._OPEN_CIRCUIT_VOLTAGE
             - current_fraction * self._VOLTAGE_LOAD_COEFFICIENT
+            - self._fuel_starvation_voltage_penalty()
             + _micro_variation(self._tick_count, channel=1, amplitude=0.002)
         )
         self._voltage = _lag_toward(
@@ -171,7 +185,7 @@ class FuelCellMachine:
             self._LOAD_TIME_CONSTANT_SECONDS,
         )
 
-        if self._fuel_supply_factor < 0.98:
+        if self._fuel_supply_factor < self._FUEL_STARVATION_THRESHOLD:
             supply_limited_current = target_current * self._fuel_supply_factor
             self._current = _lag_toward(
                 self._current,
@@ -215,6 +229,38 @@ class FuelCellMachine:
         )
 
         return self.state
+
+    def _fuel_starvation_voltage_penalty(self) -> float:
+        """Lumped voltage loss from reactant starvation.
+
+        Not a full electrochemical model — a bounded, monotonic penalty
+        standing in for the concentration-polarization / reactant-starvation
+        voltage droop a real PEM stack shows under fuel-limited operation.
+        Zero at or above `_FUEL_STARVATION_THRESHOLD` (the same threshold the
+        current-limiting block above uses, so "healthy" means the same thing
+        for both effects). Below it, grows linearly to
+        `_MAX_STARVATION_VOLTAGE_PENALTY` at `_MIN_FUEL_SUPPLY_FACTOR`.
+
+        The penalty is sized equal to `_VOLTAGE_LOAD_COEFFICIENT` — the
+        entire load-driven polarization range (`_OPEN_CIRCUIT_VOLTAGE` at
+        zero current down to `_OPEN_CIRCUIT_VOLTAGE - _VOLTAGE_LOAD_COEFFICIENT`
+        at full current). Starvation's own current-limiting only ever
+        *reduces* `current_fraction`, which by itself would raise
+        `target_voltage` by at most `_VOLTAGE_LOAD_COEFFICIENT` (reached only
+        if current fell all the way to zero, which this model does not
+        produce). Matching the penalty's maximum to that same bound
+        guarantees it can always outweigh that induced rise, so starvation
+        never nets a voltage increase.
+        """
+        if self._fuel_supply_factor >= self._FUEL_STARVATION_THRESHOLD:
+            return 0.0
+        starvation_range = (
+            self._FUEL_STARVATION_THRESHOLD - self._MIN_FUEL_SUPPLY_FACTOR
+        )
+        depth = (
+            self._FUEL_STARVATION_THRESHOLD - self._fuel_supply_factor
+        ) / starvation_range
+        return self._MAX_STARVATION_VOLTAGE_PENALTY * min(1.0, depth)
 
     @property
     def state(self) -> FuelCellMachineState:
