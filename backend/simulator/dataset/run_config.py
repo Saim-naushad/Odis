@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+
+from backend.simulator.dataset.operating_conditions import OperatingConditions
 
 
 class DatasetScenario(StrEnum):
@@ -48,11 +50,19 @@ class RunConfig:
     a small positive severity (e.g. `0.05`), not `0.0`. Never interpret
     `fault_severity` as remaining health.
 
-    `seed` is part of the reproducibility contract but is not yet consumed —
-    PR161 has no stochastic operating variation to seed (the underlying
-    physics has none either; see `backend.simulator.machine._micro_variation`).
-    A later PR will thread it through injected `random.Random` instances for
-    operating-condition variation.
+    `seed` governs `operating_conditions` resolution (see
+    `run_template.resolve_run_config`) and per-sample sensor-noise draws
+    (see `runner.iter_samples`) via two independent `random.Random` streams
+    derived from it — never Python's global random state. The underlying
+    physics itself has no randomness (see
+    `backend.simulator.machine._micro_variation`), so a `RunConfig`
+    constructed directly (bypassing `resolve_run_config`) with the default
+    `operating_conditions` is fully deterministic regardless of `seed`.
+
+    `operating_conditions` holds *resolved* concrete values, not sampling
+    ranges — the run must be reproducible from `RunConfig` alone, with no
+    resampling ambiguity. Its default reproduces the pre-PR163 dataset-run
+    trajectory exactly (see `operating_conditions.OperatingConditions`).
     """
 
     simulation_run_id: str
@@ -65,6 +75,9 @@ class RunConfig:
     fault_start_sim_seconds: float | None = None
     fault_duration_sim_seconds: float | None = None
     fault_severity: float = 0.0
+    operating_conditions: OperatingConditions = field(
+        default_factory=OperatingConditions
+    )
 
     def __post_init__(self) -> None:
         if not self.simulation_run_id:

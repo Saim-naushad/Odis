@@ -9,6 +9,7 @@ entirely in memory.
 
 from __future__ import annotations
 
+import random
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import timedelta
@@ -19,10 +20,15 @@ from backend.simulator.dataset.ground_truth import (
     compute_ground_truth,
 )
 from backend.simulator.dataset.run_config import DatasetScenario, RunConfig
+from backend.simulator.dataset.telemetry import build_sample_observations
 from backend.simulator.plant import PlantAlphaFleet
-from backend.simulator.scenarios.normal_operation import NormalOperationScenario
-from backend.simulator.telemetry import observations_from_machine
+from backend.simulator.scenarios.normal_operation import (
+    NormalOperationProfile,
+    NormalOperationScenario,
+)
 from domain.entities.observation import Observation
+
+_SENSOR_NOISE_RNG_STREAM = "sensor_noise"
 
 
 @dataclass(frozen=True)
@@ -78,15 +84,43 @@ def iter_samples(config: RunConfig) -> Iterator[SimulationSample]:
     building one big in-memory structure) is deliberate: `run()` below just
     drains it into a `RunResult`, but a future Parquet sink can consume this
     same iterator directly without changing the execution loop.
+
+    Operating-condition variation (PR163): `config.operating_conditions`
+    drives the fleet-wide load oscillation (via `NormalOperationProfile`),
+    the target asset's initial raw state (via `PlantAlphaFleet.create`'s
+    override hooks), and optional per-sample sensor noise (via
+    `dataset.telemetry.build_sample_observations` — see that module for why
+    derived observations are recomputed from noisy core values rather than
+    computed from clean state alongside noisy core ones). Ground truth is
+    computed from `elapsed_sim_seconds`/`config` alone and is never touched
+    by noise. With the default `OperatingConditions()`, all of this is a
+    no-op and this function's behavior is identical to before PR163.
     """
-    fleet = PlantAlphaFleet.create(run_id=config.simulation_run_id)
+    initial_state = config.operating_conditions.initial_state_variation
+    fleet = PlantAlphaFleet.create(
+        run_id=config.simulation_run_id,
+        initial_load_overrides={
+            config.target_asset_id: initial_state.resolved_load_percent()
+        },
+        initial_stack_temperature_overrides={
+            config.target_asset_id: initial_state.resolved_stack_temperature_celsius()
+        },
+    )
     if config.target_asset_id not in fleet.asset_ids:
         raise ValueError(
             f"target_asset_id {config.target_asset_id!r} is not a Plant Alpha "
             f"asset (known assets: {fleet.asset_ids})"
         )
 
-    baseline = NormalOperationScenario()
+    baseline = NormalOperationScenario(
+        profile=NormalOperationProfile(
+            load_baseline_percent=config.operating_conditions.load_baseline_percent,
+            load_amplitude_percent=config.operating_conditions.load_amplitude_percent,
+            load_period_seconds=config.operating_conditions.load_period_seconds,
+            load_phase_radians=config.operating_conditions.load_phase_radians,
+        )
+    )
+    noise_rng = random.Random(f"{config.seed}:{_SENSOR_NOISE_RNG_STREAM}")
     is_fault_run = config.scenario_name is not DatasetScenario.NORMAL_OPERATION
     fault_start = config.fault_start_sim_seconds
     fault_end = config.fault_end_sim_seconds
@@ -116,10 +150,12 @@ def iter_samples(config: RunConfig) -> Iterator[SimulationSample]:
         for asset_id in fleet.asset_ids:
             machine = fleet.machine(asset_id)
             observations.extend(
-                observations_from_machine(
+                build_sample_observations(
                     machine,
                     timestamp=timestamp,
                     context=fleet.telemetry_context(asset_id),
+                    noise_configs=config.operating_conditions.sensor_noise,
+                    rng=noise_rng,
                 )
             )
             ground_truth.append(

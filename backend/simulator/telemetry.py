@@ -84,28 +84,41 @@ def core_observations_from_state(
     return tuple(observations)
 
 
-def derived_observations_from_state(
-    state: FuelCellMachineState,
+def derived_observations_from_values(
     *,
     asset_id: str,
     timestamp: datetime,
     context: TelemetryContext,
+    tick: int,
+    voltage: float,
+    current: float,
+    hydrogen_flow: float,
+    coolant_flow: float,
 ) -> tuple[Observation, ...]:
-    """Map machine state to derived display metrics."""
-    power_kw = (state.voltage * state.current) / 1000.0
-    fuel_energy = max(state.hydrogen_flow * _HYDROGEN_LHV_KWH_PER_SLPM, 1e-6)
+    """Compute derived telemetry from explicit input values.
+
+    This is the canonical derivation logic — `derived_observations_from_state`
+    below is a thin wrapper that feeds it clean machine state, unchanged
+    from before this function existed. `backend.simulator.dataset` calls it
+    directly with the (possibly noisy) *emitted* core observation values
+    instead, so that when dataset sensor noise is configured, derived
+    telemetry stays mutually consistent with whatever core values were
+    actually emitted, rather than quietly reflecting hidden clean state.
+    """
+    power_kw = (voltage * current) / 1000.0
+    fuel_energy = max(hydrogen_flow * _HYDROGEN_LHV_KWH_PER_SLPM, 1e-6)
     efficiency_percent = min(100.0, (power_kw / fuel_energy) * 100.0)
     derived_values = {
         "power_output": (round(power_kw, 4), "kW"),
         "efficiency": (round(efficiency_percent, 4), "percent"),
-        "coolant_flow": (state.coolant_flow, "L/min"),
+        "coolant_flow": (coolant_flow, "L/min"),
     }
     return tuple(
         Observation(
             id=observation_id(
                 run_id=context.run_id,
                 asset_id=asset_id,
-                tick=state.tick_count,
+                tick=tick,
                 measurement_type=measurement_name,
             ),
             asset_id=asset_id,
@@ -115,6 +128,26 @@ def derived_observations_from_state(
             unit=unit,
         )
         for measurement_name, (value, unit) in derived_values.items()
+    )
+
+
+def derived_observations_from_state(
+    state: FuelCellMachineState,
+    *,
+    asset_id: str,
+    timestamp: datetime,
+    context: TelemetryContext,
+) -> tuple[Observation, ...]:
+    """Map machine state to derived display metrics."""
+    return derived_observations_from_values(
+        asset_id=asset_id,
+        timestamp=timestamp,
+        context=context,
+        tick=state.tick_count,
+        voltage=state.voltage,
+        current=state.current,
+        hydrogen_flow=state.hydrogen_flow,
+        coolant_flow=state.coolant_flow,
     )
 
 

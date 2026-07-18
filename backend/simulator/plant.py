@@ -21,6 +21,13 @@ _FLEET_BASELINES: dict[str, dict[str, float]] = {
     "fuel-cell-stack-04": {"target_load": 65.0, "cooling_efficiency": 0.85},
 }
 
+# Mirror `FuelCellMachine.__init__`'s own defaults for `load` /
+# `stack_temperature` — the value used when no override is given for an
+# asset, so passing these explicitly below is behaviorally identical to
+# omitting them.
+_DEFAULT_INITIAL_LOAD_PERCENT = 50.0
+_DEFAULT_INITIAL_STACK_TEMPERATURE_CELSIUS = 65.0
+
 
 @dataclass
 class PlantAlphaFleet:
@@ -36,12 +43,34 @@ class PlantAlphaFleet:
         *,
         run_id: str,
         asset_ids: tuple[str, ...] = _DEFAULT_ASSET_IDS,
+        initial_load_overrides: dict[str, float] | None = None,
+        initial_stack_temperature_overrides: dict[str, float] | None = None,
     ) -> PlantAlphaFleet:
+        """Build a fleet, optionally overriding an asset's *initial* raw state.
+
+        `initial_load_overrides`/`initial_stack_temperature_overrides` are
+        keyed by asset id and, when given for an asset, replace
+        `FuelCellMachine`'s own constructor default for `load` /
+        `stack_temperature` — the machine's *actual* starting value, which
+        the existing `set_target_load()` call below (unconditional, same as
+        before) then ramps away from. Omitted (the default `None`)
+        reproduces the exact prior behavior — these parameters exist for
+        `backend.simulator.dataset`'s seeded initial-state variation and are
+        not used by the live simulator.
+        """
         machines: dict[str, FuelCellMachine] = {}
         contexts: dict[str, TelemetryContext] = {}
+        load_overrides = initial_load_overrides or {}
+        temperature_overrides = initial_stack_temperature_overrides or {}
         for asset_id in asset_ids:
             baseline = _FLEET_BASELINES.get(asset_id, {})
-            machine = FuelCellMachine.default(asset_id=asset_id)
+            machine = FuelCellMachine(
+                asset_id=asset_id,
+                load=load_overrides.get(asset_id, _DEFAULT_INITIAL_LOAD_PERCENT),
+                stack_temperature=temperature_overrides.get(
+                    asset_id, _DEFAULT_INITIAL_STACK_TEMPERATURE_CELSIUS
+                ),
+            )
             machine.set_target_load(baseline.get("target_load", 60.0))
             machine.set_cooling_efficiency(baseline.get("cooling_efficiency", 0.85))
             machines[asset_id] = machine
