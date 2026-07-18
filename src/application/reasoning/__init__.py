@@ -1,4 +1,4 @@
-"""Reasoning Engine v2 application orchestration."""
+"""Reasoning engine application orchestration."""
 
 from application.reasoning.assessment_stage import AssessmentStage
 from application.reasoning.confidence_stage import ConfidenceStage

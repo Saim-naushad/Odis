@@ -77,7 +77,7 @@ export function AssetDetails({
 
           <div>
             <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-              Current measurements
+              Current observations
             </h3>
             {runDetails ? (
               <div className="mt-1 max-h-40 space-y-1 overflow-y-auto rounded border border-slate-800 bg-slate-950/60 p-2">

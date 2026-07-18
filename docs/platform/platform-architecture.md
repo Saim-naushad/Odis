@@ -56,7 +56,7 @@ The platform connects industrial equipment, ingestion pipelines, backend service
 |-----------|------|
 | **Industrial Equipment** | Physical assets (e.g., PEM fuel cell stacks) that generate operational measurements |
 | **Fuel Cell Simulator** | Development and demonstration substitute for physical equipment; produces realistic telemetry streams |
-| **MQTT / OPC UA Ingestion** | Industrial protocol adapters that receive telemetry and forward it to the platform |
+| **MQTT Ingestion** | Industrial protocol adapter that receives telemetry and forwards it to the platform (OPC UA is a documented future extension point, not implemented in v1.0) |
 | **FastAPI Platform** | HTTP API layer — the primary integration boundary for all platform consumers |
 | **Reasoning Engine** | Deterministic operational reasoning subsystem (Reasoning Engine v1) |
 | **PostgreSQL** | Durable persistence for observations, reasoning artifacts, and platform state |
@@ -76,13 +76,12 @@ The platform connects industrial equipment, ingestion pipelines, backend service
 │   │  sensors)        │         │                  │                       │
 │   └────────┬─────────┘         └────────┬─────────┘                       │
 │            │                            │                                   │
-│            │    MQTT / OPC UA            │                                   │
+│            │         MQTT                │                                   │
 │            └────────────┬───────────────┘                                   │
 │                         ▼                                                   │
 │              ┌─────────────────────┐                                        │
 │              │   Ingestion Layer   │                                        │
-│              │  (MQTT subscriber,  │                                        │
-│              │   OPC UA client)    │                                        │
+│              │  (MQTT subscriber)  │                                        │
 │              └──────────┬──────────┘                                        │
 └─────────────────────────┼───────────────────────────────────────────────────┘
                           │ HTTP / internal API
@@ -141,7 +140,7 @@ Each subsystem has a distinct responsibility. Overlap is intentional at API boun
 
 **Receives operational telemetry from industrial sources and delivers it to the platform.**
 
-- Subscribes to MQTT topics or connects to OPC UA servers
+- Subscribes to MQTT topics (OPC UA is a documented future protocol adapter, not implemented in v1.0)
 - Normalizes incoming measurements into platform observation records
 - Forwards observations to the API layer for validation and persistence
 - Remains **replaceable** — swapping MQTT for Kafka or adding new protocol adapters must not require changes to reasoning logic

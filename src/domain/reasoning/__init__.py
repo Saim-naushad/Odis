@@ -1,4 +1,4 @@
-"""Canonical reasoning value objects for Operational Intelligence Engine v2."""
+"""Canonical reasoning value objects for the operational reasoning engine."""
 
 from domain.reasoning.assessment_summary import AssessmentSummary
 from domain.reasoning.confidence_breakdown import ConfidenceBreakdown

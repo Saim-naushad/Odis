@@ -33,6 +33,7 @@ def _run_with_timeout(
     except FuturesTimeoutError:
         return False, None
     except Exception:
+        logger.warning("dependency_probe_failed", exc_info=True)
         return False, None
     finally:
         executor.shutdown(wait=False, cancel_futures=True)

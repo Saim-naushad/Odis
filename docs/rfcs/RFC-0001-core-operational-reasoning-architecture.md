@@ -69,7 +69,7 @@ The domain defines **what operational reasoning means** in ODIS.
 
 - `Asset`, `Observation`, `OperationalGoal`
 - `OperationalSituation`, `DecisionContext`, `DecisionPlan`
-- `Action`, `Outcome` (defined; not yet used in the executable pipeline)
+- `Action`, `Outcome` (recorded by the executable pipeline; not yet fed back into future decisions)
 
 All entities use frozen dataclasses. Structural invariants (non-empty identifiers, required fields) are enforced in `__post_init__`.
 
@@ -143,9 +143,9 @@ DecisionContext
       ↓
 DecisionPlan
       ↓
-Action          (domain entity; not yet in executable pipeline)
+Action          (recorded by the executable pipeline)
       ↓
-Outcome         (domain entity; not yet in executable pipeline)
+Outcome         (recorded by the executable pipeline)
 ```
 
 ### Stage responsibilities

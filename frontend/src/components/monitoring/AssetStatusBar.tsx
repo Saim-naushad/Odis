@@ -93,7 +93,9 @@ function StatusSkeleton() {
 }
 
 export function AssetStatusBar({
+  selectedAssetId,
   digitalTwin,
+  loading,
   error,
 }: AssetStatusBarProps) {
   const operationalState = digitalTwin?.operational_state
@@ -224,8 +226,12 @@ export function AssetStatusBar({
             {new Date(operationalState.last_updated).toLocaleString()}
           </p>
         </div>
-      ) : (
+      ) : loading ? (
         <StatusSkeleton />
+      ) : (
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          {selectedAssetId ? 'No status data available.' : 'Select an asset to view its status.'}
+        </p>
       )}
     </section>
   )

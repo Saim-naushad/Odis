@@ -401,7 +401,7 @@ Tests describe **contracts**, not implementation details. Builders express inten
 
 ### Immutability
 
-All domain entities and value objects are frozen after creation. A revised understanding — a new assessment, a changed goal definition, an updated interpretation — is recorded as a **new record**, not an mutation of an existing one.
+All domain entities and value objects are frozen after creation. A revised understanding — a new assessment, a changed goal definition, an updated interpretation — is recorded as a **new record**, not a mutation of an existing one.
 
 This makes reasoning auditable: you can always answer what the system believed at a specific point in time.
 

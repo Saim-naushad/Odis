@@ -232,7 +232,7 @@ class HealthService:
                     age_seconds = float(age_text)
                     set_worker_heartbeat_age_seconds(age_seconds)
                 except ValueError:
-                    pass
+                    logger.warning("worker_heartbeat_age_parse_failed")
         elif worker_check is not None and worker_check.status == "healthy":
             set_worker_heartbeat_age_seconds(0.0)
 

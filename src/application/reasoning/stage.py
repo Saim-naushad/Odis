@@ -6,7 +6,7 @@ from application.reasoning.context import ReasoningContext
 
 
 class ReasoningStage(Protocol):
-    """Minimal synchronous stage contract for the v2 reasoning pipeline."""
+    """Minimal synchronous stage contract for the reasoning pipeline."""
 
     name: str
 

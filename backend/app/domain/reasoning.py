@@ -1,7 +1,7 @@
 """Explainable reasoning primitives for deterministic decisions.
 
-Reasoning Engine v2 introduces explicit, immutable concepts that make decisions
-auditable without relying on probabilistic models or LLMs.
+These explicit, immutable concepts make decisions auditable without relying
+on probabilistic models or LLMs.
 """
 
 from __future__ import annotations

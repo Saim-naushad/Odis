@@ -63,6 +63,7 @@ export function ActionPlaybook({
   selectedAssetId,
   recommendation,
   investigation,
+  loading,
   error,
 }: ActionPlaybookProps) {
   const hasRecommendation = Boolean(recommendation)
@@ -295,6 +296,10 @@ export function ActionPlaybook({
             {recommendation.estimated_impact}
           </p>
         </div>
+      ) : loading ? (
+        <p className="mt-4 text-sm" style={{ color: 'var(--text-muted)' }}>
+          Loading recommendation…
+        </p>
       ) : selectedAssetId ? (
         <p className="mt-4 text-sm" style={{ color: 'var(--text-muted)' }}>
           No recommendation available yet.
