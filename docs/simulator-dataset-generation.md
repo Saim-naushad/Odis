@@ -59,7 +59,7 @@ python -m backend.simulator.dataset.generate \
   --output datasets/pem-faults-tiny
 ```
 
-- `--spec` points at a JSON `DatasetSpec` (see below). `examples/dataset_specs/pem_faults_tiny.json` is a small, working example covering all four supported classes.
+- `--spec` points at a JSON `DatasetSpec` (see below). `examples/dataset_specs/pem_faults_tiny.json` is a small, fixed-value smoke-test example covering all four supported classes. `examples/dataset_specs/pem_faults_pilot.json` is the quality-audit pilot spec (64 runs, 16 per class, ranged fault start/severity per PR165) — not yet generated or committed as a dataset.
 - `--output` overrides the spec's own `output_directory` field.
 - `--overwrite` is required to replace an existing non-empty output directory; without it, generation refuses to run rather than silently merging into old data.
 
@@ -83,7 +83,7 @@ not already-resolved runs:
 | Field | Meaning |
 |---|---|
 | `dataset_id` | Used to derive every run ID and the split-shuffle RNG seed. |
-| `scenario_plans` | A list of `{scenario_name, run_count, fault_start_sim_seconds, fault_duration_sim_seconds, fault_severity}` — one entry per class you want in the dataset. |
+| `scenario_plans` | A list of `{scenario_name, run_count, ...}` — one entry per class you want in the dataset. Each fault plan sets `fault_duration_sim_seconds` plus **either** a fixed `fault_start_sim_seconds`/`fault_severity` **or** a per-run-sampled `fault_start_range`/`fault_severity_range` (PR165) — never both. A ranged plan draws one value per run from a seed-derived RNG stream isolated from operating-condition and sensor-noise sampling, so runs of the same class no longer share an identical fault onset and magnitude. `fault_start_range` is a discrete grid (`{minimum_seconds, maximum_seconds, step_seconds}`); `fault_severity_range` is continuous (`{minimum, maximum}`). A `scenario_name` must not repeat across plans — see `examples/dataset_specs/pem_faults_pilot.json` for a worked example. |
 | `seeds` | Flat list, exactly as long as the total run count across all `scenario_plans`; consumed sequentially in `scenario_plans` order. |
 | `target_asset_ids` | Round-robins per scenario plan, for target-asset balance within each class. |
 | `duration_sim_seconds` / `dt_seconds` | Uniform across every run in this dataset version. |

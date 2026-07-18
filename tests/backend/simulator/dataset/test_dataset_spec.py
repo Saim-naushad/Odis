@@ -9,6 +9,10 @@ from backend.simulator.dataset.dataset_spec import (
     ScenarioRunSpec,
     SplitProportions,
 )
+from backend.simulator.dataset.fault_variation import (
+    FaultSeverityRange,
+    FaultTimingRange,
+)
 from backend.simulator.dataset.run_config import DatasetScenario
 
 from .conftest import SpecFactory
@@ -28,6 +32,91 @@ def test_scenario_run_spec_json_round_trip() -> None:
         fault_start_sim_seconds=60.0,
         fault_duration_sim_seconds=120.0,
         fault_severity=0.75,
+    )
+    restored = ScenarioRunSpec.from_json_dict(plan.to_json_dict())
+    assert restored == plan
+
+
+# --- ScenarioRunSpec: fixed-vs-ranged fault contract ------------------------
+
+
+def test_fault_scenario_requires_a_fault_start_representation() -> None:
+    with pytest.raises(
+        ValueError, match=r"fault_start_sim_seconds.*fault_start_range"
+    ):
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=1,
+            fault_duration_sim_seconds=120.0,
+            fault_severity=0.5,
+        )
+
+
+def test_fault_scenario_rejects_both_fixed_and_ranged_start() -> None:
+    with pytest.raises(ValueError, match="both fault_start_sim_seconds"):
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=1,
+            fault_start_sim_seconds=60.0,
+            fault_start_range=FaultTimingRange(
+                minimum_seconds=60.0, maximum_seconds=120.0, step_seconds=10.0
+            ),
+            fault_duration_sim_seconds=120.0,
+            fault_severity=0.5,
+        )
+
+
+def test_fault_scenario_requires_a_severity_representation() -> None:
+    with pytest.raises(ValueError, match=r"fault_severity.*fault_severity_range"):
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=1,
+            fault_start_sim_seconds=60.0,
+            fault_duration_sim_seconds=120.0,
+        )
+
+
+def test_fault_scenario_rejects_both_fixed_and_ranged_severity() -> None:
+    with pytest.raises(ValueError, match="both fault_severity"):
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=1,
+            fault_start_sim_seconds=60.0,
+            fault_duration_sim_seconds=120.0,
+            fault_severity=0.5,
+            fault_severity_range=FaultSeverityRange(minimum=0.2, maximum=0.8),
+        )
+
+
+def test_healthy_scenario_rejects_a_fault_start_range() -> None:
+    with pytest.raises(ValueError, match="does not support a fault window"):
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.NORMAL_OPERATION,
+            run_count=1,
+            fault_start_range=FaultTimingRange(
+                minimum_seconds=60.0, maximum_seconds=120.0, step_seconds=10.0
+            ),
+        )
+
+
+def test_healthy_scenario_rejects_a_severity_range() -> None:
+    with pytest.raises(ValueError, match="does not support fault_severity_range"):
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.NORMAL_OPERATION,
+            run_count=1,
+            fault_severity_range=FaultSeverityRange(minimum=0.2, maximum=0.8),
+        )
+
+
+def test_ranged_scenario_run_spec_json_round_trip() -> None:
+    plan = ScenarioRunSpec(
+        scenario_name=DatasetScenario.COOLING_DEGRADATION,
+        run_count=16,
+        fault_start_range=FaultTimingRange(
+            minimum_seconds=90.0, maximum_seconds=420.0, step_seconds=10.0
+        ),
+        fault_duration_sim_seconds=240.0,
+        fault_severity_range=FaultSeverityRange(minimum=0.15, maximum=1.0),
     )
     restored = ScenarioRunSpec.from_json_dict(plan.to_json_dict())
     assert restored == plan
@@ -102,6 +191,81 @@ def test_unsupported_scenario_is_rejected(spec_factory: SpecFactory) -> None:
         replace(spec, scenario_plans=(bad_plan,), seeds=(1,))
 
 
+def test_duplicate_scenario_name_across_plans_is_rejected(
+    spec_factory: SpecFactory,
+) -> None:
+    """Two plans for the same class would collide on run ID (`local_index`
+    restarts at 0 per plan) — reject at spec construction rather than
+    silently producing two runs sharing one `simulation_run_id`.
+    """
+    plans = (
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=1,
+            fault_start_sim_seconds=60.0,
+            fault_duration_sim_seconds=120.0,
+            fault_severity=0.5,
+        ),
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=1,
+            fault_start_sim_seconds=90.0,
+            fault_duration_sim_seconds=120.0,
+            fault_severity=0.9,
+        ),
+    )
+    spec = spec_factory()
+    with pytest.raises(ValueError, match="must not repeat a scenario_name"):
+        replace(spec, scenario_plans=plans, seeds=(1, 2))
+
+
+def test_fault_start_range_exceeding_duration_is_rejected(
+    spec_factory: SpecFactory,
+) -> None:
+    ranged_plan = ScenarioRunSpec(
+        scenario_name=DatasetScenario.COOLING_DEGRADATION,
+        run_count=1,
+        fault_start_range=FaultTimingRange(
+            minimum_seconds=90.0, maximum_seconds=420.0, step_seconds=10.0
+        ),
+        fault_duration_sim_seconds=240.0,
+        fault_severity_range=FaultSeverityRange(minimum=0.15, maximum=1.0),
+    )
+    spec = spec_factory()
+    # duration_sim_seconds=300.0 (spec_factory default): max grid value 420 +
+    # duration 240 = 660, far beyond 300 — every candidate at the top of the
+    # grid would produce an out-of-range fault window.
+    with pytest.raises(ValueError, match="exceeds duration_sim_seconds"):
+        replace(
+            spec,
+            scenario_plans=(ranged_plan,),
+            seeds=(1,),
+            duration_sim_seconds=300.0,
+        )
+
+
+def test_fault_start_range_within_duration_is_accepted(
+    spec_factory: SpecFactory,
+) -> None:
+    ranged_plan = ScenarioRunSpec(
+        scenario_name=DatasetScenario.COOLING_DEGRADATION,
+        run_count=1,
+        fault_start_range=FaultTimingRange(
+            minimum_seconds=90.0, maximum_seconds=420.0, step_seconds=10.0
+        ),
+        fault_duration_sim_seconds=240.0,
+        fault_severity_range=FaultSeverityRange(minimum=0.15, maximum=1.0),
+    )
+    spec = spec_factory()
+    resolved = replace(
+        spec,
+        scenario_plans=(ranged_plan,),
+        seeds=(1,),
+        duration_sim_seconds=900.0,
+    )
+    assert resolved.total_run_count == 1
+
+
 # --- DatasetSpec: JSON round trip -------------------------------------------
 
 
@@ -121,6 +285,28 @@ def test_dataset_spec_json_round_trip_with_sensor_noise(
             SensorNoiseConfig(measurement_name="voltage", standard_deviation=0.01),
             SensorNoiseConfig(measurement_name="current", standard_deviation=2.0),
         )
+    )
+    restored = DatasetSpec.from_json_dict(spec.to_json_dict())
+    assert restored == spec
+
+
+def test_dataset_spec_json_round_trip_with_ranged_fault_plans(
+    spec_factory: SpecFactory,
+) -> None:
+    plans = (
+        ScenarioRunSpec(scenario_name=DatasetScenario.NORMAL_OPERATION, run_count=2),
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=4,
+            fault_start_range=FaultTimingRange(
+                minimum_seconds=90.0, maximum_seconds=420.0, step_seconds=10.0
+            ),
+            fault_duration_sim_seconds=240.0,
+            fault_severity_range=FaultSeverityRange(minimum=0.15, maximum=1.0),
+        ),
+    )
+    spec = spec_factory(
+        scenario_plans=plans, seeds=tuple(range(1, 7)), duration_sim_seconds=900.0
     )
     restored = DatasetSpec.from_json_dict(spec.to_json_dict())
     assert restored == spec

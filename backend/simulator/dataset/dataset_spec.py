@@ -18,10 +18,15 @@ concrete.
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from backend.simulator.dataset.fault_variation import (
+    FaultSeverityRange,
+    FaultTimingRange,
+)
 from backend.simulator.dataset.operating_conditions import (
     OperatingConditionRanges,
     SensorNoiseConfig,
@@ -46,47 +51,136 @@ class ScenarioRunSpec:
     """How many runs of one scenario/class to generate, and their shared
     fault timing/severity policy.
 
-    All runs generated from one `ScenarioRunSpec` share this fault window
-    and severity; they differ only in seed (which resolves operating
-    conditions and sensor noise draws) and target asset (round-robin over
-    `DatasetSpec.target_asset_ids`).
+    Every run generated from one `ScenarioRunSpec` differs in seed (which
+    resolves operating conditions, sensor noise, and — for the fields
+    below — fault timing/severity draws) and target asset (round-robin over
+    `DatasetSpec.target_asset_ids`). `fault_start_sim_seconds` and
+    `fault_severity` each have two mutually exclusive representations:
+
+    - a fixed scalar, shared identically by every run of this plan (the
+      original PR161 behavior); or
+    - a `..._range` (`FaultTimingRange` / `FaultSeverityRange`), sampled once
+      per run from an isolated seed-derived RNG stream (see
+      `run_template.resolve_run_config`) — so runs of the same class no
+      longer share an identical fault onset and magnitude, which was the
+      dataset's most severe trivial-separability risk.
+
+    Exactly one of (fixed, range) must be set per field for a fault
+    scenario; neither may be set for `normal_operation` (see
+    `__post_init__`). `fault_duration_sim_seconds` has no ranged form in
+    this PR — it stays a single fixed value per plan.
     """
 
     scenario_name: DatasetScenario
     run_count: int
     fault_start_sim_seconds: float | None = None
+    fault_start_range: FaultTimingRange | None = None
     fault_duration_sim_seconds: float | None = None
-    fault_severity: float = 0.0
+    fault_severity: float | None = None
+    fault_severity_range: FaultSeverityRange | None = None
 
     def __post_init__(self) -> None:
         if self.run_count <= 0:
             raise ValueError("run_count must be positive")
-        # Field-level fault-window consistency is enforced by RunConfig
-        # itself during planning (see run_plan.plan_runs) — duplicating
-        # that validation here would be two sources of truth for the same
-        # rule.
+
+        has_fixed_start = self.fault_start_sim_seconds is not None
+        has_start_range = self.fault_start_range is not None
+        has_fixed_severity = self.fault_severity is not None
+        has_severity_range = self.fault_severity_range is not None
+
+        if has_fixed_start and has_start_range:
+            raise ValueError(
+                "cannot set both fault_start_sim_seconds and "
+                "fault_start_range — one scenario plan must define a single "
+                "fixed-or-ranged fault-timing policy"
+            )
+        if has_fixed_severity and has_severity_range:
+            raise ValueError(
+                "cannot set both fault_severity and fault_severity_range — "
+                "one scenario plan must define a single fixed-or-ranged "
+                "severity policy"
+            )
+
+        is_fault_scenario = self.scenario_name in _SUPPORTED_FAULT_SCENARIOS
+        if is_fault_scenario:
+            if not has_fixed_start and not has_start_range:
+                raise ValueError(
+                    f"{self.scenario_name} requires fault_start_sim_seconds "
+                    "or fault_start_range"
+                )
+            if not has_fixed_severity and not has_severity_range:
+                raise ValueError(
+                    f"{self.scenario_name} requires fault_severity or "
+                    "fault_severity_range"
+                )
+            # Field-level fault-window/severity consistency for the fixed
+            # case (e.g. severity in [0, 1], window fits duration) is
+            # enforced by RunConfig itself once resolved (see
+            # run_plan.plan_runs) — duplicating that validation here would
+            # be two sources of truth. A range's own bounds are validated by
+            # FaultTimingRange/FaultSeverityRange; whether its candidates fit
+            # `duration_sim_seconds` is validated by `DatasetSpec`, the first
+            # place that value is known.
+        else:
+            if has_fixed_start or has_start_range:
+                raise ValueError(
+                    f"{self.scenario_name} does not support a fault window"
+                )
+            if has_severity_range:
+                raise ValueError(
+                    f"{self.scenario_name} does not support "
+                    "fault_severity_range"
+                )
+            if has_fixed_severity and self.fault_severity != 0.0:
+                raise ValueError(f"{self.scenario_name} must use fault_severity=0.0")
+            if self.fault_duration_sim_seconds is not None:
+                raise ValueError(
+                    f"{self.scenario_name} does not support a fault window"
+                )
 
     def to_json_dict(self) -> dict[str, object]:
         return {
             "scenario_name": self.scenario_name.value,
             "run_count": self.run_count,
             "fault_start_sim_seconds": self.fault_start_sim_seconds,
+            "fault_start_range": (
+                self.fault_start_range.to_json_dict()
+                if self.fault_start_range is not None
+                else None
+            ),
             "fault_duration_sim_seconds": self.fault_duration_sim_seconds,
             "fault_severity": self.fault_severity,
+            "fault_severity_range": (
+                self.fault_severity_range.to_json_dict()
+                if self.fault_severity_range is not None
+                else None
+            ),
         }
 
     @classmethod
     def from_json_dict(cls, data: dict[str, Any]) -> ScenarioRunSpec:
+        fault_start_range = data.get("fault_start_range")
+        fault_severity_range = data.get("fault_severity_range")
         return cls(
             scenario_name=DatasetScenario(data["scenario_name"]),
             run_count=int(data["run_count"]),
             fault_start_sim_seconds=_optional_float(
                 data.get("fault_start_sim_seconds")
             ),
+            fault_start_range=(
+                FaultTimingRange.from_json_dict(fault_start_range)
+                if fault_start_range is not None
+                else None
+            ),
             fault_duration_sim_seconds=_optional_float(
                 data.get("fault_duration_sim_seconds")
             ),
-            fault_severity=float(data.get("fault_severity", 0.0)),
+            fault_severity=_optional_float(data.get("fault_severity")),
+            fault_severity_range=(
+                FaultSeverityRange.from_json_dict(fault_severity_range)
+                if fault_severity_range is not None
+                else None
+            ),
         )
 
 
@@ -170,6 +264,18 @@ class DatasetSpec:
         if not self.output_directory:
             raise ValueError("output_directory must not be empty")
 
+        scenario_names = [plan.scenario_name for plan in self.scenario_plans]
+        if len(scenario_names) != len(set(scenario_names)):
+            counts = Counter(scenario_names)
+            duplicates = sorted(
+                name.value for name, count in counts.items() if count > 1
+            )
+            raise ValueError(
+                "scenario_plans must not repeat a scenario_name — one "
+                "scenario plan should define the complete fixed-or-ranged "
+                f"fault policy for that class (duplicated: {duplicates})"
+            )
+
         for plan in self.scenario_plans:
             if (
                 plan.scenario_name is not DatasetScenario.NORMAL_OPERATION
@@ -179,6 +285,20 @@ class DatasetSpec:
                     f"unsupported scenario for dataset generation: "
                     f"{plan.scenario_name}"
                 )
+            if (
+                plan.fault_start_range is not None
+                and plan.fault_duration_sim_seconds is not None
+            ):
+                max_start = max(plan.fault_start_range.grid_values())
+                fault_end = max_start + plan.fault_duration_sim_seconds
+                if fault_end > self.duration_sim_seconds:
+                    raise ValueError(
+                        f"{plan.scenario_name}: fault_start_range's maximum "
+                        f"grid value ({max_start}) plus "
+                        f"fault_duration_sim_seconds "
+                        f"({plan.fault_duration_sim_seconds}) exceeds "
+                        f"duration_sim_seconds ({self.duration_sim_seconds})"
+                    )
 
         total_runs = sum(plan.run_count for plan in self.scenario_plans)
         if len(self.seeds) != total_runs:

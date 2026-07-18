@@ -66,8 +66,10 @@ def plan_runs(spec: DatasetSpec) -> tuple[PlannedRun, ...]:
                 dt_seconds=spec.dt_seconds,
                 run_start_time=spec.run_start_time,
                 fault_start_sim_seconds=plan.fault_start_sim_seconds,
+                fault_start_range=plan.fault_start_range,
                 fault_duration_sim_seconds=plan.fault_duration_sim_seconds,
                 fault_severity=plan.fault_severity,
+                fault_severity_range=plan.fault_severity_range,
                 operating_condition_ranges=spec.operating_condition_ranges,
                 sensor_noise=spec.sensor_noise,
             )

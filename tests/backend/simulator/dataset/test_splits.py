@@ -1,5 +1,7 @@
 """Run-level split assignment specifications."""
 
+import collections
+from pathlib import Path
 from typing import Any
 
 from backend.simulator.dataset.dataset_spec import (
@@ -7,11 +9,15 @@ from backend.simulator.dataset.dataset_spec import (
     ScenarioRunSpec,
     SplitProportions,
 )
+from backend.simulator.dataset.generate import load_spec
 from backend.simulator.dataset.run_config import DatasetScenario
 from backend.simulator.dataset.run_plan import plan_runs
 from backend.simulator.dataset.splits import assign_splits
 
 from .conftest import SpecFactory
+
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_PILOT_SPEC_PATH = _REPO_ROOT / "examples" / "dataset_specs" / "pem_faults_pilot.json"
 
 _ASSETS = (
     "fuel-cell-stack-01",
@@ -159,3 +165,61 @@ def test_splits_json_round_trip_shape(spec_factory: SpecFactory) -> None:
     assert set(data["validation"]) == set(assignment.validation)
     assert set(data["test"]) == set(assignment.test)
     assert data["dataset_id"] == spec.dataset_id
+
+
+# --- Pilot spec split coverage ------------------------------------------------
+
+
+def test_pilot_spec_populates_every_split_for_every_class_asset_stratum() -> None:
+    """4 runs per (class, target_asset) stratum at 0.6/0.2/0.2 resolves to
+    exactly 2 train / 1 validation / 1 test per stratum (see
+    `splits._split_counts`) — the pilot's whole reason for using 4 runs per
+    stratum instead of the tiny dataset's 2 (which left validation/test
+    empty).
+    """
+    spec = load_spec(_PILOT_SPEC_PATH)
+    planned_runs = plan_runs(spec)
+    assignment = assign_splits(
+        planned_runs, spec.split_proportions, dataset_id=spec.dataset_id
+    )
+
+    assert len(assignment.train) == 32
+    assert len(assignment.validation) == 16
+    assert len(assignment.test) == 16
+
+    class_by_run_id = {run.simulation_run_id: run.class_label for run in planned_runs}
+    asset_by_run_id = {
+        run.simulation_run_id: run.run_config.target_asset_id for run in planned_runs
+    }
+    expected_classes = {
+        "normal_operation",
+        "cooling_degradation",
+        "hydrogen_supply_issue",
+        "sensor_anomaly",
+    }
+    expected_assets = {
+        "fuel-cell-stack-01",
+        "fuel-cell-stack-02",
+        "fuel-cell-stack-03",
+        "fuel-cell-stack-04",
+    }
+    for split in (assignment.train, assignment.validation, assignment.test):
+        assert {class_by_run_id[run_id] for run_id in split} == expected_classes
+        assert {asset_by_run_id[run_id] for run_id in split} == expected_assets
+
+    # Per-(class, asset) stratum: exactly 2/1/1.
+    stratum_split_counts: dict[tuple[str, str], collections.Counter[str]] = (
+        collections.defaultdict(collections.Counter)
+    )
+    for split_name, run_ids in (
+        ("train", assignment.train),
+        ("validation", assignment.validation),
+        ("test", assignment.test),
+    ):
+        for run_id in run_ids:
+            stratum = (class_by_run_id[run_id], asset_by_run_id[run_id])
+            stratum_split_counts[stratum][split_name] += 1
+
+    assert len(stratum_split_counts) == 16  # 4 classes x 4 assets
+    for counts in stratum_split_counts.values():
+        assert counts == {"train": 2, "validation": 1, "test": 1}

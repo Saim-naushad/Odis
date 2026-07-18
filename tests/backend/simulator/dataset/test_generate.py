@@ -8,8 +8,12 @@ import pyarrow.parquet as pq
 import pytest
 
 import backend.simulator.dataset.generate as generate_module
-from backend.simulator.dataset.dataset_spec import DatasetSpec
+from backend.simulator.dataset.dataset_spec import DatasetSpec, ScenarioRunSpec
 from backend.simulator.dataset.export import RunExportResult
+from backend.simulator.dataset.fault_variation import (
+    FaultSeverityRange,
+    FaultTimingRange,
+)
 from backend.simulator.dataset.generate import (
     DatasetGenerationError,
     DatasetOutputExistsError,
@@ -18,6 +22,7 @@ from backend.simulator.dataset.generate import (
     main,
 )
 from backend.simulator.dataset.operating_conditions import SensorNoiseConfig
+from backend.simulator.dataset.run_config import DatasetScenario
 from backend.simulator.dataset.run_plan import PlannedRun
 
 from .conftest import SpecFactory
@@ -328,3 +333,82 @@ def test_load_spec_reads_a_valid_json_file(
 
     loaded = load_spec(spec_path)
     assert loaded == spec
+
+
+# --- Ranged fault-variation export (PR165) ------------------------------------
+
+
+def _ranged_fault_spec(spec_factory: SpecFactory, tmp_path: Path) -> DatasetSpec:
+    plans = (
+        ScenarioRunSpec(scenario_name=DatasetScenario.NORMAL_OPERATION, run_count=1),
+        ScenarioRunSpec(
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            run_count=6,
+            fault_start_range=FaultTimingRange(
+                minimum_seconds=60.0, maximum_seconds=240.0, step_seconds=10.0
+            ),
+            fault_duration_sim_seconds=120.0,
+            fault_severity_range=FaultSeverityRange(minimum=0.2, maximum=1.0),
+        ),
+    )
+    return spec_factory(
+        scenario_plans=plans,
+        seeds=tuple(range(1, 8)),
+        duration_sim_seconds=400.0,
+        output_directory=str(tmp_path / "ranged-output"),
+    )
+
+
+def test_ranged_fault_export_produces_varied_resolved_scalars_in_runs_parquet(
+    tmp_path: Path, spec_factory: SpecFactory
+) -> None:
+    spec = _ranged_fault_spec(spec_factory, tmp_path)
+    result = generate_dataset(spec, generation_command="test")
+
+    runs = pq.read_table(result.output_directory / "runs.parquet")
+    rows = runs.to_pylist()
+    fault_rows = [row for row in rows if row["class_label"] == "cooling_degradation"]
+    healthy_rows = [row for row in rows if row["class_label"] == "normal_operation"]
+
+    assert len(fault_rows) == 6
+    assert len(healthy_rows) == 1
+
+    starts = [row["fault_start_sim_seconds"] for row in fault_rows]
+    severities = [row["fault_severity"] for row in fault_rows]
+
+    # Resolved scalar values, not range objects: every value is a plain
+    # float landing on the configured grid / within the configured bounds.
+    assert all(isinstance(start, float) for start in starts)
+    assert all(isinstance(severity, float) for severity in severities)
+    assert all((start - 60.0) % 10.0 == 0 for start in starts)
+    assert all(0.2 <= severity <= 1.0 for severity in severities)
+
+    assert len(set(starts)) > 1
+    assert len(set(severities)) > 1
+
+    assert healthy_rows[0]["fault_start_sim_seconds"] is None
+    assert healthy_rows[0]["fault_severity"] == 0.0
+
+
+def test_ranged_fault_export_is_reproducible_on_regeneration(
+    tmp_path: Path, spec_factory: SpecFactory
+) -> None:
+    spec = _ranged_fault_spec(spec_factory, tmp_path)
+
+    def _fault_fields_by_run_id(output_directory: Path) -> dict[str, tuple[Any, Any]]:
+        rows = pq.read_table(output_directory / "runs.parquet").to_pylist()
+        return {
+            row["simulation_run_id"]: (
+                row["fault_start_sim_seconds"],
+                row["fault_severity"],
+            )
+            for row in rows
+        }
+
+    first_result = generate_dataset(spec, generation_command="test")
+    first_rows = _fault_fields_by_run_id(first_result.output_directory)
+
+    second_result = generate_dataset(spec, overwrite=True, generation_command="test")
+    second_rows = _fault_fields_by_run_id(second_result.output_directory)
+
+    assert first_rows == second_rows

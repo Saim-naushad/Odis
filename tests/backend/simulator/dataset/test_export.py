@@ -196,40 +196,25 @@ def test_noisy_derived_telemetry_remains_consistent_after_export(
 def test_all_supported_classes_can_be_exported(
     tmp_path: Path, spec_factory: SpecFactory
 ) -> None:
-    scenarios: tuple[tuple[DatasetScenario, dict[str, float]], ...] = (
-        (DatasetScenario.NORMAL_OPERATION, {}),
-        (
-            DatasetScenario.COOLING_DEGRADATION,
-            {
-                "fault_start_sim_seconds": 60.0,
-                "fault_duration_sim_seconds": 120.0,
-                "fault_severity": 1.0,
-            },
-        ),
-        (
-            DatasetScenario.HYDROGEN_SUPPLY_ISSUE,
-            {
-                "fault_start_sim_seconds": 60.0,
-                "fault_duration_sim_seconds": 120.0,
-                "fault_severity": 1.0,
-            },
-        ),
-        (
-            DatasetScenario.SENSOR_ANOMALY,
-            {
-                "fault_start_sim_seconds": 60.0,
-                "fault_duration_sim_seconds": 120.0,
-                "fault_severity": 1.0,
-            },
-        ),
+    scenarios = (
+        DatasetScenario.NORMAL_OPERATION,
+        DatasetScenario.COOLING_DEGRADATION,
+        DatasetScenario.HYDROGEN_SUPPLY_ISSUE,
+        DatasetScenario.SENSOR_ANOMALY,
     )
-    for scenario_name, fault_kwargs in scenarios:
+    for scenario_name in scenarios:
+        if scenario_name is DatasetScenario.NORMAL_OPERATION:
+            plan = ScenarioRunSpec(scenario_name=scenario_name, run_count=1)
+        else:
+            plan = ScenarioRunSpec(
+                scenario_name=scenario_name,
+                run_count=1,
+                fault_start_sim_seconds=60.0,
+                fault_duration_sim_seconds=120.0,
+                fault_severity=1.0,
+            )
         spec = spec_factory(
-            scenario_plans=(
-                ScenarioRunSpec(
-                    scenario_name=scenario_name, run_count=1, **fault_kwargs
-                ),
-            ),
+            scenario_plans=(plan,),
             seeds=(1,),
             output_directory=str(tmp_path / scenario_name.value),
         )
