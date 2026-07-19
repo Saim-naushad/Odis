@@ -108,11 +108,20 @@ def compute_ground_truth(
 ) -> GroundTruthRecord:
     """Compute one asset's ground truth at one sample time.
 
-    Uses `fault_start <= elapsed_sim_seconds < fault_end` (start inclusive,
-    end exclusive) as the single documented interval convention for
-    `fault_active`. Only `config.target_asset_id` can ever be active; every
-    other asset is reported healthy, since PR161 only injects one fault on
-    one asset per run.
+    **No-recovery policy (PR167 correction)**: uses `elapsed_sim_seconds >=
+    fault_start` (start inclusive, unbounded) as the interval convention for
+    `fault_active` — once a fault starts on `config.target_asset_id`, it
+    stays active for the rest of the run. `fault_duration_sim_seconds` is
+    the fault's *ramp* duration, not its lifetime: `progress` (and so
+    `severity`) ramps from `0.0` to `1.0` over that many seconds and then
+    holds at `1.0` (the configured maximum severity) through run end,
+    mirroring `runner.iter_samples`'s identical no-upper-bound application
+    of `fault_effect.apply_fault_effect` — see that module's docstring for
+    why this must never silently imply recovery (PR161's physical/sensor
+    parameters were never reset either; this was simply not reflected in
+    ground truth until this correction). Only `config.target_asset_id` can
+    ever be active; every other asset is reported healthy for its entire
+    run, since PR161 only injects one fault on one asset per run.
     """
     fault_type = _FAULT_TYPE_BY_SCENARIO.get(config.scenario_name, FaultType.NONE)
     sensor_corruption_type = _SENSOR_CORRUPTION_BY_SCENARIO.get(
@@ -127,14 +136,12 @@ def compute_ground_truth(
     active = False
 
     fault_start = config.fault_start_sim_seconds
-    fault_end = config.fault_end_sim_seconds
     fault_duration = config.fault_duration_sim_seconds
     if (
         asset_id == config.target_asset_id
         and fault_start is not None
-        and fault_end is not None
         and fault_duration is not None
-        and fault_start <= elapsed_sim_seconds < fault_end
+        and elapsed_sim_seconds >= fault_start
     ):
         active = True
         seconds_since_fault_start = elapsed_sim_seconds - fault_start

@@ -5,12 +5,15 @@ documents (apply the fault effect for this sample's own progress, *then*
 advance physics) using only public simulator APIs, and cross-checks it
 byte-for-byte against `run()`'s real published telemetry at each boundary —
 not just `fault_active` — so a wiring regression in the runner (wrong
-order, wrong window inequality, wrong progress input) would make this
+order, wrong progress input, a reintroduced upper bound) would make this
 independently-built reference trajectory diverge from the real one and fail
 the test, rather than a test that only checks booleans.
 
 Boundaries checked, per the correction request: `fault_start - dt`,
-`fault_start`, `fault_start + dt`, `fault_end - dt`, `fault_end`.
+`fault_start`, `fault_start + dt`, `ramp_end - dt`, `ramp_end`, and
+`duration - dt` (the run's last sample) — the last two per the PR167
+no-recovery correction: the fault stays active and at maximum severity
+from `ramp_end` through the end of the run, never reverting to healthy.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -30,7 +33,7 @@ _RUN_START = datetime(2026, 1, 1, tzinfo=UTC)
 _DT = 5.0
 _FAULT_START = 100.0
 _FAULT_DURATION = 200.0
-_FAULT_END = _FAULT_START + _FAULT_DURATION
+_RAMP_END = _FAULT_START + _FAULT_DURATION
 _DURATION = 400.0
 _SEVERITY = 1.0
 
@@ -38,8 +41,9 @@ _BOUNDARY_ELAPSED_TIMES = (
     _FAULT_START - _DT,
     _FAULT_START,
     _FAULT_START + _DT,
-    _FAULT_END - _DT,
-    _FAULT_END,
+    _RAMP_END - _DT,
+    _RAMP_END,
+    _DURATION - _DT,
 )
 
 
@@ -66,10 +70,8 @@ def _reference_trajectory(
     APIs — independent of `runner.iter_samples`'s own implementation.
     """
     fault_start = config.fault_start_sim_seconds
-    fault_end = config.fault_end_sim_seconds
     fault_duration = config.fault_duration_sim_seconds
     assert fault_start is not None
-    assert fault_end is not None
     assert fault_duration is not None
 
     fleet = PlantAlphaFleet.create(run_id="alignment-reference")
@@ -79,7 +81,7 @@ def _reference_trajectory(
 
     for _ in range(total_steps):
         predicted_elapsed = fleet.elapsed_sim_seconds + config.dt_seconds
-        if fault_start <= predicted_elapsed < fault_end:
+        if predicted_elapsed >= fault_start:
             progress = min(1.0, (predicted_elapsed - fault_start) / fault_duration)
             apply_fault_effect(fleet, config, progress=progress)
         baseline.tick(fleet, config.dt_seconds)
@@ -128,7 +130,9 @@ def _assert_boundary_alignment(
             "longer produced from the same regime/progress"
         )
 
-        expected_active = _FAULT_START <= elapsed < _FAULT_END
+        # No-recovery policy: once started, the fault stays active through
+        # the end of the run — there is no upper bound at _RAMP_END.
+        expected_active = elapsed >= _FAULT_START
         assert record.fault_active is expected_active, f"fault_active at t={elapsed}"
 
         if expected_active:

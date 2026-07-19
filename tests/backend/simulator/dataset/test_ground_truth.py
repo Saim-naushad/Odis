@@ -85,18 +85,34 @@ def test_final_active_sample_just_before_fault_end() -> None:
     assert record.fault_severity == pytest.approx(1.0 * (570.0 / 600.0))
 
 
-def test_first_sample_after_fault_end_is_inactive() -> None:
+def test_first_sample_after_ramp_end_is_still_active_at_maximum_severity() -> None:
+    """No-recovery policy (PR167 blocking-review correction): the fault
+    ramps over fault_duration_sim_seconds, then stays active at the
+    configured maximum severity through the end of the run — it never
+    reverts to healthy, since PR161's physical/sensor parameters are never
+    reset either."""
     record = compute_ground_truth(
         _cooling_config(),
         asset_id=_TARGET_ASSET,
         timestamp=_TIMESTAMP,
         elapsed_sim_seconds=900.0,
     )
-    assert record.fault_active is False
-    assert record.fault_severity == 0.0
-    assert record.seconds_since_fault_start is None
-    # fault_type stays constant for the run even once the window has closed.
+    assert record.fault_active is True
+    assert record.fault_severity == pytest.approx(1.0)
+    assert record.seconds_since_fault_start == pytest.approx(600.0)
     assert record.fault_type is FaultType.COOLING_DEGRADATION
+
+
+def test_sample_well_past_ramp_end_remains_active_at_maximum_severity() -> None:
+    record = compute_ground_truth(
+        _cooling_config(),
+        asset_id=_TARGET_ASSET,
+        timestamp=_TIMESTAMP,
+        elapsed_sim_seconds=1200.0,
+    )
+    assert record.fault_active is True
+    assert record.fault_severity == pytest.approx(1.0)
+    assert record.seconds_since_fault_start == pytest.approx(900.0)
 
 
 def test_severity_scales_configured_maximum() -> None:

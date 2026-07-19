@@ -63,6 +63,20 @@ class RunConfig:
     ranges — the run must be reproducible from `RunConfig` alone, with no
     resampling ambiguity. Its default reproduces the pre-PR163 dataset-run
     trajectory exactly (see `operating_conditions.OperatingConditions`).
+
+    **`fault_duration_sim_seconds` names the fault's ramp duration, not its
+    total lifetime (PR167 correction)**: `fault_start_sim_seconds` names
+    when a fault begins; over the following `fault_duration_sim_seconds`
+    seconds it ramps from healthy to the configured maximum severity, and
+    then — deliberately, matching PR161's documented physical behavior of
+    never resetting `cooling_efficiency`/`fuel_supply_factor`/`sensor_bias`
+    — it stays fully applied at that maximum for the rest of the run. There
+    is no recovery. The persisted schema field keeps its original name for
+    compatibility with already-generated dataset artifacts; do not read it
+    as "how long the fault lasts." A future recovery scenario must be a
+    separate, explicit policy with its own physical-restoration and
+    ground-truth states, not an implication of this one. See
+    `runner.iter_samples` and `ground_truth.compute_ground_truth`.
     """
 
     simulation_run_id: str
@@ -127,17 +141,22 @@ class RunConfig:
         if self.fault_duration_sim_seconds <= 0:
             raise ValueError("fault_duration_sim_seconds must be positive")
 
-        fault_end = self.fault_start_sim_seconds + self.fault_duration_sim_seconds
-        if fault_end > self.duration_sim_seconds:
+        ramp_end = self.fault_start_sim_seconds + self.fault_duration_sim_seconds
+        if ramp_end > self.duration_sim_seconds:
             raise ValueError(
-                "fault window extends beyond duration_sim_seconds; PR161 "
-                "requires the fault window to fit inside the run (no "
-                "clipping policy is implemented)"
+                "fault ramp extends beyond duration_sim_seconds; the ramp "
+                "must complete within the run (no clipping policy is "
+                "implemented) — the fault itself remains active from "
+                "fault_start_sim_seconds through the end of the run"
             )
 
     @property
-    def fault_end_sim_seconds(self) -> float | None:
-        """End of the fault window (exclusive), or `None` for a healthy run."""
+    def ramp_end_sim_seconds(self) -> float | None:
+        """When the fault ramp reaches the configured maximum severity, or
+        `None` for a healthy run. **Not** the end of the fault — per the
+        no-recovery policy (see this class's docstring), the fault stays
+        active at maximum severity from this point through the end of the
+        run."""
         if (
             self.fault_start_sim_seconds is None
             or self.fault_duration_sim_seconds is None

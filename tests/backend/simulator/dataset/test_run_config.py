@@ -37,11 +37,11 @@ _SENSOR_FAULT = replace(_FAULT, scenario_name=DatasetScenario.SENSOR_ANOMALY)
 
 
 def test_healthy_run_config_constructs() -> None:
-    assert _HEALTHY.fault_end_sim_seconds is None
+    assert _HEALTHY.ramp_end_sim_seconds is None
 
 
 def test_fault_run_config_constructs() -> None:
-    assert _FAULT.fault_end_sim_seconds == 900.0
+    assert _FAULT.ramp_end_sim_seconds == 900.0
 
 
 def test_zero_severity_is_valid_for_healthy_run() -> None:
@@ -83,9 +83,9 @@ def test_non_positive_fault_duration_is_rejected() -> None:
         replace(_FAULT, fault_duration_sim_seconds=0.0)
 
 
-def test_fault_window_beyond_run_duration_is_rejected() -> None:
+def test_fault_ramp_beyond_run_duration_is_rejected() -> None:
     with pytest.raises(ValueError):
-        replace(_FAULT, duration_sim_seconds=800.0)  # fault window ends at 900.0
+        replace(_FAULT, duration_sim_seconds=800.0)  # ramp ends at 900.0
 
 
 def test_fault_scenario_without_fault_start_is_rejected() -> None:

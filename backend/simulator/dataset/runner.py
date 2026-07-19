@@ -64,21 +64,28 @@ def iter_samples(config: RunConfig) -> Iterator[SimulationSample]:
     same value `ground_truth.compute_ground_truth` labels that sample
     with — so a sample's physics and its ground-truth label are always
     computed from the identical progress value, with no one-tick offset
-    between them. Concretely: when a step's resulting elapsed time falls in
-    `[fault_start, fault_end)`, `apply_fault_effect` is called *before*
-    advancing physics for that step, using the exact same
-    `progress = (elapsed - fault_start) / fault_duration` that
-    `compute_ground_truth` will use to label the resulting sample. This
-    intentionally bypasses the existing `Scenario` fault classes' own
-    `.tick()` — see `fault_effect.py` for why reusing them directly would
-    reintroduce that offset. `NormalOperationScenario` (the shared healthy
-    baseline, unaffected by any of this) still runs unmodified every step.
+    between them. Concretely: for every step at or after `fault_start`,
+    `apply_fault_effect` is called *before* advancing physics for that step,
+    using the exact same `progress = min(1.0, (elapsed - fault_start) /
+    fault_duration)` that `compute_ground_truth` will use to label the
+    resulting sample. This intentionally bypasses the existing `Scenario`
+    fault classes' own `.tick()` — see `fault_effect.py` for why reusing
+    them directly would reintroduce that offset. `NormalOperationScenario`
+    (the shared healthy baseline, unaffected by any of this) still runs
+    unmodified every step.
 
-    Once a sample's elapsed time passes the fault window,
-    `apply_fault_effect` is no longer called; the target asset's
-    already-ramped parameter (e.g. cooling efficiency) is not reset, so
-    there is no physical discontinuity at the fault's end, only a
-    ground-truth label change.
+    **No-recovery policy (PR167 correction)**: `fault_duration_sim_seconds`
+    is the fault's *ramp* duration, not its total lifetime. Once a fault
+    starts, `apply_fault_effect` is called on *every* subsequent step for
+    the rest of the run — progress ramps from `0.0` to `1.0` over
+    `fault_duration_sim_seconds`, then stays pinned at `1.0` (the configured
+    maximum severity) through the end of the run. There is deliberately no
+    reset/recovery: `ground_truth.compute_ground_truth` mirrors this by
+    reporting `fault_active=True` for the rest of the run once a fault
+    starts, never reverting to healthy. A future recovery scenario, if
+    added, must be an explicit, separate policy with its own physical
+    restoration and ground-truth states — not a silent implication of this
+    one.
 
     This generator shape (yield one `SimulationSample` at a time rather than
     building one big in-memory structure) is deliberate: `run()` below just
@@ -123,7 +130,6 @@ def iter_samples(config: RunConfig) -> Iterator[SimulationSample]:
     noise_rng = random.Random(f"{config.seed}:{_SENSOR_NOISE_RNG_STREAM}")
     is_fault_run = config.scenario_name is not DatasetScenario.NORMAL_OPERATION
     fault_start = config.fault_start_sim_seconds
-    fault_end = config.fault_end_sim_seconds
     fault_duration = config.fault_duration_sim_seconds
 
     total_steps = round(config.duration_sim_seconds / config.dt_seconds)
@@ -133,10 +139,12 @@ def iter_samples(config: RunConfig) -> Iterator[SimulationSample]:
         if (
             is_fault_run
             and fault_start is not None
-            and fault_end is not None
             and fault_duration is not None
-            and fault_start <= predicted_elapsed < fault_end
+            and predicted_elapsed >= fault_start
         ):
+            # No upper bound: once a fault starts, it ramps over
+            # fault_duration then stays applied at progress=1.0 for the
+            # rest of the run (see this function's docstring).
             progress = min(1.0, (predicted_elapsed - fault_start) / fault_duration)
             apply_fault_effect(fleet, config, progress=progress)
 

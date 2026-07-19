@@ -183,14 +183,17 @@ def test_cooling_degradation_still_activates_correctly_under_varied_load() -> No
     before = _ground_truth_at(result, 270.0)
     at_start = _ground_truth_at(result, 300.0)
     mid = _ground_truth_at(result, 600.0)
-    after_end = _ground_truth_at(result, 900.0)
+    at_ramp_end = _ground_truth_at(result, 900.0)
 
     assert before.fault_active is False
     assert at_start.fault_active is True
     assert at_start.fault_severity == 0.0
     assert mid.fault_active is True
     assert mid.fault_severity == pytest.approx(1.0 * ((600.0 - 300.0) / 600.0))
-    assert after_end.fault_active is False
+    # No-recovery policy: still active, at maximum severity, at ramp end —
+    # never reverts to healthy (PR167 blocking-review correction).
+    assert at_ramp_end.fault_active is True
+    assert at_ramp_end.fault_severity == pytest.approx(1.0)
 
 
 def test_fault_timing_is_identical_regardless_of_operating_conditions() -> None:

@@ -1,6 +1,7 @@
 """Offline dataset run kernel specifications."""
 
 import time
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -139,12 +140,32 @@ def test_cooling_degradation_active_during_window() -> None:
     assert 0.0 < record.fault_severity < 1.0
 
 
-def test_cooling_degradation_inactive_exactly_at_fault_end() -> None:
+def test_cooling_degradation_active_at_ramp_end() -> None:
+    # ramp_end = fault_start (300) + fault_duration (600) = 900 — the run's
+    # last sample. No-recovery policy: still active, at maximum severity.
     result = run(_cooling_config())
     record = _target_ground_truth_by_elapsed(result, 900.0)
-    assert record.fault_active is False
-    assert record.fault_severity == 0.0
-    assert record.seconds_since_fault_start is None
+    assert record.fault_active is True
+    assert record.fault_severity == pytest.approx(1.0)
+    assert record.seconds_since_fault_start == pytest.approx(600.0)
+
+
+def test_cooling_degradation_remains_active_and_at_maximum_severity_past_ramp_end() -> (
+    None
+):
+    # A longer run than the ramp needs, so there are real post-ramp samples
+    # to check remain fault-labeled at maximum severity (not healthy).
+    config = replace(_cooling_config(), duration_sim_seconds=1500.0)
+    result = run(config)
+    record = _target_ground_truth_by_elapsed(result, 1200.0)  # 300s past ramp_end
+    assert record.fault_active is True
+    assert record.fault_type is FaultType.COOLING_DEGRADATION
+    assert record.fault_severity == pytest.approx(1.0)
+    assert record.seconds_since_fault_start == pytest.approx(900.0)
+
+    last_record = _target_ground_truth_by_elapsed(result, 1500.0)
+    assert last_record.fault_active is True
+    assert last_record.fault_severity == pytest.approx(1.0)
 
 
 def test_cooling_degradation_seconds_since_start_tracks_elapsed() -> None:
@@ -169,10 +190,20 @@ def test_hydrogen_supply_issue_active_exactly_at_fault_start() -> None:
     assert record.fault_type is FaultType.HYDROGEN_SUPPLY_ISSUE
 
 
-def test_hydrogen_supply_issue_inactive_exactly_at_fault_end() -> None:
+def test_hydrogen_supply_issue_active_at_ramp_end() -> None:
     result = run(_hydrogen_config())
     record = _target_ground_truth_by_elapsed(result, 900.0)
-    assert record.fault_active is False
+    assert record.fault_active is True
+    assert record.fault_severity == pytest.approx(1.0)
+
+
+def test_hydrogen_supply_issue_remains_active_past_ramp_end() -> None:
+    config = replace(_hydrogen_config(), duration_sim_seconds=1500.0)
+    result = run(config)
+    record = _target_ground_truth_by_elapsed(result, 1200.0)
+    assert record.fault_active is True
+    assert record.fault_type is FaultType.HYDROGEN_SUPPLY_ISSUE
+    assert record.fault_severity == pytest.approx(1.0)
 
 
 # --- Healthy runs ------------------------------------------------------------
