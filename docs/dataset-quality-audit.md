@@ -131,6 +131,9 @@ correct.
 ## Related documentation
 
 - [Simulator Dataset Generation](simulator-dataset-generation.md)
+- [Baseline Fault-Diagnosis Models](baseline-fault-diagnosis-models.md) —
+  the PR168 model-evaluation capability built on this audit's downstream
+  feature dataset
 - `backend/simulator/dataset/audit/physical.py` — the physics reasoning
   behind each fault class's expected telemetry signature
 - `backend/simulator/dataset/audit/leakage.py` — the future

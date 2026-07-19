@@ -50,6 +50,12 @@ dataset-analysis = [
     "pyarrow>=17.0",
     "matplotlib>=3.9",
 ]
+ml = [
+    "pyarrow>=17.0",
+    "numpy>=2.0",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
+]
 dev = [
     "httpx>=0.28",
     "pytest>=8.0",
@@ -62,6 +68,8 @@ dev = [
     "onnxruntime>=1.20",
     "pyarrow>=17.0",
     "matplotlib>=3.9",
+    "scikit-learn>=1.5",
+    "joblib>=1.4",
 ]
 
 [build-system]
@@ -182,4 +190,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["matplotlib", "matplotlib.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "joblib", "threadpoolctl"]
 ignore_missing_imports = true
