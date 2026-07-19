@@ -46,6 +46,10 @@ forecast = [
 dataset = [
     "pyarrow>=17.0",
 ]
+dataset-analysis = [
+    "pyarrow>=17.0",
+    "matplotlib>=3.9",
+]
 dev = [
     "httpx>=0.28",
     "pytest>=8.0",
@@ -57,6 +61,7 @@ dev = [
     "onnx>=1.17",
     "onnxruntime>=1.20",
     "pyarrow>=17.0",
+    "matplotlib>=3.9",
 ]
 
 [build-system]
@@ -173,4 +178,8 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["matplotlib", "matplotlib.*"]
 ignore_missing_imports = true

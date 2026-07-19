@@ -59,7 +59,7 @@ python -m backend.simulator.dataset.generate \
   --output datasets/pem-faults-tiny
 ```
 
-- `--spec` points at a JSON `DatasetSpec` (see below). `examples/dataset_specs/pem_faults_tiny.json` is a small, fixed-value smoke-test example covering all four supported classes. `examples/dataset_specs/pem_faults_pilot.json` is the quality-audit pilot spec (64 runs, 16 per class, ranged fault start/severity per PR165) — not yet generated or committed as a dataset.
+- `--spec` points at a JSON `DatasetSpec` (see below). `examples/dataset_specs/pem_faults_tiny.json` is a small, fixed-value smoke-test example covering all four supported classes. `examples/dataset_specs/pem_faults_pilot.json` is the quality-audit pilot spec (64 runs, 16 per class, ranged fault start/severity per PR165) — see [Dataset Quality Audit](dataset-quality-audit.md) (PR166) for generating and auditing it.
 - `--output` overrides the spec's own `output_directory` field.
 - `--overwrite` is required to replace an existing non-empty output directory; without it, generation refuses to run rather than silently merging into old data.
 
@@ -131,5 +131,6 @@ etc. — none of these are project dependencies, just compatible readers).
 ## Related documentation
 
 - [Fuel cell simulator](simulator.md)
+- [Dataset Quality Audit](dataset-quality-audit.md) — generating and auditing the pilot dataset (PR166)
 - `backend/simulator/dataset/telemetry.py` — why noisy core and derived telemetry never mix with clean hidden state (the PR163 raw/derived consistency correction)
 - `backend/simulator/dataset/templates/data_dictionary.md` — the field-level contract copied into every generated dataset
