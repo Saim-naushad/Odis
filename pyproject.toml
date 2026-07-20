@@ -195,3 +195,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["sklearn.*", "joblib", "threadpoolctl"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["scipy", "scipy.*"]
+ignore_missing_imports = true
