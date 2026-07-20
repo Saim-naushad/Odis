@@ -13,7 +13,6 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 from sklearn.pipeline import Pipeline
 
 from backend.simulator.dataset.models.bootstrap import bootstrap_balanced_accuracy_ci
@@ -53,31 +52,10 @@ from backend.simulator.dataset.models.search import (
 from backend.simulator.dataset.models.severity import (
     GroupRecall,
     band_for,
-    ramp_group_labels,
+    ramp_row_labels,
     recall_by_group,
+    severity_band_row_labels,
 )
-
-
-def _severity_band_row_labels(dataset: ExperimentDataset) -> np.ndarray:
-    """Each row's fault class's configured-maximum severity band, `None`
-    for healthy rows or runs with no configured severity."""
-    labels = np.full(len(dataset.run_ids), None, dtype=object)
-    for i, run_id in enumerate(dataset.run_ids):
-        metadata = dataset.run_metadata.get(run_id)
-        if metadata is None or metadata.fault_class is None:
-            continue
-        labels[i] = band_for(metadata.configured_severity)
-    return labels
-
-
-def _ramp_row_labels(dataset: ExperimentDataset) -> np.ndarray:
-    fault_duration_by_run = {
-        run_id: metadata.fault_duration_sim_seconds
-        for run_id, metadata in dataset.run_metadata.items()
-    }
-    return ramp_group_labels(
-        dataset.seconds_since_fault_start, fault_duration_by_run, dataset.run_ids
-    )
 
 
 @dataclass(frozen=True)
@@ -256,8 +234,8 @@ def run_experiment(dataset: ExperimentDataset) -> ExperimentResult:
         dataset, test_mask, test_predictions, persistence_samples=selected_persistence
     )
 
-    severity_labels_test = _severity_band_row_labels(dataset)[test_mask]
-    ramp_labels_test = _ramp_row_labels(dataset)[test_mask]
+    severity_labels_test = severity_band_row_labels(dataset)[test_mask]
+    ramp_labels_test = ramp_row_labels(dataset)[test_mask]
     run_ids_test = dataset.run_ids[test_mask]
 
     test_severity_recall = {

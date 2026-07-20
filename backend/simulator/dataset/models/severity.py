@@ -19,6 +19,7 @@ from backend.simulator.dataset.models.config import (
     SEVERITY_BANDS,
     SMALL_GROUP_RUN_THRESHOLD,
 )
+from backend.simulator.dataset.models.data import ExperimentDataset
 
 
 def band_for(severity: float) -> str | None:
@@ -104,3 +105,29 @@ def ramp_group_labels(
             continue
         labels[i] = "post_ramp" if ssfs >= duration else "ramp"
     return labels
+
+
+def severity_band_row_labels(dataset: ExperimentDataset) -> np.ndarray:
+    """Each row's fault class's configured-maximum severity band, `None`
+    for healthy rows or runs with no configured severity. Shared by
+    `models.experiment` and `calibration.experiment` so both PRs' reports
+    group by exactly the same definition."""
+    labels = np.full(len(dataset.run_ids), None, dtype=object)
+    for i, run_id in enumerate(dataset.run_ids):
+        metadata = dataset.run_metadata.get(run_id)
+        if metadata is None or metadata.fault_class is None:
+            continue
+        labels[i] = band_for(metadata.configured_severity)
+    return labels
+
+
+def ramp_row_labels(dataset: ExperimentDataset) -> np.ndarray:
+    """`ramp_group_labels` applied to a whole `ExperimentDataset` — see
+    that function's docstring for the ramp/post-ramp/`None` semantics."""
+    fault_duration_by_run = {
+        run_id: metadata.fault_duration_sim_seconds
+        for run_id, metadata in dataset.run_metadata.items()
+    }
+    return ramp_group_labels(
+        dataset.seconds_since_fault_start, fault_duration_by_run, dataset.run_ids
+    )

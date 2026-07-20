@@ -172,5 +172,7 @@ metric values, which can shift across supported scikit-learn versions).
 
 - [Simulator Dataset Generation](simulator-dataset-generation.md)
 - [Dataset Quality Audit](dataset-quality-audit.md)
+- [Calibrated Confidence, Abstention, and Alert Policy](calibrated-confidence-and-alert-policy.md) —
+  the PR169 decision layer built on this PR's selected model
 - `backend/simulator/dataset/features/exclusions.py` — the forbidden-field
   policy this module's evaluation-metadata/feature-matrix boundary mirrors
