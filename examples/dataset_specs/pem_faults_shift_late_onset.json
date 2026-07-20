@@ -1,0 +1,77 @@
+{
+  "dataset_id": "pem-faults-shift-late-onset",
+  "schema_version": "1.0",
+  "simulator_version": "1.0.0",
+  "scenario_plans": [
+    { "scenario_name": "normal_operation", "run_count": 16 },
+    {
+      "scenario_name": "cooling_degradation",
+      "run_count": 16,
+      "fault_start_range": {
+        "minimum_seconds": 500.0,
+        "maximum_seconds": 600.0,
+        "step_seconds": 10.0
+      },
+      "fault_duration_sim_seconds": 240.0,
+      "fault_severity_range": { "minimum": 0.15, "maximum": 1.0 }
+    },
+    {
+      "scenario_name": "hydrogen_supply_issue",
+      "run_count": 16,
+      "fault_start_range": {
+        "minimum_seconds": 500.0,
+        "maximum_seconds": 600.0,
+        "step_seconds": 10.0
+      },
+      "fault_duration_sim_seconds": 240.0,
+      "fault_severity_range": { "minimum": 0.15, "maximum": 1.0 }
+    },
+    {
+      "scenario_name": "sensor_anomaly",
+      "run_count": 16,
+      "fault_start_range": {
+        "minimum_seconds": 500.0,
+        "maximum_seconds": 600.0,
+        "step_seconds": 10.0
+      },
+      "fault_duration_sim_seconds": 240.0,
+      "fault_severity_range": { "minimum": 0.15, "maximum": 1.0 }
+    }
+  ],
+  "seeds": [
+    41001, 41002, 41003, 41004, 41005, 41006, 41007, 41008,
+    41009, 41010, 41011, 41012, 41013, 41014, 41015, 41016,
+    42001, 42002, 42003, 42004, 42005, 42006, 42007, 42008,
+    42009, 42010, 42011, 42012, 42013, 42014, 42015, 42016,
+    43001, 43002, 43003, 43004, 43005, 43006, 43007, 43008,
+    43009, 43010, 43011, 43012, 43013, 43014, 43015, 43016,
+    44001, 44002, 44003, 44004, 44005, 44006, 44007, 44008,
+    44009, 44010, 44011, 44012, 44013, 44014, 44015, 44016
+  ],
+  "target_asset_ids": [
+    "fuel-cell-stack-01",
+    "fuel-cell-stack-02",
+    "fuel-cell-stack-03",
+    "fuel-cell-stack-04"
+  ],
+  "duration_sim_seconds": 900.0,
+  "dt_seconds": 10.0,
+  "run_start_time": "2026-03-03T00:00:00+00:00",
+  "operating_condition_ranges": {
+    "load_baseline_percent": [50.0, 70.0],
+    "load_amplitude_percent": [5.0, 18.0],
+    "load_period_seconds": [180.0, 420.0],
+    "load_phase_radians": [0.0, 6.283185307179586],
+    "initial_load_offset_percent": [-5.0, 5.0],
+    "initial_stack_temperature_offset_celsius": [-3.0, 3.0]
+  },
+  "sensor_noise": [
+    { "measurement_name": "stack_temperature", "standard_deviation": 0.3, "clip_std_multiple": 3.0 },
+    { "measurement_name": "stack_pressure", "standard_deviation": 1.5, "clip_std_multiple": 3.0 },
+    { "measurement_name": "current", "standard_deviation": 1.0, "clip_std_multiple": 3.0 },
+    { "measurement_name": "voltage", "standard_deviation": 0.005, "clip_std_multiple": 3.0 },
+    { "measurement_name": "fuel_flow", "standard_deviation": 0.5, "clip_std_multiple": 3.0 }
+  ],
+  "split_proportions": { "train": 0.6, "validation": 0.2, "test": 0.2 },
+  "output_directory": "datasets/pem-faults-shift-late-onset"
+}
