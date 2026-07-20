@@ -46,6 +46,8 @@ class GenerationResult:
     total_rows_before_warmup_drop: int
     dropped_warmup_rows: int
     eligible_rows: int
+    valid_rows: int
+    rejected_rows: int
     split_counts: dict[str, int]
     class_distribution: dict[str, int]
 
@@ -74,8 +76,10 @@ def generate_features(
     try:
         features_path = tmp_dir / "features.parquet"
         labels_path = tmp_dir / "labels.parquet"
+        rejections_path = tmp_dir / "feature_rejections.parquet"
         pq.write_table(feature_table.features, features_path)
         pq.write_table(feature_table.labels, labels_path)
+        pq.write_table(feature_table.rejections, rejections_path)
 
         clamp_stats = efficiency_clamp_stats(records.telemetry, feature_table.features)
 
@@ -86,7 +90,7 @@ def generate_features(
             handle=handle,
             feature_table=feature_table,
             efficiency_clamp_stats=clamp_stats,
-            files=(features_path, labels_path, dictionary_path),
+            files=(features_path, labels_path, rejections_path, dictionary_path),
             generation_command=generation_command,
         )
         manifest_path = tmp_dir / "feature_manifest.json"
@@ -109,6 +113,8 @@ def generate_features(
         total_rows_before_warmup_drop=feature_table.total_rows_before_warmup_drop,
         dropped_warmup_rows=feature_table.dropped_warmup_rows,
         eligible_rows=feature_table.eligible_rows,
+        valid_rows=feature_table.valid_rows,
+        rejected_rows=feature_table.rejected_rows,
         split_counts=split_counts,
         class_distribution=class_distribution,
     )

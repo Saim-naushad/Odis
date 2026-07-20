@@ -2,6 +2,12 @@
 own test split and the OOD v1 cohort, score both through the identical
 metric code path, compare, and write every output artifact atomically
 (mirrors `models/generate.py`'s temp-dir-then-rename pattern).
+
+PR173 adds the insufficient-data/availability side of the report: every
+evaluation now also loads each cohort's `feature_rejections.parquet`
+(via `load_ood_experiment_dataset`'s paired `InsufficientDataSummary`)
+and computes `availability_metrics.AvailabilityMetrics` alongside the
+existing row-level diagnosis/alert metrics — never in place of them.
 """
 
 from __future__ import annotations
@@ -14,12 +20,14 @@ from pathlib import Path
 
 from backend.simulator.dataset.models.config import FAULT_CLASSES
 from backend.simulator.dataset.ood.alert_metrics import evaluate_alert_policy
-from backend.simulator.dataset.ood.artifacts import (
-    load_frozen_artifacts,
+from backend.simulator.dataset.ood.artifacts import load_frozen_artifacts
+from backend.simulator.dataset.ood.availability_metrics import (
+    compute_availability_metrics,
 )
 from backend.simulator.dataset.ood.comparison import compare_id_vs_ood
 from backend.simulator.dataset.ood.data_loading import (
     filter_experiment_dataset,
+    filter_insufficient_data_summary_to_runs,
     load_ood_experiment_dataset,
 )
 from backend.simulator.dataset.ood.diagnosis_metrics import (
@@ -70,13 +78,18 @@ def run_ood_evaluation(
 
     artifacts = load_frozen_artifacts(models_dir, alert_policy_dir)
 
-    id_dataset_full, id_unscoreable = load_ood_experiment_dataset(
+    id_dataset_full, id_insufficient_data_full = load_ood_experiment_dataset(
         training_features_dir, training_dataset_dir
     )
     id_dataset = filter_experiment_dataset(
         id_dataset_full, id_dataset_full.split_mask("test")
     )
-    ood_dataset, ood_unscoreable = load_ood_experiment_dataset(
+    id_insufficient_data = filter_insufficient_data_summary_to_runs(
+        id_insufficient_data_full,
+        set(id_dataset.run_ids.tolist()),
+        valid_row_count=len(id_dataset.y),
+    )
+    ood_dataset, ood_insufficient_data = load_ood_experiment_dataset(
         ood_features_dir, ood_dataset_dir
     )
 
@@ -95,12 +108,27 @@ def run_ood_evaluation(
         id_predictions.proba,
         artifacts.class_order,
         artifacts.state_machine_config,
+        id_insufficient_data,
     )
     ood_alerts = evaluate_alert_policy(
         ood_dataset,
         ood_predictions.proba,
         artifacts.class_order,
         artifacts.state_machine_config,
+        ood_insufficient_data,
+    )
+
+    resolved_training_dataset_dir = training_dataset_dir or Path(
+        id_dataset_full.manifest["source_dataset"]["directory"]
+    )
+    resolved_ood_dataset_dir = ood_dataset_dir or Path(
+        ood_dataset.manifest["source_dataset"]["directory"]
+    )
+    id_availability = compute_availability_metrics(
+        id_dataset, id_insufficient_data, resolved_training_dataset_dir
+    )
+    ood_availability = compute_availability_metrics(
+        ood_dataset, ood_insufficient_data, resolved_ood_dataset_dir
     )
 
     comparison = compare_id_vs_ood(
@@ -148,8 +176,10 @@ def run_ood_evaluation(
             artifacts=artifacts,
             id_dataset_run_count=len(id_dataset.run_metadata),
             ood_dataset_run_count=len(ood_dataset.run_metadata),
-            id_unscoreable=id_unscoreable,
-            ood_unscoreable=ood_unscoreable,
+            id_insufficient_data=id_insufficient_data,
+            ood_insufficient_data=ood_insufficient_data,
+            id_availability=id_availability,
+            ood_availability=ood_availability,
             id_diagnosis=id_diagnosis,
             ood_diagnosis=ood_diagnosis,
             id_alerts=id_alerts,
@@ -174,7 +204,8 @@ def run_ood_evaluation(
         report_markdown = render_markdown_report(
             generation_command=generation_command,
             artifacts=artifacts,
-            ood_unscoreable=ood_unscoreable,
+            ood_insufficient_data=ood_insufficient_data,
+            ood_availability=ood_availability,
             id_diagnosis=id_diagnosis,
             ood_diagnosis=ood_diagnosis,
             id_alerts=id_alerts,

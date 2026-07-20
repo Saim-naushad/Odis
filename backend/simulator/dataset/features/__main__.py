@@ -52,6 +52,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"eligible_rows={result.eligible_rows} "
         f"dropped_warmup_rows={result.dropped_warmup_rows}"
     )
+    print(
+        f"valid_rows={result.valid_rows} rejected_rows={result.rejected_rows} "
+        f"rejection_rate={result.rejected_rows / result.eligible_rows:.4%}"
+        if result.eligible_rows > 0
+        else "valid_rows=0 rejected_rows=0 rejection_rate=0.0000%"
+    )
     print(f"split_counts={result.split_counts}")
     print(f"class_distribution={result.class_distribution}")
     return 0

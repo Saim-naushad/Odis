@@ -1,13 +1,15 @@
 """Deterministic per-`(simulation_run_id, asset_id)` hysteresis state
-machine (PR170 spec section 2).
+machine (PR170 spec section 2; `insufficient_data` row handling added by
+PR173 spec section 6).
 
-Three states only: `healthy`, `pending_<class>`, `confirmed_<class>` — no
-persistent `"uncertain"` state (a row whose diagnosis doesn't satisfy any
-entry condition simply fails to extend a streak, exactly like a healthy
-row would; PR170 has no calibration/abstention layer, so "uncertain" as a
-row-level diagnosis does not exist here at all — see spec section 2's
-"An optional uncertain row-level diagnosis may exist, but it must not
-become a persistent operational state in this PR").
+Three confirmed/pending/healthy states only: `healthy`, `pending_<class>`,
+`confirmed_<class>` — no persistent `"uncertain"` state (a row whose
+diagnosis doesn't satisfy any entry condition simply fails to extend a
+streak, exactly like a healthy row would; PR170 has no calibration/
+abstention layer, so "uncertain" as a row-level diagnosis does not exist
+here at all — see spec section 2's "An optional uncertain row-level
+diagnosis may exist, but it must not become a persistent operational
+state in this PR").
 
 **Entry**: a candidate class begins tracking the moment a row's own
 argmax diagnosis is that (non-healthy) class *and* that class's own
@@ -32,6 +34,29 @@ switch-candidate streak reach their target on the same row, exit to
 `healthy` wins (checked first) — a documented, deterministic, and
 conservative choice (never switches into a new confirmed class without
 first observing the option of a clean return to healthy).
+
+**`insufficient_data` rows** (PR173): a row this FSM cannot trust (the
+feature pipeline's `features/safety.py` rejection contract — see
+`ood.alert_metrics` for how a batch of feature-eligible timestamps with
+some rejected is turned into this per-row flag) never advances the FSM's
+own evidence-gathering counters, and is reported as its own row state,
+never silently folded into `healthy`, `pending_*`, or `confirmed_*|`:
+
+- while `healthy`: breaks any in-progress pending-confirmation streak
+  (`pending_class`/`pending_streak` reset to `None`/0) — bad input cannot
+  itself start or continue building toward a false alert.
+- while `confirmed_<C>`: the confirmed state is preserved unchanged and
+  no counter advances (exit-persistence and any switch-candidate streak
+  are neither incremented nor reset) — bad input cannot itself clear a
+  real alert, nor can it be exploited to bridge two otherwise-
+  disconnected switch-candidate streaks.
+
+No event is ever emitted for an `insufficient_data` row itself. This
+parameter is opt-in (`row_valid=None` reproduces the exact PR170 behavior
+byte-for-bit, since every existing caller's rows are implicitly all
+valid) precisely so this same function can serve both today's batch
+evaluation and a future streaming caller without divergent behavior
+(spec section 5).
 """
 
 from __future__ import annotations
@@ -45,6 +70,7 @@ import numpy as np
 from backend.simulator.dataset.models.config import HEALTHY_LABEL
 
 HEALTHY_STATE = HEALTHY_LABEL
+INSUFFICIENT_DATA_STATE = "insufficient_data"
 
 
 @dataclass(frozen=True)
@@ -105,10 +131,20 @@ def run_state_machine(
     proba: np.ndarray,
     classes: tuple[str, ...],
     config: StateMachineConfig,
+    *,
+    row_valid: Sequence[bool] | None = None,
 ) -> StateMachineResult:
     """Run the FSM over one `(run, asset)`'s row sequence, in ascending
     elapsed-time order, starting fresh at `healthy` (state is never
-    carried across runs or assets — see the module docstring)."""
+    carried across runs or assets — see the module docstring).
+
+    `row_valid[i] is False` marks that row `insufficient_data` (see the
+    module docstring for the exact policy); omit `row_valid` entirely (or
+    pass all-`True`) to reproduce PR170's original behavior exactly.
+    `proba[i]` is still required to be a well-formed row even when
+    `row_valid[i] is False` — its content is simply never read for that
+    row.
+    """
     healthy_index = classes.index(HEALTHY_STATE)
 
     row_states: list[str] = []
@@ -124,7 +160,16 @@ def run_state_machine(
     switch_class: str | None = None
     switch_streak = 0
 
-    for t, row in zip(elapsed_sim_seconds, proba, strict=True):
+    validity = row_valid if row_valid is not None else [True] * len(proba)
+
+    for t, row, valid in zip(elapsed_sim_seconds, proba, validity, strict=True):
+        if not valid:
+            if state == HEALTHY_STATE:
+                pending_class = None
+                pending_streak = 0
+            row_states.append(INSUFFICIENT_DATA_STATE)
+            continue
+
         diag_index = int(np.argmax(row))
         diag = classes[diag_index]
         diag_prob = float(row[diag_index])

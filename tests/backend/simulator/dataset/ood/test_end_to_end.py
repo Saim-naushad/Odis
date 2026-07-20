@@ -59,18 +59,19 @@ def test_full_evaluation_produces_every_required_artifact(
     assert len(summary["frozen_artifacts"]["pipeline_sha256"]) == 64
     assert len(summary["frozen_artifacts"]["alert_policy_sha256"]) == 64
 
-    # All OOD rows accounted for: scored rows + dropped-unscoreable rows
-    # equal the feature manifest's total row count.
-    ood_unscoreable = summary["ood_cohort"]["unscoreable_rows"]
+    # All OOD rows accounted for: scored rows + rejected rows equal the
+    # feature manifest's total eligible row count.
+    ood_insufficient_data = summary["ood_cohort"]["insufficient_data"]
     scored_rows = sum(
         entry["support"]
         for entry in summary["ood_cohort"]["diagnosis"]["multiclass_metrics"][
             "per_class"
         ].values()
     )
-    assert scored_rows + ood_unscoreable["unscoreable_row_count"] == (
-        ood_unscoreable["total_rows"]
+    assert scored_rows + ood_insufficient_data["rejected_row_count"] == (
+        ood_insufficient_data["total_eligible_rows"]
     )
+    assert "availability" in summary["ood_cohort"]
 
     # Severity/stage breakdowns present for every fault class.
     for cls in FAULT_CLASSES:
@@ -152,7 +153,9 @@ def test_representative_case_selection_is_deterministic(
     artifacts = load_frozen_artifacts(
         tiny_frozen_artifacts.models_dir, tiny_frozen_artifacts.alert_policy_dir
     )
-    dataset, _ = load_ood_experiment_dataset(ood_features_dir, ood_dataset_dir)
+    dataset, insufficient_data = load_ood_experiment_dataset(
+        ood_features_dir, ood_dataset_dir
+    )
     predictions = predict(dataset, artifacts.pipeline, artifacts.feature_group)
 
     from backend.simulator.dataset.ood.alert_metrics import evaluate_alert_policy
@@ -162,6 +165,7 @@ def test_representative_case_selection_is_deterministic(
         predictions.proba,
         artifacts.class_order,
         artifacts.state_machine_config,
+        insufficient_data,
     )
 
     first = select_representative_cases(

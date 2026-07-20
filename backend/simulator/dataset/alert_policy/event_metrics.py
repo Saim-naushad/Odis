@@ -109,7 +109,7 @@ class FalseAlertSummary:
         }
 
 
-def _episodes_from_events(
+def episodes_from_events(
     run_id: str, events: list[AlertEvent], segment_end_elapsed: float
 ) -> list[FalseEpisode]:
     episodes: list[FalseEpisode] = []
@@ -197,7 +197,7 @@ def compute_false_alert_summary(
         healthy_seconds += len(healthy_rows) * DT_SECONDS
 
         segment_end = elapsed[-1] + DT_SECONDS
-        run_episodes = _episodes_from_events(run_id, result.events, segment_end)
+        run_episodes = episodes_from_events(run_id, result.events, segment_end)
         if run_episodes:
             runs_with_alert.add(run_id)
         episodes.extend(run_episodes)

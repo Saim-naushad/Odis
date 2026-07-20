@@ -59,8 +59,12 @@ class CohortData:
         return cast(dict[str, Any], self.summary["ood_cohort"]["alerts"])
 
     @property
-    def unscoreable_rows(self) -> dict[str, Any]:
-        return cast(dict[str, Any], self.summary["ood_cohort"]["unscoreable_rows"])
+    def insufficient_data(self) -> dict[str, Any]:
+        return cast(dict[str, Any], self.summary["ood_cohort"]["insufficient_data"])
+
+    @property
+    def availability(self) -> dict[str, Any]:
+        return cast(dict[str, Any], self.summary["ood_cohort"]["availability"])
 
     @property
     def id_diagnosis(self) -> dict[str, Any]:

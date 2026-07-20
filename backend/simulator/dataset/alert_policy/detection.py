@@ -69,8 +69,18 @@ def evaluate_run_detection(
     simulation_run_id: str,
     fault_class: str,
     fault_start_sim_seconds: float,
+    row_valid: list[bool] | None = None,
 ) -> RunDetectionResult:
-    result = run_state_machine(elapsed_sim_seconds, proba, classes, config)
+    """`row_valid[i] is False` marks that row `insufficient_data` (PR173)
+    — passed straight through to `run_state_machine`; omit entirely to
+    reproduce PR170's original behavior exactly. Callers that build their
+    own merged valid/insufficient-data row sequence (see
+    `ood.gapped_alert_evaluation`) call this function directly rather
+    than going through `evaluate_detection`'s dataset/mask-based row
+    gathering, which has no notion of a rejected row to begin with."""
+    result = run_state_machine(
+        elapsed_sim_seconds, proba, classes, config, row_valid=row_valid
+    )
 
     confirmed_class_at_onset: str | None = None
     for event in result.events:

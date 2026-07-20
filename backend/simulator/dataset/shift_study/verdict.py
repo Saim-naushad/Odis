@@ -48,7 +48,7 @@ def determine_recommendation(
     reasons: list[str] = []
 
     cohort_fractions = {
-        name: finding["unscoreable_fraction"]
+        name: finding["rejection_fraction"]
         for name, finding in invalid_rows["by_cohort"].items()
     }
     max_fraction_cohort = max(

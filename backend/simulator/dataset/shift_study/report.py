@@ -28,7 +28,8 @@ def build_cohort_metrics_json(
         entry: dict[str, Any] = {
             "diagnosis": cohort.ood_diagnosis,
             "alerts": cohort.ood_alerts,
-            "unscoreable_rows": cohort.unscoreable_rows,
+            "insufficient_data": cohort.insufficient_data,
+            "availability": cohort.availability,
             "feature_shift": {
                 "top_shifted_by_group": cohort.feature_shift.get(
                     "top_shifted_by_group", {}
@@ -137,14 +138,15 @@ def render_markdown_report(
         lines.append(f"- **{metric}**: {' > '.join(order)}")
     lines.append("")
 
-    lines.append("## 3. Invalid/unscoreable feature rows")
+    lines.append("## 3. Insufficient-data (rejected) feature rows")
     lines.append("")
     for name in invalid_rows["ranked_by_fraction"]:
         finding = invalid_rows["by_cohort"][name]
         lines.append(
-            f"- {name}: {finding['unscoreable_row_count']}/{finding['total_rows']} "
-            f"({finding['unscoreable_fraction']:.2%}), by column: "
-            f"{finding['by_nullable_column']}"
+            f"- {name}: {finding['rejected_row_count']}/"
+            f"{finding['total_eligible_rows']} "
+            f"({finding['rejection_fraction']:.2%}), by feature: "
+            f"{finding['by_invalid_feature_name']}"
         )
     lines.append("")
 

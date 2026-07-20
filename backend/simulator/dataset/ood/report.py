@@ -9,8 +9,9 @@ from typing import Any
 
 from backend.simulator.dataset.ood.alert_metrics import AlertEvaluationResult
 from backend.simulator.dataset.ood.artifacts import FrozenArtifacts
+from backend.simulator.dataset.ood.availability_metrics import AvailabilityMetrics
 from backend.simulator.dataset.ood.comparison import GeneralizationComparison
-from backend.simulator.dataset.ood.data_loading import UnscoreableRowSummary
+from backend.simulator.dataset.ood.data_loading import InsufficientDataSummary
 from backend.simulator.dataset.ood.diagnosis_metrics import RowDiagnosisResult
 from backend.simulator.dataset.ood.error_analysis import RepresentativeCase
 from backend.simulator.dataset.ood.plots import PlotResult
@@ -23,8 +24,10 @@ def build_summary_json(
     artifacts: FrozenArtifacts,
     id_dataset_run_count: int,
     ood_dataset_run_count: int,
-    id_unscoreable: UnscoreableRowSummary,
-    ood_unscoreable: UnscoreableRowSummary,
+    id_insufficient_data: InsufficientDataSummary,
+    ood_insufficient_data: InsufficientDataSummary,
+    id_availability: AvailabilityMetrics,
+    ood_availability: AvailabilityMetrics,
     id_diagnosis: RowDiagnosisResult,
     ood_diagnosis: RowDiagnosisResult,
     id_alerts: AlertEvaluationResult,
@@ -37,13 +40,15 @@ def build_summary_json(
         "frozen_artifacts": artifacts.to_json_dict(),
         "id_cohort": {
             "run_count": id_dataset_run_count,
-            "unscoreable_rows": id_unscoreable.to_json_dict(),
+            "insufficient_data": id_insufficient_data.to_json_dict(),
+            "availability": id_availability.to_json_dict(),
             "diagnosis": id_diagnosis.to_json_dict(),
             "alerts": id_alerts.to_json_dict(),
         },
         "ood_cohort": {
             "run_count": ood_dataset_run_count,
-            "unscoreable_rows": ood_unscoreable.to_json_dict(),
+            "insufficient_data": ood_insufficient_data.to_json_dict(),
+            "availability": ood_availability.to_json_dict(),
             "diagnosis": ood_diagnosis.to_json_dict(),
             "alerts": ood_alerts.to_json_dict(),
         },
@@ -60,7 +65,8 @@ def render_markdown_report(
     *,
     generation_command: str,
     artifacts: FrozenArtifacts,
-    ood_unscoreable: UnscoreableRowSummary,
+    ood_insufficient_data: InsufficientDataSummary,
+    ood_availability: AvailabilityMetrics,
     id_diagnosis: RowDiagnosisResult,
     ood_diagnosis: RowDiagnosisResult,
     id_alerts: AlertEvaluationResult,
@@ -99,18 +105,46 @@ def render_markdown_report(
     )
     lines.append("")
 
-    lines.append("## 2. Unscoreable OOD rows")
+    lines.append("## 2. Insufficient-data rows (PR173 rejection contract)")
     lines.append("")
     lines.append(
-        f"{ood_unscoreable.unscoreable_row_count}/{ood_unscoreable.total_rows} "
-        f"({ood_unscoreable.unscoreable_fraction:.2%}) OOD rows had a null "
-        "`power_per_fuel_flow`/`voltage_per_current` cross-signal feature "
-        "(the documented zero-denominator guard — see "
-        "`features.cross_signal`) and were excluded from row-level "
-        "diagnosis/alert scoring rather than imputed. This never occurs in "
-        "the pilot dataset; it is itself an OOD finding (doubled sensor "
-        f"noise occasionally clips `fuel_flow`/`current` to ~0). By class: "
-        f"{ood_unscoreable.by_class}"
+        f"{ood_insufficient_data.rejected_row_count}/"
+        f"{ood_insufficient_data.total_eligible_rows} "
+        f"({ood_insufficient_data.rejection_fraction:.2%}) OOD timestamps were "
+        "excluded from `features.parquet` at generation time — every feature "
+        "was either finite and schema-compatible, or the row was rejected "
+        "with an explicit reason code (`features/safety.py`); no feature is "
+        "ever silently null or imputed. By reason: "
+        f"{ood_insufficient_data.by_reason_code}. By feature: "
+        f"{ood_insufficient_data.by_invalid_feature_name}."
+    )
+    lines.append("")
+    lines.append(
+        f"- Valid-feature coverage: **{_fmt(ood_availability.valid_feature_coverage)}**"
+    )
+    lines.append(
+        "- Longest consecutive insufficient-data streak: "
+        f"{ood_availability.longest_consecutive_streak_rows} rows "
+        f"({ood_availability.longest_consecutive_streak_seconds:.0f}s)"
+    )
+    lines.append(
+        f"- Affected runs/assets: {ood_availability.affected_run_count} / "
+        f"{len(ood_availability.affected_asset_ids)}"
+    )
+    lines.append(
+        f"- Class distribution of rejected rows: {ood_availability.class_distribution}"
+    )
+    lines.append(
+        f"- Stage distribution of rejected rows: {ood_availability.stage_distribution}"
+    )
+    lines.append(
+        "- Ramp-stage unavailable fraction: "
+        f"{_fmt(ood_availability.ramp_unavailable_fraction)}, post-ramp: "
+        f"{_fmt(ood_availability.post_ramp_unavailable_fraction)}"
+    )
+    lines.append(
+        "- Detection opportunities interrupted: "
+        f"{ood_availability.detection_opportunities_interrupted}"
     )
     lines.append("")
 

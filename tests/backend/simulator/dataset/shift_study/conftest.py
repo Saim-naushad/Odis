@@ -96,13 +96,13 @@ def build_cohort_evaluation_dir(
     incorrect_class_alert_run_count: int = 0,
     median_correct_class_latency_seconds: float | None = 100.0,
     detected_within_120s: float = 0.5,
-    unscoreable_row_count: int = 0,
-    total_rows: int = 1000,
-    unscoreable_by_class: dict[str, int] | None = None,
+    rejected_row_count: int = 0,
+    total_eligible_rows: int = 1000,
+    rejected_by_class: dict[str, int] | None = None,
     top_feature_smd: float = 1.0,
 ) -> Path:
-    """Writes a complete, minimal-but-valid PR171 `ood` evaluation output
-    directory under `directory` and returns it."""
+    """Writes a complete, minimal-but-valid PR171/PR173 `ood` evaluation
+    output directory under `directory` and returns it."""
     directory.mkdir(parents=True, exist_ok=True)
     any_fault_missed_runs = any_fault_missed_runs or []
     correct_class_missed_runs = correct_class_missed_runs or []
@@ -122,9 +122,32 @@ def build_cohort_evaluation_dir(
         incorrect_class_alert_run_count=incorrect_class_alert_run_count,
     )
 
-    unscoreable_fraction = (
-        unscoreable_row_count / total_rows if total_rows > 0 else 0.0
+    rejection_fraction = (
+        rejected_row_count / total_eligible_rows if total_eligible_rows > 0 else 0.0
     )
+    empty_availability = {
+        "valid_feature_coverage": 1.0,
+        "insufficient_data_rate": 0.0,
+        "insufficient_data_seconds_total": 0.0,
+        "longest_consecutive_streak_rows": 0,
+        "longest_consecutive_streak_seconds": 0.0,
+        "affected_run_count": 0,
+        "affected_asset_ids": [],
+        "reason_counts": {},
+        "class_distribution": {},
+        "stage_distribution": {"ramp": 0, "post_ramp": 0, "not_in_fault_window": 0},
+        "ramp_unavailable_fraction": None,
+        "post_ramp_unavailable_fraction": None,
+        "detection_opportunities_interrupted": 0,
+    }
+    ood_availability = {
+        **empty_availability,
+        "valid_feature_coverage": 1.0 - rejection_fraction,
+        "insufficient_data_rate": rejection_fraction,
+        "insufficient_data_seconds_total": rejected_row_count * 10.0,
+        "affected_run_count": min(rejected_row_count, 16),
+        "class_distribution": rejected_by_class or {},
+    }
 
     summary = {
         "generation_command": "test",
@@ -143,17 +166,19 @@ def build_cohort_evaluation_dir(
         },
         "id_cohort": {
             "run_count": 16,
-            "unscoreable_rows": {
-                "total_rows": total_rows,
-                "unscoreable_row_count": 0,
-                "unscoreable_fraction": 0.0,
-                "by_class": {},
-                "by_nullable_column": {
+            "insufficient_data": {
+                "total_eligible_rows": total_eligible_rows,
+                "rejected_row_count": 0,
+                "rejection_fraction": 0.0,
+                "by_reason_code": {},
+                "by_invalid_feature_name": {
                     "voltage_per_current": 0,
                     "power_per_fuel_flow": 0,
                 },
                 "affected_run_count": 0,
+                "affected_run_ids": [],
             },
+            "availability": empty_availability,
             "diagnosis": {
                 "multiclass_metrics": id_metrics,
                 "healthy_false_positive_rate": id_healthy_fpr,
@@ -185,17 +210,23 @@ def build_cohort_evaluation_dir(
         },
         "ood_cohort": {
             "run_count": 16,
-            "unscoreable_rows": {
-                "total_rows": total_rows,
-                "unscoreable_row_count": unscoreable_row_count,
-                "unscoreable_fraction": unscoreable_fraction,
-                "by_class": unscoreable_by_class or {},
-                "by_nullable_column": {
+            "insufficient_data": {
+                "total_eligible_rows": total_eligible_rows,
+                "rejected_row_count": rejected_row_count,
+                "rejection_fraction": rejection_fraction,
+                "by_reason_code": (
+                    {"near_zero_denominator": rejected_row_count}
+                    if rejected_row_count
+                    else {}
+                ),
+                "by_invalid_feature_name": {
                     "voltage_per_current": 0,
-                    "power_per_fuel_flow": unscoreable_row_count,
+                    "power_per_fuel_flow": rejected_row_count,
                 },
-                "affected_run_count": min(unscoreable_row_count, 16),
+                "affected_run_count": min(rejected_row_count, 16),
+                "affected_run_ids": [],
             },
+            "availability": ood_availability,
             "diagnosis": {
                 "multiclass_metrics": ood_metrics,
                 "healthy_false_positive_rate": ood_healthy_fpr,

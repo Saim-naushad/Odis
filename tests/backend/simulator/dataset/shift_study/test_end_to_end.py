@@ -42,8 +42,8 @@ def _build_standard_cohorts(tmp_path: Path) -> dict[str, Path]:
             tmp_path / "high_noise",
             ood_balanced_accuracy=0.71,
             false_alert_rate_per_healthy_hour=12.0,
-            unscoreable_row_count=385,
-            total_rows=20224,
+            rejected_row_count=385,
+            total_eligible_rows=20224,
             any_fault_missed_runs=["cooling_degradation-0002"],
         ),
     }

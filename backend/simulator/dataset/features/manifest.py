@@ -51,6 +51,18 @@ def _null_counts(table: Any, columns: tuple[str, ...]) -> dict[str, int]:
     return {name: table.column(name).null_count for name in columns}
 
 
+def _rejection_counts(rejections_table: Any) -> tuple[dict[str, int], dict[str, int]]:
+    """`(counts_by_reason, counts_by_feature)` — a rejected row can carry
+    more than one reason/feature, so both are counted per-occurrence, not
+    per-row."""
+    by_reason: Counter[str] = Counter()
+    by_feature: Counter[str] = Counter()
+    for row in rejections_table.to_pylist():
+        by_reason.update(row["reason_codes"])
+        by_feature.update(row["invalid_feature_names"])
+    return dict(sorted(by_reason.items())), dict(sorted(by_feature.items()))
+
+
 def build_feature_manifest(
     *,
     handle: DatasetHandle,
@@ -65,6 +77,9 @@ def build_feature_manifest(
     label_rows = feature_table.labels.to_pylist()
     class_distribution = Counter(row["class_label"] for row in label_rows)
     split_counts = Counter(row["split"] for row in label_rows)
+    rejection_counts_by_reason, rejection_counts_by_feature = _rejection_counts(
+        feature_table.rejections
+    )
 
     source_manifest_path = handle.directory / "dataset_manifest.json"
     source_manifest = json.loads(source_manifest_path.read_text())
@@ -107,7 +122,16 @@ def build_feature_manifest(
             ),
             "dropped_warmup_rows": feature_table.dropped_warmup_rows,
             "eligible_rows": feature_table.eligible_rows,
+            "valid_rows": feature_table.valid_rows,
+            "rejected_rows": feature_table.rejected_rows,
         },
+        "rejection_rate": (
+            feature_table.rejected_rows / feature_table.eligible_rows
+            if feature_table.eligible_rows > 0
+            else 0.0
+        ),
+        "rejection_counts_by_reason": rejection_counts_by_reason,
+        "rejection_counts_by_feature": rejection_counts_by_feature,
         "split_counts": dict(sorted(split_counts.items())),
         "class_distribution": dict(sorted(class_distribution.items())),
         "null_counts": {

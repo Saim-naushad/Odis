@@ -4,6 +4,13 @@ Single source of truth for column order: every other module (builder,
 manifest, feature_dictionary generation, tests) calls
 `feature_column_order()` rather than re-deriving the list, so there is
 exactly one place the order can drift from the schema.
+
+Every feature column is non-nullable (PR173 spec section 3): a row where
+any feature — including the two cross-signal ratios — cannot be safely
+computed is excluded from `features.parquet` entirely (see `builder.py`)
+and written to `feature_rejections.parquet` instead, rather than being
+kept with a null column. `build_feature_rejections_schema` is that
+artifact's schema.
 """
 
 from __future__ import annotations
@@ -46,12 +53,6 @@ def feature_column_order() -> list[str]:
     return columns
 
 
-_NULLABLE_FEATURE_COLUMNS = frozenset(CROSS_SIGNAL_FEATURES)
-"""Only the two ratio features can be null (documented zero-denominator
-behavior — see `cross_signal.py`). Every other feature is always
-computable once the longest-window warm-up requirement is satisfied."""
-
-
 def build_features_schema() -> pa.Schema:
     fields = [
         pa.field("dataset_id", pa.string(), nullable=False),
@@ -61,10 +62,31 @@ def build_features_schema() -> pa.Schema:
         pa.field("elapsed_sim_seconds", pa.float64(), nullable=False),
     ]
     for name in feature_column_order():
-        fields.append(
-            pa.field(name, pa.float64(), nullable=name in _NULLABLE_FEATURE_COLUMNS)
-        )
+        fields.append(pa.field(name, pa.float64(), nullable=False))
     return pa.schema(fields)
+
+
+def build_feature_rejections_schema() -> pa.Schema:
+    """One row per `(simulation_run_id, asset_id, timestamp)` excluded
+    from `features.parquet` because at least one feature could not be
+    safely computed (PR173 spec section 3). `invalid_feature_names` and
+    `reason_codes` are parallel lists (same length, same order);
+    `diagnostic_values_json` is a JSON object of the specific input
+    value(s) that triggered rejection (e.g. `{"current": 0.3}`), keyed by
+    the same names used in `safety.SafeDivisionResult.denominator_name`.
+    """
+    return pa.schema(
+        [
+            pa.field("dataset_id", pa.string(), nullable=False),
+            pa.field("simulation_run_id", pa.string(), nullable=False),
+            pa.field("asset_id", pa.string(), nullable=False),
+            pa.field("timestamp", _UTC_TIMESTAMP, nullable=False),
+            pa.field("elapsed_sim_seconds", pa.float64(), nullable=False),
+            pa.field("reason_codes", pa.list_(pa.string()), nullable=False),
+            pa.field("invalid_feature_names", pa.list_(pa.string()), nullable=False),
+            pa.field("diagnostic_values_json", pa.string(), nullable=False),
+        ]
+    )
 
 
 def build_labels_schema() -> pa.Schema:

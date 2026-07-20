@@ -1,14 +1,13 @@
 """Operational alert-policy evaluation for an arbitrary cohort under the
 frozen PR170 state-machine config (spec section 8, "Operational alert
-behavior").
+behavior"; insufficient-data awareness added by PR173 spec section 6).
 
-Reuses `alert_policy.detection.evaluate_detection` (state-machine-based
-run detection/latency) and `alert_policy.event_metrics.compute_false_alert_
-summary` (false-alert episodes on genuinely healthy segments) unchanged —
-this module only supplies an all-rows mask (an OOD/ID cohort here is
-evaluated whole, not split further) and adds the extra 240s detection
-threshold and an incorrect-class-alert count the frozen functions don't
-already expose as a single number.
+Uses `ood.gapped_alert_evaluation`'s insufficient-data-aware detection/
+false-alert functions — themselves thin, gap-merging wrappers around the
+unchanged PR170 event/episode logic (see that module's docstring for why
+`alert_policy.detection.evaluate_detection`/`event_metrics.compute_false_
+alert_summary` can't be called as-is here: they gather rows from an
+already-loaded dataset with no notion of a rejected timestamp).
 """
 
 from __future__ import annotations
@@ -18,16 +17,15 @@ from typing import Any
 
 import numpy as np
 
-from backend.simulator.dataset.alert_policy.detection import (
-    DetectionSummary,
-    evaluate_detection,
-)
-from backend.simulator.dataset.alert_policy.event_metrics import (
-    FalseAlertSummary,
-    compute_false_alert_summary,
-)
+from backend.simulator.dataset.alert_policy.detection import DetectionSummary
+from backend.simulator.dataset.alert_policy.event_metrics import FalseAlertSummary
 from backend.simulator.dataset.alert_policy.state_machine import StateMachineConfig
 from backend.simulator.dataset.models.data import ExperimentDataset
+from backend.simulator.dataset.ood.data_loading import InsufficientDataSummary
+from backend.simulator.dataset.ood.gapped_alert_evaluation import (
+    evaluate_gapped_detection,
+    evaluate_gapped_false_alerts,
+)
 
 EXTRA_DETECTION_LATENCY_THRESHOLD_SECONDS = 240
 
@@ -57,14 +55,19 @@ def evaluate_alert_policy(
     proba: np.ndarray,
     class_order: tuple[str, ...],
     config: StateMachineConfig,
+    insufficient_data: InsufficientDataSummary,
 ) -> AlertEvaluationResult:
     """Evaluate the frozen alert policy over the whole of `dataset` — the
     caller decides what `dataset` contains (an ID test split, or the whole
-    OOD cohort treated as one external evaluation, per spec section 4)."""
-    mask = np.ones(len(dataset.y), dtype=bool)
-    detection = evaluate_detection(dataset, mask, proba, class_order, config)
-    false_alerts = compute_false_alert_summary(
-        dataset, mask, proba, class_order, config
+    OOD cohort treated as one external evaluation, per spec section 4).
+    `insufficient_data` supplies the rejected timestamps this cohort's
+    `dataset` never saw, so they can be replayed to the state machine as
+    explicit `insufficient_data` rows rather than silent gaps."""
+    detection = evaluate_gapped_detection(
+        dataset, proba, insufficient_data, class_order, config
+    )
+    false_alerts = evaluate_gapped_false_alerts(
+        dataset, proba, insufficient_data, class_order, config
     )
     incorrect_count = sum(
         1 for r in detection.run_results if r.incorrect_class_confirmed_before_correct

@@ -91,6 +91,6 @@ section 8)."""
 # --- Recommendation thresholds -----------------------------------------------
 
 INVALID_ROW_FRACTION_MATERIAL_THRESHOLD = 0.02
-"""An isolated cohort's unscoreable-row fraction above this is "materially
-important" — see recommendation A (numerical hardening) in
-`verdict.determine_recommendation`."""
+"""An isolated cohort's insufficient-data (rejected-row) fraction above
+this is "materially important" — see recommendation A (numerical
+hardening) in `verdict.determine_recommendation`."""

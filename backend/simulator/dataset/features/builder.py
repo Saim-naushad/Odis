@@ -1,4 +1,5 @@
-"""Builds `features.parquet` + `labels.parquet` in memory (PR167).
+"""Builds `features.parquet` + `labels.parquet` + `feature_rejections.
+parquet` in memory (PR167, numerical-safety contract added by PR173).
 
 Orchestrates one full pass: index and validate telemetry, drop warm-up
 rows shorter than the longest trailing window, compute every feature
@@ -13,10 +14,25 @@ every window/diff/slope computation reads only from that one series — see
 `_index_and_validate_telemetry` and the per-series loop in
 `build_feature_table`. There is no code path through which one run's or
 asset's samples could reach another's window.
+
+**Row-level validity contract (PR173 spec section 3)**: every eligible
+timestamp produces either a fully finite, schema-compatible row in
+`features.parquet` or an explicit rejection row in `feature_rejections.
+parquet` with reason codes and diagnostic values — never a silently
+dropped row, never a null feature value smuggled into the model matrix.
+`labels.parquet` only ever contains rows for the `valid` set, so
+`features.parquet`/`labels.parquet` alignment is unaffected by rejection.
+Only the two cross-signal ratios (`cross_signal.compute_cross_signal_
+features`) can produce a per-feature rejection today — every other
+feature family is structurally safe (see `safety.py`'s module docstring)
+and `NonFiniteFeatureError` remains a hard failure for those, since a
+non-finite raw/window/residual value would indicate a genuine bug, not an
+expected operating condition.
 """
 
 from __future__ import annotations
 
+import json
 import math
 from collections import defaultdict
 from dataclasses import dataclass
@@ -40,7 +56,9 @@ from backend.simulator.dataset.features.exclusions import assert_no_forbidden_fe
 from backend.simulator.dataset.features.labels import build_label_rows
 from backend.simulator.dataset.features.raw_features import compute_raw_features
 from backend.simulator.dataset.features.residuals import compute_residuals
+from backend.simulator.dataset.features.safety import FeatureRowValidity
 from backend.simulator.dataset.features.schema import (
+    build_feature_rejections_schema,
     build_features_schema,
     build_labels_schema,
     feature_column_order,
@@ -94,7 +112,10 @@ class NonFiniteFeatureError(Exception):
         run_id, asset_id, elapsed = key
         super().__init__(
             f"non-finite feature value for column {column!r} "
-            f"(run={run_id!r} asset={asset_id!r} elapsed={elapsed}): {value!r}"
+            f"(run={run_id!r} asset={asset_id!r} elapsed={elapsed}): {value!r} — "
+            "this feature family has no documented rejection path, so a "
+            "non-finite value here indicates a bug, not an expected "
+            "operating condition (see features/safety.py)"
         )
 
 
@@ -102,9 +123,12 @@ class NonFiniteFeatureError(Exception):
 class FeatureTable:
     features: pa.Table
     labels: pa.Table
+    rejections: pa.Table
     total_rows_before_warmup_drop: int
     dropped_warmup_rows: int
     eligible_rows: int
+    valid_rows: int
+    rejected_rows: int
     metadata_columns: tuple[str, ...]
     feature_columns: tuple[str, ...]
 
@@ -156,9 +180,9 @@ def _timestamps_by_series(
 
 
 def _check_finite(
-    column: str, value: float | None, key: tuple[str, str, float]
+    column: str, value: float, key: tuple[str, str, float]
 ) -> None:
-    if value is not None and not math.isfinite(value):
+    if not math.isfinite(value):
         raise NonFiniteFeatureError(column, value, key)
 
 
@@ -178,6 +202,7 @@ def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> Featu
     assert_no_forbidden_features(list(feature_columns))
 
     feature_rows: list[dict[str, Any]] = []
+    rejection_rows: list[dict[str, Any]] = []
     eligible_keys: set[tuple[str, str, float]] = set()
     total_rows_before_drop = 0
     dropped_warmup_rows = 0
@@ -205,6 +230,7 @@ def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> Featu
                 for measurement in DEFAULT_MEASUREMENTS
             }
             row_key = (run_id, asset_id, elapsed)
+            validity = FeatureRowValidity()
 
             row: dict[str, Any] = {
                 "dataset_id": dataset_id,
@@ -244,9 +270,13 @@ def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> Featu
                 power_output=current_values["power_output"],
                 fuel_flow=current_values["fuel_flow"],
             )
-            for column, value in cross_signal.items():
-                row[column] = value
-                _check_finite(column, value, row_key)
+            for column, result in cross_signal.items():
+                if result.is_valid:
+                    assert result.value is not None
+                    row[column] = result.value
+                    _check_finite(column, result.value, row_key)
+                else:
+                    validity.record_division(column, result)
 
             residuals = compute_residuals(
                 current=current_values["current"],
@@ -256,10 +286,30 @@ def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> Featu
                 row[column] = value
                 _check_finite(column, value, row_key)
 
+            if validity.status == "insufficient_data":
+                rejection_rows.append(
+                    {
+                        "dataset_id": dataset_id,
+                        "simulation_run_id": run_id,
+                        "asset_id": asset_id,
+                        "timestamp": timestamp,
+                        "elapsed_sim_seconds": elapsed,
+                        "reason_codes": list(validity.reason_codes),
+                        "invalid_feature_names": list(validity.invalid_feature_names),
+                        "diagnostic_values_json": json.dumps(
+                            validity.diagnostic_values, sort_keys=True
+                        ),
+                    }
+                )
+                continue
+
             feature_rows.append(row)
             eligible_keys.add(row_key)
 
     features_table = pa.Table.from_pylist(feature_rows, schema=build_features_schema())
+    rejections_table = pa.Table.from_pylist(
+        rejection_rows, schema=build_feature_rejections_schema()
+    )
 
     eligible_ground_truth = [
         gt_row
@@ -291,9 +341,12 @@ def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> Featu
     return FeatureTable(
         features=features_table,
         labels=labels_table,
+        rejections=rejections_table,
         total_rows_before_warmup_drop=total_rows_before_drop,
         dropped_warmup_rows=dropped_warmup_rows,
-        eligible_rows=len(feature_rows),
+        eligible_rows=len(feature_rows) + len(rejection_rows),
+        valid_rows=len(feature_rows),
+        rejected_rows=len(rejection_rows),
         metadata_columns=metadata_columns,
         feature_columns=feature_columns,
     )

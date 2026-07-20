@@ -41,7 +41,7 @@ def _damage(name: str, tier: Tier, *, drop: float = 0.0) -> ShiftDamage:
 def _no_invalid_rows(names: list[str]) -> dict:
     return {
         "by_cohort": {
-            name: {"unscoreable_fraction": 0.0, "unscoreable_row_count": 0}
+            name: {"rejection_fraction": 0.0, "rejected_row_count": 0}
             for name in names
         },
         "ranked_by_fraction": names,
@@ -66,7 +66,7 @@ def _fake_interaction() -> InteractionFindings:
 def test_recommendation_a_when_invalid_rows_material() -> None:
     damages = {"high_load": _damage("high_load", "minor")}
     invalid_rows = {
-        "by_cohort": {"high_load": {"unscoreable_fraction": 0.05}},
+        "by_cohort": {"high_load": {"rejection_fraction": 0.05}},
         "ranked_by_fraction": ["high_load"],
     }
     recommendation, reasons = determine_recommendation(damages, invalid_rows)
