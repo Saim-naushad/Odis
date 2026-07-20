@@ -7,12 +7,23 @@ the same calibration, threshold, and persistence selection.
 
 from __future__ import annotations
 
-# --- Base model (spec section 1: "preserve the base model") -----------------
+from backend.simulator.dataset.models.selected_baseline import (
+    BASE_FEATURE_GROUP,
+    BASE_LOGISTIC_REGRESSION_C,
+    BASE_MODEL_TYPE,
+)
 
-BASE_MODEL_TYPE = "logistic_regression"
-BASE_FEATURE_GROUP = "D"
-BASE_LOGISTIC_REGRESSION_C = 0.01
-"""The exact PR168-selected configuration — never re-searched here."""
+__all__ = [
+    "BASE_FEATURE_GROUP",
+    "BASE_LOGISTIC_REGRESSION_C",
+    "BASE_MODEL_TYPE",
+    "CALIBRATION_METHOD",
+    "CONFIDENCE_THRESHOLD_GRID",
+    "MAX_MISSED_VALIDATION_FAULT_RUNS",
+    "PERSISTENCE_GRID",
+    "SELECTION_RULE_DESCRIPTION",
+    "UNCERTAIN_LABEL",
+]
 
 # --- Calibration (spec section 2) -------------------------------------------
 

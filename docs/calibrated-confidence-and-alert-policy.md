@@ -135,3 +135,6 @@ style run asserting every required output artifact exists.
 
 - [Baseline Fault-Diagnosis Models](baseline-fault-diagnosis-models.md)
 - [Dataset Quality Audit](dataset-quality-audit.md)
+- [Uncalibrated Temporal Alert-State Policy](uncalibrated-temporal-alert-policy.md) —
+  PR170's alternative decision layer, built on PR168's native
+  probabilities instead of this PR's calibrated ones
