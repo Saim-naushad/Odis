@@ -193,6 +193,36 @@ services:
       retries: 5
       start_period: 20s
 
+  fault-inference-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/fault-inference-worker/Dockerfile
+    restart: unless-stopped
+    networks:
+      - odis-internal
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FAULT_INFERENCE_BUNDLE_DIR: ${FAULT_INFERENCE_BUNDLE_DIR:-artifacts/models/plant_alpha_fault_v1}
+      FAULT_INFERENCE_INPUT_TOPIC: ${FAULT_INFERENCE_INPUT_TOPIC:-odis.telemetry.observations.v1}
+      FAULT_INFERENCE_RESULTS_TOPIC: ${FAULT_INFERENCE_RESULTS_TOPIC:-odis.fault.inference-results.v1}
+      FAULT_INFERENCE_ALERT_TRANSITIONS_TOPIC: ${FAULT_INFERENCE_ALERT_TRANSITIONS_TOPIC:-odis.fault.alert-transitions.v1}
+      FAULT_INFERENCE_DATA_QUALITY_TOPIC: ${FAULT_INFERENCE_DATA_QUALITY_TOPIC:-odis.fault.telemetry-data-quality.v1}
+      FAULT_INFERENCE_CONSUMER_GROUP_ID: ${FAULT_INFERENCE_CONSUMER_GROUP_ID:-odis-fault-inference-worker}
+      FAULT_INFERENCE_METRICS_PORT: ${FAULT_INFERENCE_METRICS_PORT:-9108}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pgrep -f 'backend.simulator.inference_worker' >/dev/null || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   frontend:
     build:
       context: .

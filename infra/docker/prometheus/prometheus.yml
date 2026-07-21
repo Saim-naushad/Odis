@@ -9,6 +9,12 @@ scrape_configs:
       - targets:
           - "api:8000"
 
+  - job_name: "odis-fault-inference-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "fault-inference-worker:9108"
+
   # Needed for System panels (uptime/process metrics).
   - job_name: "prometheus"
     metrics_path: /metrics

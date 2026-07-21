@@ -6,6 +6,17 @@ from uuid import uuid4
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Mirrors `backend.simulator.dataset.features.config.DT_SECONDS` — the
+# promoted runtime's trained sample spacing — duplicated here rather than
+# imported because that module's package (`backend.simulator.dataset.
+# features`) unconditionally imports its pyarrow-dependent `generate`
+# submodule at package-init time, and the live simulator/demo-plant image
+# otherwise has no dependency on `pyarrow` at all. A dedicated test
+# (`tests/backend/simulator/test_kafka_sample_synchronization.py::
+# test_default_kafka_sample_interval_matches_trained_cadence`) asserts
+# these two values stay equal.
+_TRAINED_INFERENCE_CADENCE_SECONDS = 10.0
+
 
 class SimulatorSettings(BaseSettings):
     """Environment-driven settings for the fuel cell simulator."""
@@ -18,6 +29,26 @@ class SimulatorSettings(BaseSettings):
 
     api_base_url: str = "http://localhost:8000"
     mqtt_broker_url: str = "mqtt://localhost:1883"
+    kafka_bootstrap_servers: str = "localhost:9092"
+    kafka_topic: str = "odis.telemetry.observations.v1"
+    kafka_sample_interval_seconds: float = _TRAINED_INFERENCE_CADENCE_SECONDS
+    """*Simulated* time advanced (`scenario.tick(fleet, dt_seconds=...)`)
+    per Kafka snapshot — the quantity the promoted runtime's window/rate
+    features actually depend on. Defaults to the model's trained sample
+    spacing; overriding it changes the logical cadence those features
+    assume (see `docs/kafka-fault-inference-worker.md`'s "Cadence
+    contract"). Deliberately independent of `sim_dt_seconds`/`core_
+    publish_interval_seconds`/`derived_publish_interval_seconds`, which
+    remain HTTP/MQTT-only and are untouched by this setting."""
+    kafka_publish_interval_seconds: float = _TRAINED_INFERENCE_CADENCE_SECONDS
+    """*Wall-clock* seconds slept between Kafka snapshot publishes —
+    independent of `kafka_sample_interval_seconds` (feature correctness
+    does not depend on real elapsed time; only the simulated `dt_seconds`
+    per tick matters — see `FaultInferenceSession.ingest`'s own docstring).
+    Defaults to matching `kafka_sample_interval_seconds` (a realistic,
+    real-time-paced stream); lowering it accelerates scripted demos/smoke
+    tests without affecting model correctness — only how quickly a fixed
+    number of simulated-cadence samples are produced in real time."""
     transport: str = "mqtt"
     site_id: str = "plant-alpha"
     asset_ids: str = (
