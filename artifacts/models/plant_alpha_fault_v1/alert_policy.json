@@ -1,0 +1,14 @@
+{
+  "class_order": [
+    "cooling_degradation",
+    "healthy",
+    "hydrogen_supply_issue",
+    "sensor_anomaly"
+  ],
+  "state_machine_config": {
+    "entry_probability": 0.7,
+    "entry_persistence": 4,
+    "healthy_exit_probability": 0.45,
+    "exit_persistence": 2
+  }
+}

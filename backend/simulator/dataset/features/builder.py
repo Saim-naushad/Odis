@@ -33,7 +33,6 @@ expected operating condition.
 from __future__ import annotations
 
 import json
-import math
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,28 +46,30 @@ from backend.simulator.dataset.features.config import (
     DEFAULT_MEASUREMENTS,
     DT_SECONDS,
     LONGEST_WINDOW_SAMPLES,
-    WINDOW_SECONDS,
-)
-from backend.simulator.dataset.features.cross_signal import (
-    compute_cross_signal_features,
 )
 from backend.simulator.dataset.features.exclusions import assert_no_forbidden_features
 from backend.simulator.dataset.features.labels import build_label_rows
-from backend.simulator.dataset.features.raw_features import compute_raw_features
-from backend.simulator.dataset.features.residuals import compute_residuals
-from backend.simulator.dataset.features.safety import FeatureRowValidity
+from backend.simulator.dataset.features.row import (
+    NonFiniteFeatureError,
+    compute_feature_row,
+)
 from backend.simulator.dataset.features.schema import (
     build_feature_rejections_schema,
     build_features_schema,
     build_labels_schema,
     feature_column_order,
 )
-from backend.simulator.dataset.features.windows import (
-    compute_window_stats,
-    trailing_window,
-)
 
 TelemetrySeries = dict[tuple[str, str, str], list[tuple[float, float]]]
+
+__all__ = [
+    "DuplicateObservationError",
+    "FeatureTable",
+    "NonFiniteFeatureError",
+    "UnitMismatchError",
+    "UnsupportedCadenceError",
+    "build_feature_table",
+]
 
 
 class DuplicateObservationError(Exception):
@@ -104,18 +105,6 @@ class UnsupportedCadenceError(Exception):
             f"source dataset's dt_seconds={actual_dt_seconds} does not match "
             f"the feature pipeline's fixed cadence assumption of "
             f"{DT_SECONDS}s — this PR's window policy is not cadence-generic"
-        )
-
-
-class NonFiniteFeatureError(Exception):
-    def __init__(self, column: str, value: float, key: tuple[str, str, float]) -> None:
-        run_id, asset_id, elapsed = key
-        super().__init__(
-            f"non-finite feature value for column {column!r} "
-            f"(run={run_id!r} asset={asset_id!r} elapsed={elapsed}): {value!r} — "
-            "this feature family has no documented rejection path, so a "
-            "non-finite value here indicates a bug, not an expected "
-            "operating condition (see features/safety.py)"
         )
 
 
@@ -179,13 +168,6 @@ def _timestamps_by_series(
     return by_series
 
 
-def _check_finite(
-    column: str, value: float, key: tuple[str, str, float]
-) -> None:
-    if not math.isfinite(value):
-        raise NonFiniteFeatureError(column, value, key)
-
-
 def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> FeatureTable:
     if handle.spec.dt_seconds != DT_SECONDS:
         raise UnsupportedCadenceError(handle.spec.dt_seconds)
@@ -230,7 +212,6 @@ def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> Featu
                 for measurement in DEFAULT_MEASUREMENTS
             }
             row_key = (run_id, asset_id, elapsed)
-            validity = FeatureRowValidity()
 
             row: dict[str, Any] = {
                 "dataset_id": dataset_id,
@@ -239,52 +220,15 @@ def build_feature_table(handle: DatasetHandle, records: DatasetRecords) -> Featu
                 "timestamp": timestamp,
                 "elapsed_sim_seconds": elapsed,
             }
-
-            for measurement in DEFAULT_MEASUREMENTS:
-                raw = compute_raw_features(
-                    current_values[measurement], previous_values[measurement]
-                )
-                row[measurement] = raw.value
-                row[f"{measurement}__diff_10s"] = raw.diff
-                row[f"{measurement}__roc_per_s"] = raw.rate_of_change_per_second
-                _check_finite(measurement, raw.value, row_key)
-                _check_finite(f"{measurement}__diff_10s", raw.diff, row_key)
-                _check_finite(
-                    f"{measurement}__roc_per_s", raw.rate_of_change_per_second, row_key
-                )
-
-                for window_seconds in WINDOW_SECONDS:
-                    window_samples = int(window_seconds / DT_SECONDS)
-                    window = trailing_window(
-                        series_by_measurement[measurement], index, window_samples
-                    )
-                    stats = compute_window_stats(window).as_dict()
-                    for stat_name, stat_value in stats.items():
-                        column = f"{measurement}__{stat_name}_{window_seconds}s"
-                        row[column] = stat_value
-                        _check_finite(column, stat_value, row_key)
-
-            cross_signal = compute_cross_signal_features(
-                voltage=current_values["voltage"],
-                current=current_values["current"],
-                power_output=current_values["power_output"],
-                fuel_flow=current_values["fuel_flow"],
+            result = compute_feature_row(
+                current_values=current_values,
+                previous_values=previous_values,
+                series_by_measurement=series_by_measurement,
+                index=index,
+                row_key=row_key,
             )
-            for column, result in cross_signal.items():
-                if result.is_valid:
-                    assert result.value is not None
-                    row[column] = result.value
-                    _check_finite(column, result.value, row_key)
-                else:
-                    validity.record_division(column, result)
-
-            residuals = compute_residuals(
-                current=current_values["current"],
-                observed_by_measurement=current_values,
-            )
-            for column, value in residuals.items():
-                row[column] = value
-                _check_finite(column, value, row_key)
+            row.update(result.values)
+            validity = result.validity
 
             if validity.status == "insufficient_data":
                 rejection_rows.append(
