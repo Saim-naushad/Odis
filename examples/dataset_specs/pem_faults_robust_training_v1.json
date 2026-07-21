@@ -1,0 +1,392 @@
+{
+  "dataset_id": "pem-faults-robust-training-v1",
+  "schema_version": "1.0",
+  "simulator_version": "1.0.0",
+  "scenario_plans": [
+    {
+      "scenario_name": "normal_operation",
+      "run_count": 48,
+      "fault_start_sim_seconds": null,
+      "fault_start_range": null,
+      "fault_duration_sim_seconds": null,
+      "fault_severity": null,
+      "fault_severity_range": null
+    },
+    {
+      "scenario_name": "cooling_degradation",
+      "run_count": 48,
+      "fault_start_sim_seconds": null,
+      "fault_start_range": {
+        "minimum_seconds": 90.0,
+        "maximum_seconds": 600.0,
+        "step_seconds": 10.0
+      },
+      "fault_duration_sim_seconds": 240.0,
+      "fault_severity": null,
+      "fault_severity_range": {
+        "minimum": 0.15,
+        "maximum": 1.0
+      }
+    },
+    {
+      "scenario_name": "hydrogen_supply_issue",
+      "run_count": 48,
+      "fault_start_sim_seconds": null,
+      "fault_start_range": {
+        "minimum_seconds": 90.0,
+        "maximum_seconds": 600.0,
+        "step_seconds": 10.0
+      },
+      "fault_duration_sim_seconds": 240.0,
+      "fault_severity": null,
+      "fault_severity_range": {
+        "minimum": 0.15,
+        "maximum": 1.0
+      }
+    },
+    {
+      "scenario_name": "sensor_anomaly",
+      "run_count": 48,
+      "fault_start_sim_seconds": null,
+      "fault_start_range": {
+        "minimum_seconds": 90.0,
+        "maximum_seconds": 600.0,
+        "step_seconds": 10.0
+      },
+      "fault_duration_sim_seconds": 240.0,
+      "fault_severity": null,
+      "fault_severity_range": {
+        "minimum": 0.15,
+        "maximum": 1.0
+      }
+    }
+  ],
+  "seeds": [
+    61001,
+    61002,
+    61003,
+    61004,
+    61005,
+    61006,
+    61007,
+    61008,
+    61009,
+    61010,
+    61011,
+    61012,
+    61013,
+    61014,
+    61015,
+    61016,
+    61017,
+    61018,
+    61019,
+    61020,
+    61021,
+    61022,
+    61023,
+    61024,
+    61025,
+    61026,
+    61027,
+    61028,
+    61029,
+    61030,
+    61031,
+    61032,
+    61033,
+    61034,
+    61035,
+    61036,
+    61037,
+    61038,
+    61039,
+    61040,
+    61041,
+    61042,
+    61043,
+    61044,
+    61045,
+    61046,
+    61047,
+    61048,
+    62001,
+    62002,
+    62003,
+    62004,
+    62005,
+    62006,
+    62007,
+    62008,
+    62009,
+    62010,
+    62011,
+    62012,
+    62013,
+    62014,
+    62015,
+    62016,
+    62017,
+    62018,
+    62019,
+    62020,
+    62021,
+    62022,
+    62023,
+    62024,
+    62025,
+    62026,
+    62027,
+    62028,
+    62029,
+    62030,
+    62031,
+    62032,
+    62033,
+    62034,
+    62035,
+    62036,
+    62037,
+    62038,
+    62039,
+    62040,
+    62041,
+    62042,
+    62043,
+    62044,
+    62045,
+    62046,
+    62047,
+    62048,
+    63001,
+    63002,
+    63003,
+    63004,
+    63005,
+    63006,
+    63007,
+    63008,
+    63009,
+    63010,
+    63011,
+    63012,
+    63013,
+    63014,
+    63015,
+    63016,
+    63017,
+    63018,
+    63019,
+    63020,
+    63021,
+    63022,
+    63023,
+    63024,
+    63025,
+    63026,
+    63027,
+    63028,
+    63029,
+    63030,
+    63031,
+    63032,
+    63033,
+    63034,
+    63035,
+    63036,
+    63037,
+    63038,
+    63039,
+    63040,
+    63041,
+    63042,
+    63043,
+    63044,
+    63045,
+    63046,
+    63047,
+    63048,
+    64001,
+    64002,
+    64003,
+    64004,
+    64005,
+    64006,
+    64007,
+    64008,
+    64009,
+    64010,
+    64011,
+    64012,
+    64013,
+    64014,
+    64015,
+    64016,
+    64017,
+    64018,
+    64019,
+    64020,
+    64021,
+    64022,
+    64023,
+    64024,
+    64025,
+    64026,
+    64027,
+    64028,
+    64029,
+    64030,
+    64031,
+    64032,
+    64033,
+    64034,
+    64035,
+    64036,
+    64037,
+    64038,
+    64039,
+    64040,
+    64041,
+    64042,
+    64043,
+    64044,
+    64045,
+    64046,
+    64047,
+    64048
+  ],
+  "target_asset_ids": [
+    "fuel-cell-stack-01",
+    "fuel-cell-stack-02",
+    "fuel-cell-stack-03",
+    "fuel-cell-stack-04"
+  ],
+  "duration_sim_seconds": 900.0,
+  "dt_seconds": 10.0,
+  "run_start_time": "2026-04-01T00:00:00+00:00",
+  "operating_condition_ranges": {
+    "load_baseline_percent": [
+      45.0,
+      80.0
+    ],
+    "load_amplitude_percent": [
+      5.0,
+      15.0
+    ],
+    "load_period_seconds": [
+      180.0,
+      420.0
+    ],
+    "load_phase_radians": [
+      0.0,
+      6.283185307179586
+    ],
+    "initial_load_offset_percent": [
+      -5.0,
+      5.0
+    ],
+    "initial_stack_temperature_offset_celsius": [
+      -4.0,
+      7.0
+    ]
+  },
+  "sensor_noise": [],
+  "sensor_noise_regimes": [
+    {
+      "name": "nominal",
+      "sensor_noise": [
+        {
+          "measurement_name": "stack_temperature",
+          "standard_deviation": 0.3,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "stack_pressure",
+          "standard_deviation": 1.5,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "current",
+          "standard_deviation": 1.0,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "voltage",
+          "standard_deviation": 0.005,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "fuel_flow",
+          "standard_deviation": 0.5,
+          "clip_std_multiple": 3.0
+        }
+      ]
+    },
+    {
+      "name": "moderate",
+      "sensor_noise": [
+        {
+          "measurement_name": "stack_temperature",
+          "standard_deviation": 0.45,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "stack_pressure",
+          "standard_deviation": 2.25,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "current",
+          "standard_deviation": 1.5,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "voltage",
+          "standard_deviation": 0.0075,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "fuel_flow",
+          "standard_deviation": 0.75,
+          "clip_std_multiple": 3.0
+        }
+      ]
+    },
+    {
+      "name": "high_bounded",
+      "sensor_noise": [
+        {
+          "measurement_name": "stack_temperature",
+          "standard_deviation": 0.6,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "stack_pressure",
+          "standard_deviation": 3.0,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "current",
+          "standard_deviation": 2.0,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "voltage",
+          "standard_deviation": 0.01,
+          "clip_std_multiple": 3.0
+        },
+        {
+          "measurement_name": "fuel_flow",
+          "standard_deviation": 1.0,
+          "clip_std_multiple": 3.0
+        }
+      ]
+    }
+  ],
+  "split_proportions": {
+    "train": 0.6,
+    "validation": 0.2,
+    "test": 0.2
+  },
+  "output_directory": "datasets/pem-faults-robust-training-v1"
+}

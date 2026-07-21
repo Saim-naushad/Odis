@@ -91,6 +91,43 @@ class SensorNoiseConfig:
 
 
 @dataclass(frozen=True)
+class NoiseRegime:
+    """One named, fixed sensor-noise profile a run may be assigned to.
+
+    A dataset spec that wants per-run noise variation (PR174) sets
+    `DatasetSpec.sensor_noise_regimes` to a tuple of these instead of a
+    single `DatasetSpec.sensor_noise` tuple. Each regime is exactly as
+    "fixed" as `sensor_noise` always was — `name` is only a human-readable
+    label (e.g. "nominal", "moderate", "high_bounded") recorded for
+    reporting; it plays no role in resolution. See `resolve_sensor_noise`
+    for how one regime is chosen per run.
+    """
+
+    name: str
+    sensor_noise: tuple[SensorNoiseConfig, ...]
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("name must not be empty")
+
+    def to_json_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "sensor_noise": [config.to_json_dict() for config in self.sensor_noise],
+        }
+
+    @classmethod
+    def from_json_dict(cls, data: dict[str, Any]) -> NoiseRegime:
+        return cls(
+            name=str(data["name"]),
+            sensor_noise=tuple(
+                SensorNoiseConfig.from_json_dict(entry)
+                for entry in data["sensor_noise"]
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class InitialStateVariation:
     """Small offsets from the target asset's healthy initial state.
 
@@ -205,3 +242,26 @@ def resolve_operating_conditions(
         ),
         sensor_noise=sensor_noise,
     )
+
+
+def resolve_sensor_noise(
+    *,
+    fixed: tuple[SensorNoiseConfig, ...],
+    regimes: tuple[NoiseRegime, ...],
+    rng: random.Random,
+) -> tuple[SensorNoiseConfig, ...]:
+    """Resolve one run's sensor-noise configuration.
+
+    Mirrors `fault_variation.resolve_fault_start`/`resolve_fault_severity`:
+    `regimes` takes precedence when non-empty (callers only ever set one of
+    `fixed`/`regimes` — see `DatasetSpec.__post_init__`); `rng.choice` over
+    the regime tuple is the only randomness this function introduces.
+    Returns `fixed` unchanged, touching `rng` not at all, when `regimes` is
+    empty — every dataset spec written before per-run noise regimes existed
+    resolves identically. Called from `run_template.resolve_run_config`
+    with its own isolated RNG stream, distinct from the one this module's
+    own `resolve_operating_conditions` uses.
+    """
+    if regimes:
+        return rng.choice(regimes).sensor_noise
+    return fixed

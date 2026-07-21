@@ -13,6 +13,10 @@ from backend.simulator.dataset.fault_variation import (
     FaultSeverityRange,
     FaultTimingRange,
 )
+from backend.simulator.dataset.operating_conditions import (
+    NoiseRegime,
+    SensorNoiseConfig,
+)
 from backend.simulator.dataset.run_config import DatasetScenario
 
 from .conftest import SpecFactory
@@ -278,8 +282,6 @@ def test_dataset_spec_json_round_trip(spec_factory: SpecFactory) -> None:
 def test_dataset_spec_json_round_trip_with_sensor_noise(
     spec_factory: SpecFactory
 ) -> None:
-    from backend.simulator.dataset.operating_conditions import SensorNoiseConfig
-
     spec = spec_factory(
         sensor_noise=(
             SensorNoiseConfig(measurement_name="voltage", standard_deviation=0.01),
@@ -307,6 +309,91 @@ def test_dataset_spec_json_round_trip_with_ranged_fault_plans(
     )
     spec = spec_factory(
         scenario_plans=plans, seeds=tuple(range(1, 7)), duration_sim_seconds=900.0
+    )
+    restored = DatasetSpec.from_json_dict(spec.to_json_dict())
+    assert restored == spec
+
+
+# --- DatasetSpec: sensor_noise_regimes (PR174) ------------------------------
+
+_NOMINAL_REGIME = NoiseRegime(
+    name="nominal",
+    sensor_noise=(
+        SensorNoiseConfig(measurement_name="stack_temperature", standard_deviation=0.3),
+    ),
+)
+_MODERATE_REGIME = NoiseRegime(
+    name="moderate",
+    sensor_noise=(
+        SensorNoiseConfig(
+            measurement_name="stack_temperature", standard_deviation=0.45
+        ),
+    ),
+)
+_HIGH_REGIME = NoiseRegime(
+    name="high_bounded",
+    sensor_noise=(
+        SensorNoiseConfig(measurement_name="stack_temperature", standard_deviation=0.6),
+    ),
+)
+
+
+def test_sensor_noise_regimes_reject_a_single_regime(
+    spec_factory: SpecFactory,
+) -> None:
+    spec = spec_factory()
+    with pytest.raises(ValueError, match="at least 2 regimes"):
+        replace(spec, sensor_noise=(), sensor_noise_regimes=(_NOMINAL_REGIME,))
+
+
+def test_sensor_noise_regimes_reject_duplicate_names(
+    spec_factory: SpecFactory,
+) -> None:
+    spec = spec_factory()
+    duplicate = NoiseRegime(name="nominal", sensor_noise=_HIGH_REGIME.sensor_noise)
+    with pytest.raises(ValueError, match="must not repeat a name"):
+        replace(
+            spec,
+            sensor_noise=(),
+            sensor_noise_regimes=(_NOMINAL_REGIME, duplicate),
+        )
+
+
+def test_sensor_noise_and_sensor_noise_regimes_are_mutually_exclusive(
+    spec_factory: SpecFactory,
+) -> None:
+    spec = spec_factory(
+        sensor_noise=(
+            SensorNoiseConfig(measurement_name="voltage", standard_deviation=0.01),
+        )
+    )
+    with pytest.raises(ValueError, match="cannot set both sensor_noise"):
+        replace(
+            spec,
+            sensor_noise_regimes=(_NOMINAL_REGIME, _MODERATE_REGIME, _HIGH_REGIME),
+        )
+
+
+def test_sensor_noise_regimes_are_accepted_when_sensor_noise_is_empty(
+    spec_factory: SpecFactory,
+) -> None:
+    spec = spec_factory(
+        sensor_noise=(),
+        sensor_noise_regimes=(_NOMINAL_REGIME, _MODERATE_REGIME, _HIGH_REGIME),
+    )
+    assert spec.sensor_noise_regimes == (
+        _NOMINAL_REGIME,
+        _MODERATE_REGIME,
+        _HIGH_REGIME,
+    )
+
+
+def test_dataset_spec_json_round_trip_with_sensor_noise_regimes(
+    spec_factory: SpecFactory,
+) -> None:
+    spec = spec_factory(
+        sensor_noise=(),
+        sensor_noise_regimes=(_NOMINAL_REGIME, _MODERATE_REGIME, _HIGH_REGIME),
     )
     restored = DatasetSpec.from_json_dict(spec.to_json_dict())
     assert restored == spec

@@ -72,6 +72,7 @@ def plan_runs(spec: DatasetSpec) -> tuple[PlannedRun, ...]:
                 fault_severity_range=plan.fault_severity_range,
                 operating_condition_ranges=spec.operating_condition_ranges,
                 sensor_noise=spec.sensor_noise,
+                sensor_noise_regimes=spec.sensor_noise_regimes,
             )
             run_config = resolve_run_config(template)
 

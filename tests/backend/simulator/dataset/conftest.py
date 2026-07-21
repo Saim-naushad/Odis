@@ -20,6 +20,7 @@ from backend.simulator.dataset.dataset_spec import (
 from backend.simulator.dataset.features.generate import generate_features
 from backend.simulator.dataset.generate import generate_dataset
 from backend.simulator.dataset.operating_conditions import (
+    NoiseRegime,
     OperatingConditionRanges,
     SensorNoiseConfig,
 )
@@ -62,6 +63,7 @@ def spec_factory(tmp_path: Path) -> SpecFactory:
         run_start_time: datetime = DEFAULT_RUN_START,
         operating_condition_ranges: OperatingConditionRanges | None = None,
         sensor_noise: tuple[SensorNoiseConfig, ...] = (),
+        sensor_noise_regimes: tuple[NoiseRegime, ...] = (),
         split_proportions: SplitProportions | None = None,
         output_directory: str | None = None,
     ) -> DatasetSpec:
@@ -83,6 +85,7 @@ def spec_factory(tmp_path: Path) -> SpecFactory:
                 operating_condition_ranges or OperatingConditionRanges()
             ),
             sensor_noise=sensor_noise,
+            sensor_noise_regimes=sensor_noise_regimes,
             split_proportions=(
                 split_proportions
                 or SplitProportions(train=0.5, validation=0.25, test=0.25)

@@ -7,7 +7,10 @@ from backend.simulator.dataset.fault_variation import (
     FaultSeverityRange,
     FaultTimingRange,
 )
-from backend.simulator.dataset.operating_conditions import SensorNoiseConfig
+from backend.simulator.dataset.operating_conditions import (
+    NoiseRegime,
+    SensorNoiseConfig,
+)
 from backend.simulator.dataset.run_config import DatasetScenario
 from backend.simulator.dataset.run_template import RunTemplate, resolve_run_config
 
@@ -280,6 +283,146 @@ def test_ranged_fault_resolution_does_not_pollute_global_random_state() -> None:
 
     random.seed(777)
     resolve_run_config(_ranged_fault_template(seed=1))
+    actual_next = random.random()
+
+    assert actual_next == expected_next
+
+
+# --- Sensor-noise regimes (PR174) --------------------------------------------
+
+_NOMINAL_REGIME = NoiseRegime(
+    name="nominal",
+    sensor_noise=(
+        SensorNoiseConfig(measurement_name="stack_temperature", standard_deviation=0.3),
+    ),
+)
+_HIGH_REGIME = NoiseRegime(
+    name="high_bounded",
+    sensor_noise=(
+        SensorNoiseConfig(measurement_name="stack_temperature", standard_deviation=0.6),
+    ),
+)
+
+
+def _noise_regime_template(seed: int) -> RunTemplate:
+    return RunTemplate(
+        simulation_run_id="template-test",
+        seed=seed,
+        scenario_name=DatasetScenario.NORMAL_OPERATION,
+        target_asset_id="fuel-cell-stack-01",
+        duration_sim_seconds=600.0,
+        dt_seconds=30.0,
+        run_start_time=_RUN_START,
+        sensor_noise_regimes=(_NOMINAL_REGIME, _HIGH_REGIME),
+    )
+
+
+def test_fixed_sensor_noise_resolves_unchanged_when_no_regimes_are_set() -> None:
+    """Backward compatibility: a template with only `sensor_noise` (no
+    `sensor_noise_regimes`) must resolve exactly as before regimes existed.
+    """
+    template = RunTemplate(
+        simulation_run_id="template-test",
+        seed=1,
+        scenario_name=DatasetScenario.NORMAL_OPERATION,
+        target_asset_id="fuel-cell-stack-01",
+        duration_sim_seconds=600.0,
+        dt_seconds=30.0,
+        run_start_time=_RUN_START,
+        sensor_noise=_NOMINAL_REGIME.sensor_noise,
+    )
+    config = resolve_run_config(template)
+    assert config.operating_conditions.sensor_noise == _NOMINAL_REGIME.sensor_noise
+
+
+def test_noise_regime_resolves_to_one_of_the_configured_regimes() -> None:
+    config = resolve_run_config(_noise_regime_template(seed=1))
+    assert config.operating_conditions.sensor_noise in (
+        _NOMINAL_REGIME.sensor_noise,
+        _HIGH_REGIME.sensor_noise,
+    )
+
+
+def test_noise_regime_resolution_is_deterministic_for_the_same_seed() -> None:
+    first = resolve_run_config(_noise_regime_template(seed=42))
+    second = resolve_run_config(_noise_regime_template(seed=42))
+    assert (
+        first.operating_conditions.sensor_noise
+        == second.operating_conditions.sensor_noise
+    )
+
+
+def test_noise_regime_resolution_varies_across_seeds() -> None:
+    resolved = {
+        resolve_run_config(_noise_regime_template(seed)).operating_conditions.sensor_noise
+        for seed in range(20)
+    }
+    assert len(resolved) == 2
+
+
+def test_noise_regime_sampling_does_not_shift_operating_conditions() -> None:
+    """The noise-regime RNG stream must be isolated from the
+    operating-conditions stream — adding `sensor_noise_regimes` must not
+    change the sampled load/initial-state values for the same seed.
+    """
+    without_regimes = resolve_run_config(
+        RunTemplate(
+            simulation_run_id="template-test",
+            seed=1,
+            scenario_name=DatasetScenario.NORMAL_OPERATION,
+            target_asset_id="fuel-cell-stack-01",
+            duration_sim_seconds=600.0,
+            dt_seconds=30.0,
+            run_start_time=_RUN_START,
+        )
+    )
+    with_regimes = resolve_run_config(_noise_regime_template(seed=1))
+
+    assert (
+        with_regimes.operating_conditions.load_baseline_percent
+        == without_regimes.operating_conditions.load_baseline_percent
+    )
+    assert (
+        with_regimes.operating_conditions.initial_state_variation
+        == without_regimes.operating_conditions.initial_state_variation
+    )
+
+
+def test_noise_regime_sampling_does_not_shift_fault_variation() -> None:
+    """The noise-regime stream must also be isolated from the
+    fault-variation stream."""
+    without_regimes = resolve_run_config(_ranged_fault_template(seed=3))
+
+    with_regimes = resolve_run_config(
+        RunTemplate(
+            simulation_run_id="template-test",
+            seed=3,
+            scenario_name=DatasetScenario.COOLING_DEGRADATION,
+            target_asset_id="fuel-cell-stack-01",
+            duration_sim_seconds=900.0,
+            dt_seconds=10.0,
+            run_start_time=_RUN_START,
+            fault_start_range=FaultTimingRange(
+                minimum_seconds=90.0, maximum_seconds=420.0, step_seconds=10.0
+            ),
+            fault_duration_sim_seconds=240.0,
+            fault_severity_range=FaultSeverityRange(minimum=0.15, maximum=1.0),
+            sensor_noise_regimes=(_NOMINAL_REGIME, _HIGH_REGIME),
+        )
+    )
+
+    assert (
+        with_regimes.fault_start_sim_seconds == without_regimes.fault_start_sim_seconds
+    )
+    assert with_regimes.fault_severity == without_regimes.fault_severity
+
+
+def test_noise_regime_resolution_does_not_pollute_global_random_state() -> None:
+    random.seed(999)
+    expected_next = random.random()
+
+    random.seed(999)
+    resolve_run_config(_noise_regime_template(seed=1))
     actual_next = random.random()
 
     assert actual_next == expected_next

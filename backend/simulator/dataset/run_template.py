@@ -11,15 +11,17 @@ deterministic execution
 ```
 
 `RunTemplate` carries variation *ranges*, never sampled values.
-`resolve_run_config` samples from three RNG streams, each fully isolated by
+`resolve_run_config` samples from four RNG streams, each fully isolated by
 construction (a distinct `random.Random` instance per stream, not a shared
 one advanced in sequence): `f"{seed}:operating_conditions"` (this module),
 `f"{seed}:fault_variation"` (this module, for `fault_start_sim_seconds`/
-`fault_severity` — see `fault_variation.py`), and `f"{seed}:sensor_noise"`
+`fault_severity` — see `fault_variation.py`), `f"{seed}:sensor_noise_regime"`
+(this module, for choosing among `sensor_noise_regimes` — PR174, see
+`operating_conditions.resolve_sensor_noise`), and `f"{seed}:sensor_noise"`
 (constructed separately in `runner.iter_samples`, per-sample rather than
 once per run). Isolating the streams means adding a new configuration field
 to one of them changes how many draws *that* stream makes without shifting
-a single sample from either of the other two.
+a single sample from any of the others.
 """
 
 from __future__ import annotations
@@ -35,14 +37,17 @@ from backend.simulator.dataset.fault_variation import (
     resolve_fault_start,
 )
 from backend.simulator.dataset.operating_conditions import (
+    NoiseRegime,
     OperatingConditionRanges,
     SensorNoiseConfig,
     resolve_operating_conditions,
+    resolve_sensor_noise,
 )
 from backend.simulator.dataset.run_config import DatasetScenario, RunConfig
 
 _OPERATING_CONDITIONS_RNG_STREAM = "operating_conditions"
 _FAULT_VARIATION_RNG_STREAM = "fault_variation"
+_SENSOR_NOISE_REGIME_RNG_STREAM = "sensor_noise_regime"
 
 
 @dataclass(frozen=True)
@@ -52,7 +57,10 @@ class RunTemplate:
     Fields mirror `RunConfig` exactly, except `operating_condition_ranges`
     (sampled) replaces `operating_conditions` (resolved), and `sensor_noise`
     is carried through unchanged — its scale is a dataset-design choice,
-    not something sampled per seed.
+    not something sampled per seed — *unless* `sensor_noise_regimes` is
+    also set (PR174), in which case one regime's `sensor_noise` is chosen
+    per run instead (see `resolve_run_config` and
+    `operating_conditions.resolve_sensor_noise`).
     """
 
     simulation_run_id: str
@@ -71,6 +79,7 @@ class RunTemplate:
         default_factory=OperatingConditionRanges
     )
     sensor_noise: tuple[SensorNoiseConfig, ...] = ()
+    sensor_noise_regimes: tuple[NoiseRegime, ...] = ()
 
 
 def resolve_run_config(template: RunTemplate) -> RunConfig:
@@ -84,9 +93,17 @@ def resolve_run_config(template: RunTemplate) -> RunConfig:
     happens anywhere downstream of this function.
     """
     config_rng = random.Random(f"{template.seed}:{_OPERATING_CONDITIONS_RNG_STREAM}")
+    noise_regime_rng = random.Random(
+        f"{template.seed}:{_SENSOR_NOISE_REGIME_RNG_STREAM}"
+    )
+    resolved_sensor_noise = resolve_sensor_noise(
+        fixed=template.sensor_noise,
+        regimes=template.sensor_noise_regimes,
+        rng=noise_regime_rng,
+    )
     operating_conditions = resolve_operating_conditions(
         template.operating_condition_ranges,
-        sensor_noise=template.sensor_noise,
+        sensor_noise=resolved_sensor_noise,
         rng=config_rng,
     )
     fault_rng = random.Random(f"{template.seed}:{_FAULT_VARIATION_RNG_STREAM}")

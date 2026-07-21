@@ -28,6 +28,7 @@ from backend.simulator.dataset.fault_variation import (
     FaultTimingRange,
 )
 from backend.simulator.dataset.operating_conditions import (
+    NoiseRegime,
     OperatingConditionRanges,
     SensorNoiseConfig,
 )
@@ -230,6 +231,14 @@ class DatasetSpec:
     telemetry timestamps are computed from (`run_start_time + elapsed
     simulated time`, per PR161) — never `datetime.now()`, so no wall-clock
     identity leaks into generated data.
+
+    `sensor_noise` and `sensor_noise_regimes` are mutually exclusive
+    (PR174): a spec defines either one fixed, dataset-wide noise
+    configuration (`sensor_noise`, the original PR161-173 behavior) or a
+    small set of named `NoiseRegime`s that each run samples one of via an
+    isolated RNG stream (see `run_template.resolve_run_config`) — never
+    both. Leaving both empty means no noise is applied, exactly as before
+    `sensor_noise_regimes` existed.
     """
 
     dataset_id: str
@@ -245,6 +254,7 @@ class DatasetSpec:
     split_proportions: SplitProportions
     output_directory: str
     schema_version: str = SCHEMA_VERSION
+    sensor_noise_regimes: tuple[NoiseRegime, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.dataset_id:
@@ -263,6 +273,23 @@ class DatasetSpec:
             raise ValueError("run_start_time must be timezone-aware")
         if not self.output_directory:
             raise ValueError("output_directory must not be empty")
+
+        if self.sensor_noise and self.sensor_noise_regimes:
+            raise ValueError(
+                "cannot set both sensor_noise and sensor_noise_regimes — a "
+                "dataset spec must define a single fixed-or-regime-sampled "
+                "sensor-noise policy"
+            )
+        if self.sensor_noise_regimes:
+            if len(self.sensor_noise_regimes) < 2:
+                raise ValueError(
+                    "sensor_noise_regimes must include at least 2 regimes — "
+                    "a single regime is equivalent to sensor_noise and "
+                    "should use that field instead"
+                )
+            regime_names = [regime.name for regime in self.sensor_noise_regimes]
+            if len(regime_names) != len(set(regime_names)):
+                raise ValueError("sensor_noise_regimes must not repeat a name")
 
         scenario_names = [plan.scenario_name for plan in self.scenario_plans]
         if len(scenario_names) != len(set(scenario_names)):
@@ -326,6 +353,9 @@ class DatasetSpec:
                 self.operating_condition_ranges
             ),
             "sensor_noise": [config.to_json_dict() for config in self.sensor_noise],
+            "sensor_noise_regimes": [
+                regime.to_json_dict() for regime in self.sensor_noise_regimes
+            ],
             "split_proportions": self.split_proportions.to_json_dict(),
             "output_directory": self.output_directory,
         }
@@ -338,6 +368,10 @@ class DatasetSpec:
         sensor_noise = tuple(
             SensorNoiseConfig.from_json_dict(entry)
             for entry in data.get("sensor_noise", [])
+        )
+        sensor_noise_regimes = tuple(
+            NoiseRegime.from_json_dict(entry)
+            for entry in data.get("sensor_noise_regimes", [])
         )
         return cls(
             dataset_id=str(data["dataset_id"]),
@@ -353,6 +387,7 @@ class DatasetSpec:
                 data["operating_condition_ranges"]
             ),
             sensor_noise=sensor_noise,
+            sensor_noise_regimes=sensor_noise_regimes,
             split_proportions=SplitProportions.from_json_dict(
                 data["split_proportions"]
             ),

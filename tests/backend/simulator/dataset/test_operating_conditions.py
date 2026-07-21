@@ -6,10 +6,12 @@ import pytest
 
 from backend.simulator.dataset.operating_conditions import (
     InitialStateVariation,
+    NoiseRegime,
     OperatingConditionRanges,
     OperatingConditions,
     SensorNoiseConfig,
     resolve_operating_conditions,
+    resolve_sensor_noise,
 )
 
 # --- OperatingConditions bounds ---------------------------------------------
@@ -166,3 +168,98 @@ def test_resolve_operating_conditions_does_not_pollute_global_random_state() -> 
     actual_next = random.random()
 
     assert actual_next == expected_next
+
+
+# --- NoiseRegime / resolve_sensor_noise (PR174) -----------------------------
+
+
+def test_noise_regime_rejects_empty_name() -> None:
+    with pytest.raises(ValueError):
+        NoiseRegime(name="", sensor_noise=())
+
+
+def test_noise_regime_json_round_trip() -> None:
+    regime = NoiseRegime(
+        name="moderate",
+        sensor_noise=(
+            SensorNoiseConfig(measurement_name="current", standard_deviation=1.5),
+        ),
+    )
+    restored = NoiseRegime.from_json_dict(regime.to_json_dict())
+    assert restored == regime
+
+
+def test_resolve_sensor_noise_returns_fixed_unchanged_when_no_regimes() -> None:
+    fixed = (SensorNoiseConfig(measurement_name="voltage", standard_deviation=0.01),)
+    resolved = resolve_sensor_noise(fixed=fixed, regimes=(), rng=random.Random("x"))
+    assert resolved == fixed
+
+
+def test_resolve_sensor_noise_does_not_touch_rng_when_no_regimes() -> None:
+    rng = random.Random("x")
+    state_before = rng.getstate()
+    resolve_sensor_noise(fixed=(), regimes=(), rng=rng)
+    assert rng.getstate() == state_before
+
+
+def test_resolve_sensor_noise_picks_one_regime_when_regimes_are_set() -> None:
+    nominal = NoiseRegime(
+        name="nominal",
+        sensor_noise=(
+            SensorNoiseConfig(measurement_name="current", standard_deviation=1.0),
+        ),
+    )
+    high = NoiseRegime(
+        name="high_bounded",
+        sensor_noise=(
+            SensorNoiseConfig(measurement_name="current", standard_deviation=2.0),
+        ),
+    )
+    resolved = resolve_sensor_noise(
+        fixed=(), regimes=(nominal, high), rng=random.Random("seed-a")
+    )
+    assert resolved in (nominal.sensor_noise, high.sensor_noise)
+
+
+def test_resolve_sensor_noise_is_deterministic_for_a_fixed_rng_state() -> None:
+    regimes = (
+        NoiseRegime(
+            name="nominal",
+            sensor_noise=(
+                SensorNoiseConfig(measurement_name="current", standard_deviation=1.0),
+            ),
+        ),
+        NoiseRegime(
+            name="high_bounded",
+            sensor_noise=(
+                SensorNoiseConfig(measurement_name="current", standard_deviation=2.0),
+            ),
+        ),
+    )
+    first = resolve_sensor_noise(fixed=(), regimes=regimes, rng=random.Random("seed-a"))
+    second = resolve_sensor_noise(
+        fixed=(), regimes=regimes, rng=random.Random("seed-a")
+    )
+    assert first == second
+
+
+def test_resolve_sensor_noise_varies_across_regimes_over_many_seeds() -> None:
+    regimes = (
+        NoiseRegime(
+            name="nominal",
+            sensor_noise=(
+                SensorNoiseConfig(measurement_name="current", standard_deviation=1.0),
+            ),
+        ),
+        NoiseRegime(
+            name="high_bounded",
+            sensor_noise=(
+                SensorNoiseConfig(measurement_name="current", standard_deviation=2.0),
+            ),
+        ),
+    )
+    resolved = {
+        resolve_sensor_noise(fixed=(), regimes=regimes, rng=random.Random(seed))
+        for seed in range(20)
+    }
+    assert len(resolved) == 2
