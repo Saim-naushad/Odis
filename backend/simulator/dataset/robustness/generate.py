@@ -57,10 +57,19 @@ class RobustnessOutputExistsError(Exception):
 
 @dataclass(frozen=True)
 class CohortDataset:
-    """Where one external cohort's features/source dataset live."""
+    """Where one cohort's features/source dataset live.
+
+    `split=None` (the default, and every PR174 external-cohort use) scores
+    the entire cohort dataset. PR175 also uses this type for the pilot and
+    robust-internal-test cohorts, both of which set `split="test"` to
+    narrow to a held-out split first — see `evaluation.
+    evaluate_model_on_cohort`'s own `split` parameter, which this maps to
+    directly.
+    """
 
     features_dir: Path
     dataset_dir: Path | None = None
+    split: str | None = None
 
 
 @dataclass(frozen=True)

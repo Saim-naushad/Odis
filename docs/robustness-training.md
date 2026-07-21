@@ -1,4 +1,4 @@
-# Broader-Regime Training and Robustness Evaluation (PR174)
+# Broader-Regime Training and Robustness Evaluation (PR174-175)
 
 This page describes PR174 — the first robustness-training iteration
 following [Isolated Distribution-Shift Study (PR172)](isolated-shift-evaluation.md),
@@ -197,6 +197,57 @@ datasets/pem-faults-robust-training-v1-comparison/
     cohort_comparisons.json
 ```
 
+## PR175 — dedicated alert-policy selection for the robust candidate
+
+PR174 froze a robust candidate whose diagnosis improved on every cohort but
+whose false-alert rate under the **unchanged PR170 policy** stayed above
+the operational bound on the cohort that mattered most (`high_noise`:
+1.40 vs. the 1.0 limit). PR170's policy was selected for PR168's model; it
+was never re-validated against the robust candidate's own probability
+distribution. PR175 closes that gap without retraining, changing features,
+calibrating, or touching the dataset: it selects a new hysteresis policy
+using **only the robust training dataset's own validation split**, then
+evaluates the result exactly the way PR174 did.
+
+**Search**: a 120-combination grid (entry probability 0.50-0.70, entry
+persistence 3-5, exit probability 0.45-0.60, exit persistence 2-3) — wider
+resolution than, but centered on, PR170's own selected policy — with a
+stricter rejection rule than PR170's (zero any-fault misses, not just a
+correct-class cap) and a latency-degradation bound measured against the
+robust model's own median latency under the frozen PR170 policy, on the
+same validation split.
+
+**Result**: the search selected entry=0.70/persistence=4,
+exit=0.45/persistence=2 — a materially higher entry bar than PR170's 0.60.
+Scored on the *same* row-level predictions as PR174's candidate (asserted
+identical in code — the alert layer never touches diagnosis), it cut the
+`high_noise` false-alert rate from 1.40 to 0.35/hr and the `pilot`
+false-alert rate to 0.0/hr, while every diagnosis gain PR174 already
+proved was untouched. **Decision: `PROMOTE ROBUST MODEL AND POLICY`** —
+every PR174-equivalent criterion, now checked against the new policy,
+passed.
+
+New artifacts (never overwriting PR168/PR170/PR174's own):
+
+```
+datasets/pem-faults-robust-training-v1-policy/
+    robust_policy_search.json          # every one of 120 candidates + rejection reasons
+    robust_alert_evaluation.json       # Systems A/B/C per-cohort raw results + both comparisons
+    robust_promotion_report.md
+    promotion_decision.json
+    plots/                             # 4 required PNGs
+    artifacts/                         # only written when promoted
+        promoted_pipeline.joblib
+        promoted_alert_policy.json
+        promoted_system_metadata.json
+```
+
+New code: `backend/simulator/dataset/robustness/{candidate,policy_config,
+policy_search,policy_promotion,policy_generate,policy_report,policy_cli}.py`,
+plus a `policy` parameter added to `evaluation.evaluate_model_on_cohort`
+(defaults to the frozen PR170 policy — every PR174 call site is
+unaffected).
+
 ## Tests
 
 `tests/backend/simulator/dataset/test_robust_training_spec.py` covers the
@@ -224,6 +275,18 @@ fixtures — never the full 192-run dataset — verifying every output
 artifact is written, the copied candidate pipeline predicts identically
 to the original, and every cohort is scored through the same frozen
 artifact.
+
+PR175 adds `test_candidate.py` (frozen-candidate hash/order verification —
+missing file, model/dataset/feature-manifest hash mismatch, feature-order,
+class-order, schema-version mismatch, and a `Pipeline.fit`-patch proof
+that no fallback refit ever happens); `test_policy_search.py` (exactly 120
+candidates, deterministic ranking, the "no candidate survives" case);
+`test_policy_promotion.py` (all four PR175 decisions, mirroring the exact
+false-alert-rate scenario this PR actually hit); and
+`test_policy_end_to_end.py` (tiny-fixture smoke test asserting System B
+and System C's row-level diagnosis are byte-identical, plus promoted-
+artifact reload/hash verification, tested directly rather than only when
+a small random fixture happens to promote).
 
 ## Related documentation
 

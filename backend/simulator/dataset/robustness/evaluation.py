@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from backend.simulator.dataset.alert_policy.state_machine import StateMachineConfig
 from backend.simulator.dataset.models.config import FAULT_CLASSES
 from backend.simulator.dataset.ood.alert_metrics import (
     AlertEvaluationResult,
@@ -66,6 +67,7 @@ def evaluate_model_on_cohort(
     cohort_name: str,
     dataset_dir: Path | None = None,
     split: str | None = None,
+    policy: StateMachineConfig = FROZEN_ALERT_POLICY,
 ) -> CohortEvaluation:
     """Score `artifacts.pipeline` on the cohort at `features_dir`.
 
@@ -75,6 +77,14 @@ def evaluate_model_on_cohort(
     select). `split="test"` narrows to one named split first — used for the
     pilot cohort, and for a model's own internal test split, so a model is
     never scored on rows it saw during fitting.
+
+    `policy` defaults to the frozen PR170 state machine (PR174's own
+    behavior, unchanged for every existing call site). PR175 passes its own
+    newly-selected policy instead, for the robust candidate only — `
+    diagnosis`/`availability` never depend on `policy` at all (row-level
+    predictions are identical regardless), only `alerts` does; comparing a
+    "same model, two policies" pair is exactly how PR175 proves System B
+    and System C share row-level metrics.
     """
     dataset, insufficient_data = load_ood_experiment_dataset(features_dir, dataset_dir)
     if split is not None:
@@ -93,7 +103,7 @@ def evaluate_model_on_cohort(
         dataset,
         predictions.proba,
         artifacts.class_order,
-        FROZEN_ALERT_POLICY,
+        policy,
         insufficient_data,
     )
     resolved_dataset_dir = dataset_dir or Path(
