@@ -171,6 +171,36 @@ services:
       retries: 5
       start_period: 20s
 
+  reasoning-bridge-worker:
+    build:
+      context: .
+      dockerfile: infra/docker/reasoning-bridge-worker/Dockerfile
+    restart: unless-stopped
+    networks:
+      - odis-internal
+    environment:
+      <<: *odis-environment
+      OTEL_SERVICE_NAME: odis-reasoning-bridge-worker
+      REASONING_BRIDGE_INPUT_TOPIC: ${REASONING_BRIDGE_INPUT_TOPIC:-odis.fault.alert-transitions.v1}
+      REASONING_BRIDGE_OUTPUT_TOPIC: ${REASONING_BRIDGE_OUTPUT_TOPIC:-odis.fault.reasoning-results.v1}
+      REASONING_BRIDGE_CONSUMER_GROUP_ID: ${REASONING_BRIDGE_CONSUMER_GROUP_ID:-odis-reasoning-bridge}
+      REASONING_BRIDGE_METRICS_PORT: ${REASONING_BRIDGE_METRICS_PORT:-9109}
+    depends_on:
+      api:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pgrep -f 'backend.app.reasoning_bridge_worker_main' >/dev/null || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   mqtt-bridge:
     build:
       context: .

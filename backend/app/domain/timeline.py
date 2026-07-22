@@ -21,6 +21,11 @@ TimelineEventType = Literal[
     "health_changed",
     "risk_changed",
     "investigation_transition",
+    "ai_fault_alert_received",
+    "ai_fault_corroboration_completed",
+    "ai_fault_investigation_updated",
+    "ai_fault_recommendation_recorded",
+    "ai_fault_alert_cleared",
 ]
 
 

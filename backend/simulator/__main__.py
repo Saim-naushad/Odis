@@ -9,6 +9,9 @@ from datetime import UTC, datetime
 
 from backend.simulator.config import SimulatorSettings
 from backend.simulator.plant import PlantAlphaFleet
+from backend.simulator.publishers.composite_publisher import (
+    CompositeObservationPublisher,
+)
 from backend.simulator.publishers.http_publisher import HttpObservationPublisher
 from backend.simulator.publishers.kafka_publisher import KafkaObservationPublisher
 from backend.simulator.publishers.mqtt_publisher import MqttObservationPublisher
@@ -21,8 +24,17 @@ from backend.simulator.telemetry import (
 )
 
 _Publisher = (
-    HttpObservationPublisher | MqttObservationPublisher | KafkaObservationPublisher
+    HttpObservationPublisher
+    | MqttObservationPublisher
+    | KafkaObservationPublisher
+    | CompositeObservationPublisher
 )
+
+# Transports whose publish loop must use `_run_kafka_loop`'s single-tick,
+# single-timestamp snapshot semantics — required whenever Kafka is one of
+# the sinks, since `TelemetrySample.from_observations` (fault inference)
+# needs every measurement in a sample to share one exact timestamp.
+_KAFKA_LOOP_TRANSPORTS = ("kafka", "kafka+http")
 
 _DEFAULT_CORE_INTERVAL = SimulatorSettings.model_fields[
     "core_publish_interval_seconds"
@@ -77,6 +89,19 @@ def _build_publisher(settings: SimulatorSettings) -> _Publisher:
         return KafkaObservationPublisher(
             bootstrap_servers=settings.kafka_bootstrap_servers,
             topic=settings.kafka_topic,
+        )
+    if settings.transport.lower() == "kafka+http":
+        # Single-source provenance (PR178 correction): one tick's
+        # already-constructed observations are fanned out to both sinks
+        # by `CompositeObservationPublisher`, never recomputed per
+        # transport. Kafka first, then HTTP — a fixed, documented order,
+        # not a distributed transaction (see composite_publisher.py).
+        return CompositeObservationPublisher(
+            KafkaObservationPublisher(
+                bootstrap_servers=settings.kafka_bootstrap_servers,
+                topic=settings.kafka_topic,
+            ),
+            HttpObservationPublisher(settings.api_base_url),
         )
     msg = f"unsupported transport: {settings.transport}"
     raise ValueError(msg)
@@ -302,7 +327,7 @@ def main() -> None:
     core_interval = settings.resolved_core_publish_interval_seconds()
     derived_interval = settings.derived_publish_interval_seconds
 
-    if settings.transport.lower() == "kafka":
+    if settings.transport.lower() in _KAFKA_LOOP_TRANSPORTS:
         print(
             f"Starting demo plant run_id={run_id} scenario={scenario_name} "
             f"transport={settings.transport} site={settings.site_id} "
@@ -319,7 +344,7 @@ def main() -> None:
         )
 
     with _build_publisher(settings) as publisher:
-        if settings.transport.lower() == "kafka":
+        if settings.transport.lower() in _KAFKA_LOOP_TRANSPORTS:
             _run_kafka_loop(fleet, scenario, publisher, settings)
         else:
             _run_dual_cadence_loop(

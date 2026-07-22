@@ -157,6 +157,43 @@ otherwise has no dependency on `pyarrow` at all (confirmed the hard way:
 the first corrected build crashed on `ModuleNotFoundError: No module
 named 'pyarrow'`). A dedicated test keeps the two values in sync.
 
+## Single-source telemetry provenance (`kafka+http` transport)
+
+PR178's reasoning bridge (`docs/reasoning-bridge.md`) corroborates a
+confirmed ML alert against observations persisted through the platform's
+normal HTTP ingestion path. Running two independent simulator
+processes — one `--transport kafka` feeding this worker, a separate
+`--transport http` feeding persistence — only produces telemetry that
+*resembles* the Kafka stream; different processes mean different
+`run_id`s, different tick cadences, and no shared `Observation` objects,
+so the "corroborating" data is never provably the same telemetry that
+produced the alert. That gap is closed by a third transport,
+`--transport kafka+http` (`SimulatorSettings.transport = "kafka+http"`),
+which routes through the *same* `_run_kafka_loop`/`_publish_kafka_snapshot`
+single-tick, single-timestamp path this worker already depends on, but
+publishes through
+`backend.simulator.publishers.composite_publisher.CompositeObservationPublisher`
+— a small fan-out wrapper that sends the one already-constructed list of
+`Observation` objects per tick to both a `KafkaObservationPublisher` and
+an `HttpObservationPublisher`, in that fixed order, unchanged. No
+telemetry is recomputed per transport and the fleet is never ticked
+twice for one published sample.
+
+Delivery is not a distributed transaction: if the Kafka publish succeeds
+and the subsequent HTTP publish fails (or vice versa), the earlier
+publish is not rolled back, and the exception propagates uncaught rather
+than being retried by re-ticking the fleet — retrying with the same
+already-constructed observations would be safe (`observation_id()` is
+fully deterministic, so a duplicate HTTP retry is rejected with `409`
+rather than double-persisted), but this composite does not implement
+retry logic itself; that is left to process supervision (e.g. a
+container restart), consistent with the rest of this worker's existing
+crash-on-publish-failure convention. See `docs/reasoning-bridge.md`'s
+"Publication and failure semantics" section for the corroboration side
+of this contract, and `tests/backend/simulator/test_composite_publisher.py`
+/ `tests/backend/simulator/test_kafka_http_fanout.py` for the tests that
+pin identical ids/timestamps/values reaching both sinks from one tick.
+
 ## Topics and consumer group
 
 | Role | Env var | Default |
@@ -335,13 +372,20 @@ regardless of status:
   "from_state": "healthy", "to_state": "confirmed_cooling_degradation",
   "diagnosed_class": "cooling_degradation",
   "evidence": [...], "model_system_version": "...", "model_hash": "...",
-  "policy_hash": "..."
+  "policy_hash": "...", "feature_schema_version": "...",
+  "class_scores": {"healthy": 0.02, "cooling_degradation": 0.91, "...": "..."},
+  "maximum_score": 0.91
 }
 ```
 
 `transition_type` maps PR176's `AlertEvent.event_type` (`new_alert` /
 `class_change` / `cleared`) to `confirmed` / `class_changed` / `cleared`
-per this PR's spec vocabulary.
+per this PR's spec vocabulary. `feature_schema_version`/`class_scores`/
+`maximum_score` were added by PR178 — the reasoning-bridge consumer's own
+AI-evidence contract requires the model's native scores and schema
+version, not just the curated `evidence` summary; this is a small,
+backward-compatible extension, not a rewrite (every other field/consumer
+of this event is unaffected).
 
 `telemetry.data-quality.v1` — one differentiated `reason` (`malformed` |
 `incomplete_timeout` | `conflicting_duplicate` | `late`) per rejected

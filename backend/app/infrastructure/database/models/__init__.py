@@ -1,6 +1,9 @@
 """SQLAlchemy ORM models for the ODIS platform backend."""
 
 from backend.app.domain.outbox import OutboxEvent
+from backend.app.infrastructure.database.models.ai_fault_evidence import (
+    AiFaultEvidenceModel,
+)
 from backend.app.infrastructure.database.models.decision_context import (
     DecisionContextModel,
 )
@@ -31,6 +34,7 @@ from backend.app.infrastructure.database.models.worker_heartbeat import (
 )
 
 __all__ = [
+    "AiFaultEvidenceModel",
     "DecisionContextModel",
     "DecisionPlanModel",
     "InvestigationTransitionModel",

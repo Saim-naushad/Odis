@@ -15,6 +15,12 @@ scrape_configs:
       - targets:
           - "fault-inference-worker:9108"
 
+  - job_name: "odis-reasoning-bridge-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "reasoning-bridge-worker:9109"
+
   # Needed for System panels (uptime/process metrics).
   - job_name: "prometheus"
     metrics_path: /metrics

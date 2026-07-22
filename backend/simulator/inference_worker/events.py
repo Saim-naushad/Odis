@@ -271,7 +271,14 @@ def build_result_event(
 class FaultAlertTransitionEventV1:
     """`fault_alert_transition.v1` — published only when
     `InferenceResult.alert_event` is present (spec section 8: "do not
-    emit a new alert-transition event for every confirmed row")."""
+    emit a new alert-transition event for every confirmed row").
+
+    `feature_schema_version`/`class_scores`/`maximum_score` were added by
+    PR178 (the reasoning-bridge consumer's own AI-evidence contract
+    requires preserving the model's native scores and schema version,
+    never just the curated `evidence` summary) — small, backward-
+    compatible additions; every other field is unchanged from PR177.
+    """
 
     event_id: str
     event_version: str
@@ -286,6 +293,9 @@ class FaultAlertTransitionEventV1:
     model_system_version: str | None
     model_hash: str | None
     policy_hash: str | None
+    feature_schema_version: str | None = None
+    class_scores: dict[str, float] | None = None
+    maximum_score: float | None = None
 
     def to_json_dict(self) -> dict[str, Any]:
         return {
@@ -302,6 +312,9 @@ class FaultAlertTransitionEventV1:
             "model_system_version": self.model_system_version,
             "model_hash": self.model_hash,
             "policy_hash": self.policy_hash,
+            "feature_schema_version": self.feature_schema_version,
+            "class_scores": self.class_scores,
+            "maximum_score": self.maximum_score,
         }
 
 
@@ -335,6 +348,9 @@ def build_transition_event(
         model_system_version=result.model_system_version,
         model_hash=result.model_hash,
         policy_hash=result.policy_hash,
+        feature_schema_version=result.feature_schema_version,
+        class_scores=result.class_probabilities,
+        maximum_score=result.maximum_probability,
     )
 
 
