@@ -12,6 +12,7 @@ from sqlalchemy import Engine
 
 from backend.app.api.middleware import HTTPMetricsMiddleware, RequestIDMiddleware
 from backend.app.api.routers import (
+    fault_investigations_router,
     health_router,
     metrics_router,
     monitoring_router,
@@ -135,6 +136,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(metrics_router)
     app.include_router(observations_router)
     app.include_router(monitoring_router)
+    app.include_router(fault_investigations_router)
 
     return app
 

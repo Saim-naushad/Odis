@@ -1,7 +1,10 @@
 import { apiClient } from './client'
 import type {
   HealthResponse,
+  ActiveFaultInvestigationResponse,
   DigitalTwinResponse,
+  FaultInvestigationDetailResponse,
+  FaultInvestigationSummaryResponse,
   InvestigationTransitionRequest,
   InvestigationTransitionResponse,
   MonitoringAssetHistoryItemResponse,
@@ -191,6 +194,42 @@ export const monitoringClient = {
     const query = search.toString()
     const path = `/monitoring/assets/${encodeURIComponent(assetId)}/telemetry/aggregate?${query}`
     return apiClient.get(path, signal)
+  },
+
+  getFaultInvestigationForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+  ): Promise<ActiveFaultInvestigationResponse> {
+    return apiClient.get(
+      `/monitoring/assets/${encodeURIComponent(assetId)}/fault-investigation`,
+      signal,
+    )
+  },
+
+  getFaultInvestigationHistoryForAsset(
+    assetId: string,
+    signal?: AbortSignal,
+    params?: { limit?: number },
+  ): Promise<FaultInvestigationSummaryResponse[]> {
+    const search = new URLSearchParams()
+    if (params?.limit !== undefined) {
+      search.set('limit', String(params.limit))
+    }
+    const query = search.toString()
+    const path = `/monitoring/assets/${encodeURIComponent(assetId)}/fault-investigations${
+      query ? `?${query}` : ''
+    }`
+    return apiClient.get(path, signal)
+  },
+
+  getFaultInvestigationDetail(
+    investigationId: string,
+    signal?: AbortSignal,
+  ): Promise<FaultInvestigationDetailResponse> {
+    return apiClient.get(
+      `/monitoring/fault-investigations/${encodeURIComponent(investigationId)}`,
+      signal,
+    )
   },
 }
 

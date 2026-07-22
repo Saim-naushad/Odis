@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ActionPlaybook } from '../components/monitoring/ActionPlaybook'
 import { ActiveAlertBanner } from '../components/monitoring/ActiveAlertBanner'
+import { ActiveFaultInvestigationCard } from '../components/monitoring/ActiveFaultInvestigationCard'
 import { AssetStatusBar } from '../components/monitoring/AssetStatusBar'
 import { ExpertDetailsDrawer } from '../components/monitoring/ExpertDetailsDrawer'
 import { FleetAttentionStrip } from '../components/monitoring/FleetAttentionStrip'
@@ -8,12 +9,16 @@ import { ProductHeader } from '../components/monitoring/ProductHeader'
 import { SystemFooter } from '../components/monitoring/SystemFooter'
 import { InvestigationRail } from '../components/monitoring/InvestigationRail'
 import { TelemetryVisualizationPanel } from '../components/TelemetryVisualizationPanel'
+import { useFaultInvestigation } from '../hooks/useFaultInvestigation'
 import { useMonitoringDashboard } from '../hooks/useMonitoringDashboard'
 import { useMonitoringSse } from '../monitoring/useMonitoringSse'
 
 export function MonitoringDashboard() {
   const { connectionState } = useMonitoringSse()
   const state = useMonitoringDashboard({ sseConnectionState: connectionState })
+  const faultInvestigation = useFaultInvestigation(state.selectedAssetId, {
+    sseConnectionState: connectionState,
+  })
   const twin = state.digitalTwin
   const [expertOpen, setExpertOpen] = useState(false)
 
@@ -57,6 +62,14 @@ export function MonitoringDashboard() {
       <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)]">
         {/* Primary operational workspace */}
         <div className="flex min-w-0 flex-col gap-4">
+          <ActiveFaultInvestigationCard
+            selectedAssetId={state.selectedAssetId}
+            investigation={faultInvestigation.activeInvestigation}
+            loading={faultInvestigation.activeLoading}
+            error={faultInvestigation.activeError}
+            onOpenHistory={() => setExpertOpen(true)}
+            historyDisabled={!state.selectedAssetId}
+          />
           <ActionPlaybook
             selectedAssetId={state.selectedAssetId}
             recommendation={twin?.recommendation}
@@ -99,6 +112,7 @@ export function MonitoringDashboard() {
         open={expertOpen}
         onClose={() => setExpertOpen(false)}
         state={state}
+        faultInvestigation={faultInvestigation}
       />
     </div>
   )

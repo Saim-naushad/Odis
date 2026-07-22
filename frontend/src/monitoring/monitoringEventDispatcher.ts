@@ -65,6 +65,43 @@ export function createMonitoringEventDispatcher(queryClient: QueryClient) {
             NO_RESTART_IN_FLIGHT,
           )
           break
+        case 'fault_investigation_updated':
+          if (payload.asset_id) {
+            void queryClient.invalidateQueries(
+              {
+                queryKey: [
+                  'monitoring',
+                  'asset',
+                  payload.asset_id,
+                  'fault-investigation',
+                ],
+                exact: true,
+              },
+              NO_RESTART_IN_FLIGHT,
+            )
+            void queryClient.invalidateQueries(
+              {
+                queryKey: [
+                  'monitoring',
+                  'asset',
+                  payload.asset_id,
+                  'fault-investigation-history',
+                ],
+                exact: true,
+              },
+              NO_RESTART_IN_FLIGHT,
+            )
+            // New ai_fault_* timeline entries surface through the
+            // digital-twin's timeline_preview, not a separate query.
+            void queryClient.invalidateQueries(
+              {
+                queryKey: ['monitoring', 'asset', payload.asset_id, 'digital-twin'],
+                exact: true,
+              },
+              NO_RESTART_IN_FLIGHT,
+            )
+          }
+          break
         default:
           break
       }

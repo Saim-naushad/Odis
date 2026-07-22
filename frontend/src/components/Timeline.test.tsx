@@ -86,6 +86,30 @@ describe('Timeline', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('renders all five AI-fault timeline event types with a defined icon', () => {
+    const aiFaultEvents: TimelineEventResponse[] = [
+      'ai_fault_alert_received',
+      'ai_fault_corroboration_completed',
+      'ai_fault_investigation_updated',
+      'ai_fault_recommendation_recorded',
+      'ai_fault_alert_cleared',
+    ].map((eventType, index) => ({
+      id: `ai-fault-event-${index}`,
+      asset_id: 'asset-1',
+      timestamp: `2026-01-01T10:0${index}:00Z`,
+      event_type: eventType as TimelineEventResponse['event_type'],
+      title: `AI fault event ${index}`,
+      description: 'description',
+      metadata: {},
+    }))
+
+    render(<Timeline events={aiFaultEvents} loading={false} />)
+
+    for (let index = 0; index < aiFaultEvents.length; index += 1) {
+      expect(screen.getByText(`AI fault event ${index}`)).toBeInTheDocument()
+    }
+  })
+
   it('highlights exactly the selected event, not just the newest', () => {
     const { container } = render(
       <Timeline

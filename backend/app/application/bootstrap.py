@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.events.domain_events import (
+    AiFaultInvestigationUpdated,
     HealthChanged,
     InvestigationTransitionRecorded,
     NotificationCreated,
@@ -117,6 +118,10 @@ def register_domain_event_handlers(
     event_bus.subscribe(
         ReasoningCompleted,
         monitoring_handler.on_reasoning_completed,
+    )
+    event_bus.subscribe(
+        AiFaultInvestigationUpdated,
+        monitoring_handler.on_ai_fault_investigation_updated,
     )
 
     if unit_of_work_factory is not None:

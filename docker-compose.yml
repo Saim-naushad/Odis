@@ -181,6 +181,12 @@ services:
     environment:
       <<: *odis-environment
       OTEL_SERVICE_NAME: odis-reasoning-bridge-worker
+      # This worker now bootstraps the shared application runtime (PR179,
+      # for the outbox -> SSE bridge) which constructs the ONNX forecast
+      # engine but never serves forecasts. Disable it so the base image
+      # needs no forecast deps (numpy/onnx/onnxruntime) — same fix as
+      # the `worker` service above.
+      FORECAST_ENABLED: "false"
       REASONING_BRIDGE_INPUT_TOPIC: ${REASONING_BRIDGE_INPUT_TOPIC:-odis.fault.alert-transitions.v1}
       REASONING_BRIDGE_OUTPUT_TOPIC: ${REASONING_BRIDGE_OUTPUT_TOPIC:-odis.fault.reasoning-results.v1}
       REASONING_BRIDGE_CONSUMER_GROUP_ID: ${REASONING_BRIDGE_CONSUMER_GROUP_ID:-odis-reasoning-bridge}
@@ -189,6 +195,8 @@ services:
       api:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test:

@@ -25,6 +25,23 @@ class ReasoningCompleted:
 
 
 @dataclass(frozen=True, slots=True)
+class AiFaultInvestigationUpdated:
+    """An AI-detected fault investigation was opened, updated, or cleared.
+
+    Carries only enough to drive an SSE invalidation signal — the durable
+    read model (`AiFaultEvidence`, via the fault-investigation API) is the
+    source of truth the frontend refetches on receipt.
+    """
+
+    asset_id: str
+    investigation_id: str
+    diagnosed_fault_class: str
+    investigation_status: str
+    alert_transition_type: str
+    timestamp: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class ReasoningStarted:
     asset_id: str
     run_id: str

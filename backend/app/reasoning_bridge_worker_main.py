@@ -12,6 +12,7 @@ import sys
 
 from prometheus_client import start_http_server
 
+from backend.app.application.bootstrap import bootstrap_application_runtime
 from backend.app.application.reasoning_bridge.reasoning_bridge_service import (
     ReasoningBridgeService,
 )
@@ -65,14 +66,33 @@ def main() -> None:
 
     engine = create_db_engine(settings)
     session_factory = create_session_factory(engine)
+
+    def unit_of_work_factory() -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(session_factory)
+
+    # Wires this worker into the same outbox -> DomainEventBus -> Redis
+    # pub/sub pipeline the API's SSE stream already reads from (mirrors
+    # `worker_main.py`). Without this, a processed fault alert is
+    # persisted but produces no live dashboard update — only the next
+    # poll/refetch would see it.
+    application_runtime = bootstrap_application_runtime(
+        settings, unit_of_work_factory=unit_of_work_factory
+    )
+    if application_runtime.outbox_dispatcher is None:
+        logger.error("reasoning_bridge_worker_outbox_dispatcher_missing")
+        engine.dispose()
+        sys.exit(1)
+
     service = ReasoningBridgeService(
-        lambda: SqlAlchemyUnitOfWork(session_factory),
+        unit_of_work_factory,
         corroboration_window_seconds=(
             settings.reasoning_bridge_corroboration_window_seconds
         ),
         corroboration_sample_limit=(
             settings.reasoning_bridge_corroboration_sample_limit
         ),
+        event_bus=application_runtime.domain_event_bus,
+        outbox_dispatcher=application_runtime.outbox_dispatcher,
     )
 
     try:

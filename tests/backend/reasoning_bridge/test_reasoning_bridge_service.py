@@ -12,8 +12,18 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from backend.app.application.events.domain_events import AiFaultInvestigationUpdated
+from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.events.handlers.monitoring_event_handler import (
+    MonitoringEventHandler,
+)
+from backend.app.application.monitoring_event_source import (
+    InMemoryMonitoringEventSource,
+)
+from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_bridge.input_events import (
     ValidatedAlertTransition,
 )
@@ -21,6 +31,7 @@ from backend.app.application.reasoning_bridge.reasoning_bridge_service import (
     ReasoningBridgeService,
     UnsupportedFaultClassError,
 )
+from backend.app.domain.outbox import OutboxEvent
 from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork,
 )
@@ -504,3 +515,102 @@ def test_cleared_writes_a_distinct_cleared_timeline_entry(
 
     event_types = [entry.event_type for entry in entries]
     assert "ai_fault_alert_cleared" in event_types
+
+
+def test_processed_alert_writes_an_outbox_event_and_publishes_to_the_bus(
+    session_factory: Callable[[], Session],
+) -> None:
+    """PR179: a processed alert transition must reach the SSE pipeline via
+    the same outbox -> DomainEventBus mechanism `InvestigationService`
+    uses — not a bespoke path."""
+    event_bus = DomainEventBus()
+    published: list[AiFaultInvestigationUpdated] = []
+    event_bus.subscribe(AiFaultInvestigationUpdated, published.append)
+    outbox_dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory), event_bus
+    )
+    service = ReasoningBridgeService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        event_bus=event_bus,
+        outbox_dispatcher=outbox_dispatcher,
+    )
+
+    outcome = service.process_alert_transition(_event())
+
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        rows = uow.session.scalars(select(OutboxEvent)).all()
+    assert len(rows) == 1
+    assert rows[0].event_type == "AiFaultInvestigationUpdated"
+    assert rows[0].dispatched_at is not None  # dispatch() ran synchronously
+
+    assert len(published) == 1
+    assert published[0].asset_id == outcome.evidence.asset_id
+    assert published[0].investigation_id == outcome.evidence.investigation_id
+
+
+def test_duplicate_replay_does_not_write_a_second_outbox_event(
+    session_factory: Callable[[], Session],
+) -> None:
+    event_bus = DomainEventBus()
+    outbox_dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory), event_bus
+    )
+    service = ReasoningBridgeService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        event_bus=event_bus,
+        outbox_dispatcher=outbox_dispatcher,
+    )
+
+    service.process_alert_transition(_event())
+    service.process_alert_transition(_event())  # duplicate, same event_id
+
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        rows = uow.session.scalars(select(OutboxEvent)).all()
+    assert len(rows) == 1
+
+
+def test_without_event_bus_no_outbox_event_is_written(
+    service: ReasoningBridgeService,
+    session_factory: Callable[[], Session],
+) -> None:
+    """The default `event_bus=None` (used by direct unit-test construction)
+    must not attempt to write an outbox row."""
+    service.process_alert_transition(_event())
+
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        rows = uow.session.scalars(select(OutboxEvent)).all()
+    assert rows == []
+
+
+def test_processed_alert_reaches_the_sse_event_source_as_a_minimal_signal(
+    session_factory: Callable[[], Session],
+) -> None:
+    """End-to-end proof of the PR179 SSE bridge: process_alert_transition
+    -> outbox -> DomainEventBus -> MonitoringEventHandler -> a subscribed
+    SSE queue receives `fault_investigation_updated` carrying only
+    type/timestamp/asset_id — never the full evidence payload."""
+    event_bus = DomainEventBus()
+    event_source = InMemoryMonitoringEventSource()
+    monitoring_handler = MonitoringEventHandler(event_source)
+    event_bus.subscribe(
+        AiFaultInvestigationUpdated,
+        monitoring_handler.on_ai_fault_investigation_updated,
+    )
+    outbox_dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory), event_bus
+    )
+    service = ReasoningBridgeService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        event_bus=event_bus,
+        outbox_dispatcher=outbox_dispatcher,
+    )
+    queue = event_source.subscribe()
+
+    outcome = service.process_alert_transition(_event())
+
+    sse_event = queue.get_nowait()
+    assert sse_event.type == "fault_investigation_updated"
+    assert sse_event.asset_id == outcome.evidence.asset_id
+    assert sse_event.run_id is None
+    payload = sse_event.to_json_dict()
+    assert set(payload.keys()) == {"type", "timestamp", "asset_id"}

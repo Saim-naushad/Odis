@@ -9,10 +9,16 @@ from application.reasoning_run_index import ReasoningRunIndexRepository
 from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.api.dependencies.database import get_db_session
+from backend.app.domain.repositories.ai_fault_evidence_repository import (
+    AiFaultEvidenceRepository,
+)
 from backend.app.domain.repositories.investigation_repository import (
     InvestigationRepository,
 )
 from backend.app.domain.repositories.timeline_repository import TimelineRepository
+from backend.app.infrastructure.repositories.ai_fault_evidence_repository import (
+    SqlAlchemyAiFaultEvidenceRepository,
+)
 from backend.app.infrastructure.repositories.decision_context_repository import (
     SqlAlchemyDecisionContextRepository,
 )
@@ -131,3 +137,10 @@ def get_investigation_repository(
 ) -> InvestigationRepository:
     """Provide a request-scoped investigation transition repository."""
     return SqlAlchemyInvestigationRepository(session)
+
+
+def get_ai_fault_evidence_repository(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> AiFaultEvidenceRepository:
+    """Provide a request-scoped AI fault evidence repository."""
+    return SqlAlchemyAiFaultEvidenceRepository(session)

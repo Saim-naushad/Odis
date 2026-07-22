@@ -10,6 +10,7 @@ from backend.app.application.bootstrap import (
     register_domain_event_handlers,
 )
 from backend.app.application.events.domain_events import (
+    AiFaultInvestigationUpdated,
     HealthChanged,
     InvestigationTransitionRecorded,
     NotificationCreated,
@@ -21,6 +22,12 @@ from backend.app.application.events.domain_events import (
     TrendChanged,
 )
 from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.events.handlers.monitoring_event_handler import (
+    MonitoringEventHandler,
+)
+from backend.app.application.events.handlers.timeline_event_handler import (
+    TimelineEventHandler,
+)
 from backend.app.application.monitoring_event_source import (
     InMemoryMonitoringEventSource,
 )
@@ -85,6 +92,31 @@ def test_bootstrap_registers_all_domain_event_handlers(
     assert ReasoningStarted in handlers
     assert TrendChanged in handlers
     assert InvestigationTransitionRecorded in handlers
+    assert AiFaultInvestigationUpdated in handlers
+
+
+def test_ai_fault_investigation_updated_only_reaches_the_monitoring_handler(
+    sqlite_settings: Settings,
+    db_session: Session,
+) -> None:
+    """PR179 regression guard: `ReasoningBridgeService` already writes
+    timeline rows directly in its own uow — subscribing `TimelineEventHandler`
+    to this event too would double-write them."""
+    runtime = bootstrap_application_runtime(
+        sqlite_settings,
+        unit_of_work_factory=lambda: SqlAlchemyUnitOfWork(lambda: db_session),
+    )
+
+    subscribers = runtime.domain_event_bus._handlers[AiFaultInvestigationUpdated]
+    bound_instances = [
+        getattr(handler, "__self__", None) for handler in subscribers
+    ]
+    assert any(
+        isinstance(instance, MonitoringEventHandler) for instance in bound_instances
+    )
+    assert not any(
+        isinstance(instance, TimelineEventHandler) for instance in bound_instances
+    )
 
 
 def test_register_domain_event_handlers_without_database_skips_timeline(

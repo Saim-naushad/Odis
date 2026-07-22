@@ -1,19 +1,23 @@
 import { useEffect } from 'react'
 import { AssetDetails } from '../AssetDetails'
+import { FaultInvestigationHistoryPanel } from './FaultInvestigationHistoryPanel'
 import { ReasoningTrace } from '../ReasoningTrace'
 import { RunHistory } from '../RunHistory'
 import type { useMonitoringDashboard } from '../../hooks/useMonitoringDashboard'
+import type { FaultInvestigationState } from '../../hooks/useFaultInvestigation'
 
 interface ExpertDetailsDrawerProps {
   open: boolean
   onClose: () => void
   state: ReturnType<typeof useMonitoringDashboard>
+  faultInvestigation: FaultInvestigationState
 }
 
 export function ExpertDetailsDrawer({
   open,
   onClose,
   state,
+  faultInvestigation,
 }: ExpertDetailsDrawerProps) {
   useEffect(() => {
     if (!open) return
@@ -70,6 +74,12 @@ export function ExpertDetailsDrawer({
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <FaultInvestigationHistoryPanel
+            history={faultInvestigation.history}
+            loading={faultInvestigation.historyLoading}
+            error={faultInvestigation.historyError}
+            onRetry={() => void faultInvestigation.retryHistory()}
+          />
           <RunHistory
             history={state.history}
             selectedRunId={state.selectedRunId}

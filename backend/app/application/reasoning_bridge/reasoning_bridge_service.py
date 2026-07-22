@@ -23,6 +23,8 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.reasoning_bridge.corroboration import (
     CorroborationOutcome,
     corroborate_cooling_degradation,
@@ -46,6 +48,7 @@ from backend.app.application.reasoning_bridge.recommendation_policy import (
 )
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.ai_fault_evidence import AiFaultEvidence, FaultRecommendation
+from backend.app.domain.outbox import OutboxEvent
 from backend.app.domain.timeline import TimelineEvent
 from backend.app.infrastructure.repositories.ai_fault_evidence_repository import (
     SqlAlchemyAiFaultEvidenceRepository,
@@ -79,10 +82,20 @@ class ReasoningBridgeService:
         *,
         corroboration_window_seconds: float = 900.0,
         corroboration_sample_limit: int = 20,
+        event_bus: DomainEventBus | None = None,
+        outbox_dispatcher: OutboxDispatcher | None = None,
     ) -> None:
+        """`event_bus`/`outbox_dispatcher` default to `None` only so direct
+        unit tests can construct this service without the full application
+        runtime. The production worker entry point
+        (`reasoning_bridge_worker_main.py`) must always pass both — omitting
+        them there would silently disable the fault-investigation SSE
+        signal without any error."""
         self._unit_of_work_factory = unit_of_work_factory
         self._corroboration_window_seconds = corroboration_window_seconds
         self._corroboration_sample_limit = corroboration_sample_limit
+        self._event_bus = event_bus
+        self._outbox_dispatcher = outbox_dispatcher
 
     def process_alert_transition(
         self, event: ValidatedAlertTransition
@@ -161,13 +174,33 @@ class ReasoningBridgeService:
             self._write_timeline_entries(
                 uow.session, event, decision, corroboration, recommendation
             )
+            if self._event_bus is not None:
+                uow.session.add(
+                    OutboxEvent(
+                        id=str(uuid4()),
+                        event_type="AiFaultInvestigationUpdated",
+                        payload={
+                            "asset_id": evidence.asset_id,
+                            "investigation_id": evidence.investigation_id,
+                            "diagnosed_fault_class": evidence.diagnosed_fault_class,
+                            "investigation_status": evidence.investigation_status,
+                            "alert_transition_type": evidence.alert_transition_type,
+                            "timestamp": datetime.now(UTC).isoformat(),
+                        },
+                        created_at=datetime.now(UTC),
+                        dispatched_at=None,
+                    )
+                )
             uow.commit()
 
-            return ProcessingOutcome(
-                evidence=evidence,
-                is_duplicate=False,
-                is_new_investigation=decision.is_new_investigation,
-            )
+        if self._event_bus is not None and self._outbox_dispatcher is not None:
+            self._outbox_dispatcher.dispatch()
+
+        return ProcessingOutcome(
+            evidence=evidence,
+            is_duplicate=False,
+            is_new_investigation=decision.is_new_investigation,
+        )
 
     def _corroborate(
         self,

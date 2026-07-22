@@ -11,6 +11,7 @@ from application.reasoning_trace_repository import ReasoningTraceRepository
 from application.structured_assessment_repository import StructuredAssessmentRepository
 from backend.app.api.dependencies.database import get_unit_of_work
 from backend.app.api.dependencies.repositories import (
+    get_ai_fault_evidence_repository,
     get_decision_context_repository,
     get_decision_plan_repository,
     get_investigation_repository,
@@ -30,6 +31,9 @@ from backend.app.application.continuous_aggregate_service import (
 from backend.app.application.digital_twin_cache import DigitalTwinCache
 from backend.app.application.digital_twin_service import DigitalTwinService
 from backend.app.application.events.event_bus import DomainEventBus
+from backend.app.application.fault_investigation_service import (
+    FaultInvestigationService,
+)
 from backend.app.application.feature_builder import FeatureBuilder
 from backend.app.application.forecast_inference_engine import ForecastInferenceEngine
 from backend.app.application.forecast_inference_service import ForecastInferenceService
@@ -43,6 +47,9 @@ from backend.app.application.observation_service_factory import (
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
 from backend.app.application.telemetry_history_service import TelemetryHistoryService
 from backend.app.application.unit_of_work import UnitOfWork
+from backend.app.domain.repositories.ai_fault_evidence_repository import (
+    AiFaultEvidenceRepository,
+)
 from backend.app.domain.repositories.investigation_repository import (
     InvestigationRepository,
 )
@@ -146,6 +153,18 @@ def get_investigation_service(
         event_bus=event_bus,
         outbox_dispatcher=outbox_dispatcher,
     )
+
+
+def get_fault_investigation_service(
+    evidence_repository: Annotated[
+        AiFaultEvidenceRepository, Depends(get_ai_fault_evidence_repository)
+    ],
+    observation_repository: Annotated[
+        ObservationRepository, Depends(get_observation_repository)
+    ],
+) -> FaultInvestigationService:
+    """Provide a request-scoped AI fault investigation read-model service."""
+    return FaultInvestigationService(evidence_repository, observation_repository)
 
 
 def get_telemetry_history_service(

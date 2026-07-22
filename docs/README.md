@@ -44,6 +44,8 @@ Portfolio assets for the monitoring dashboard live in [`assets/`](assets/).
 | [Kubernetes Deployment](platform/kubernetes-deployment.md) | K8s manifests, networking, and operations |
 | [CI/CD and Container Registry](platform/ci-cd.md) | GitHub Actions validation and GHCR image publishing |
 | [Business Metrics](platform/business-metrics.md) | Platform business and operational metrics |
+| [Reasoning Bridge](reasoning-bridge.md) | Confirmed AI fault alerts → deterministic corroboration and recommendation |
+| [Fault Investigation Dashboard](fault-investigation-dashboard.md) | Operator-facing API, SSE, and dashboard integration for AI-detected faults |
 
 ## Reasoning Engine
 

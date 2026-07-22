@@ -65,6 +65,7 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 - **Deterministic reasoning** — Trend, variation, and correlation detectors produce explainable assessments with no hidden machine-learning models inside the reasoning pipeline.
 - **Explainable recommendations** — Every recommendation traces back to the supporting evidence, generated hypothesis, confidence breakdown, and reasoning history.
 - **Live operator dashboard** — A React monitoring console streams fleet health, telemetry, investigations, and recommendations over Server-Sent Events.
+- **AI-assisted fault diagnosis** — Diagnostic-model fault alerts are shown alongside their deterministic corroboration, urgency, and a bounded operator recommendation — the model is always evidence, never a confirmed diagnosis.
 - **Investigation workflow** — Operator actions are captured as an append-only acknowledge → investigate → resolve lifecycle rather than overwriting previous state.
 - **Event-driven architecture** — A transactional outbox and domain event bus decouple persistence from Kafka delivery, cache invalidation, and live UI updates.
 - **Physics-based simulator** — Plant Alpha models a four-stack PEM fuel-cell plant with coupled subsystem behavior instead of synthetic random telemetry.

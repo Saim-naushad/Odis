@@ -229,6 +229,11 @@ export type TimelineEventType =
   | 'health_changed'
   | 'risk_changed'
   | 'investigation_transition'
+  | 'ai_fault_alert_received'
+  | 'ai_fault_corroboration_completed'
+  | 'ai_fault_investigation_updated'
+  | 'ai_fault_recommendation_recorded'
+  | 'ai_fault_alert_cleared'
 
 export interface TimelineEventResponse {
   id: string
@@ -252,5 +257,99 @@ export interface DigitalTwinResponse {
   latest_reasoning_run_id: string
   timeline_preview: TimelineEventResponse[]
   last_updated: string
+}
+
+// --- AI fault investigation (PR179) ---
+//
+// A separate, parallel concept from `InvestigationStatus`/
+// `InvestigationTransitionResponse` above (the operator's own ack/
+// investigate/resolve workflow against a deterministic `Recommendation`).
+// This is the AI diagnostic model's fault-alert lifecycle, corroborated
+// deterministically by the reasoning bridge. The two are never merged.
+
+export type AiFaultInvestigationStatus = 'OPEN' | 'CLEARED' | string
+
+export type AlertTransitionType = 'confirmed' | 'class_changed' | 'cleared' | string
+
+export type CorroborationResult =
+  | 'corroborated'
+  | 'partially_corroborated'
+  | 'not_corroborated'
+  | 'insufficient_evidence'
+  | 'not_applicable'
+  | string
+
+export type FaultUrgency =
+  | 'INFORMATIONAL'
+  | 'INSPECTION_REQUIRED'
+  | 'ELEVATED'
+  | 'URGENT'
+  | string
+
+export type FaultRecommendationStatus = 'produced' | 'withheld' | string
+
+export type FaultRecommendationCategory = 'investigate' | 'monitor' | string
+
+export type ObservationEvidenceRole = 'supporting' | 'conflicting' | 'contextual' | string
+
+export interface ObservationEvidenceSummaryResponse {
+  observation_id: string
+  measurement_type: string
+  value: number
+  unit: string
+  observed_at: string
+  role: ObservationEvidenceRole
+}
+
+export interface FaultInvestigationProvenanceResponse {
+  model_system_version: string
+  model_hash: string
+  policy_hash: string
+  feature_schema_version: string
+  latest_model_score: number
+  score_semantics: string
+  source_event_id: string
+  recorded_at: string
+}
+
+export interface FaultRecommendationSummaryResponse {
+  id: string
+  status: FaultRecommendationStatus
+  category: FaultRecommendationCategory
+  urgency: FaultUrgency
+  action_summary: string
+  reason: string
+  recommended_steps: string[]
+  limitations: string
+}
+
+export interface FaultInvestigationSummaryResponse {
+  investigation_id: string
+  asset_id: string
+  investigation_status: AiFaultInvestigationStatus
+  diagnosed_fault_class: string
+  previous_diagnosed_fault_class: string | null
+  alert_transition_type: AlertTransitionType
+  observed_at: string
+  corroboration_result: CorroborationResult
+  corroboration_notes: string
+  corroboration_rule_ids: string[]
+  urgency: FaultUrgency | null
+  recommendation_status: FaultRecommendationStatus | null
+  recommendation: FaultRecommendationSummaryResponse | null
+  authority_boundary_note: string
+  supporting_evidence: ObservationEvidenceSummaryResponse[]
+  provenance: FaultInvestigationProvenanceResponse | null
+}
+
+export interface ActiveFaultInvestigationResponse {
+  active_investigation: FaultInvestigationSummaryResponse | null
+}
+
+export interface FaultInvestigationDetailResponse {
+  investigation_id: string
+  asset_id: string
+  current: FaultInvestigationSummaryResponse
+  timeline: FaultInvestigationSummaryResponse[]
 }
 

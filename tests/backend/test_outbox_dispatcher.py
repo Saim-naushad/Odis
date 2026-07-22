@@ -10,7 +10,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.app.application.events.domain_events import ObservationCreated
+from backend.app.application.events.domain_events import (
+    AiFaultInvestigationUpdated,
+    ObservationCreated,
+)
 from backend.app.application.events.event_bus import DomainEventBus
 from backend.app.application.integration_events import IntegrationEvent
 from backend.app.application.outbox_dispatcher import OutboxDispatcher
@@ -209,5 +212,48 @@ def test_outbox_dispatcher_skips_unmapped_integration_events(
 
     dispatcher.dispatch()
 
+    assert integration_publisher.published == []
+
+
+def test_ai_fault_investigation_updated_round_trips_through_the_outbox(
+    session_factory: Callable[[], Session],
+) -> None:
+    """PR179: not mapped to any Kafka integration event by design — browser
+    SSE delivery must not depend on live Kafka connectivity."""
+    bus = DomainEventBus()
+    published: list[AiFaultInvestigationUpdated] = []
+    bus.subscribe(AiFaultInvestigationUpdated, published.append)
+    integration_publisher = _CapturingIntegrationPublisher()
+    dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        bus,
+        integration_publisher,
+    )
+
+    created_at = datetime.now(UTC)
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.session.add(
+            OutboxEvent(
+                id=str(uuid4()),
+                event_type="AiFaultInvestigationUpdated",
+                payload={
+                    "asset_id": "asset-1",
+                    "investigation_id": "inv-1",
+                    "diagnosed_fault_class": "cooling_degradation",
+                    "investigation_status": "OPEN",
+                    "alert_transition_type": "confirmed",
+                    "timestamp": created_at.isoformat(),
+                },
+                created_at=created_at,
+                dispatched_at=None,
+            )
+        )
+        uow.commit()
+
+    dispatcher.dispatch()
+
+    assert len(published) == 1
+    assert published[0].asset_id == "asset-1"
+    assert published[0].investigation_id == "inv-1"
     assert integration_publisher.published == []
 

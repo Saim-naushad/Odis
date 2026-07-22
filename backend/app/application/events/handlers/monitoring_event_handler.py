@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from backend.app.application.events.domain_events import (
+    AiFaultInvestigationUpdated,
     ObservationCreated,
     ReasoningCompleted,
 )
@@ -43,6 +44,17 @@ class MonitoringEventHandler:
                 event_type="asset_updated",
                 asset_id=event.asset_id,
                 run_id=event.run_id,
+                timestamp=_to_iso(event.timestamp),
+            )
+        )
+
+    def on_ai_fault_investigation_updated(
+        self, event: AiFaultInvestigationUpdated
+    ) -> None:
+        self._event_source.publish(
+            MonitoringEvent.create(
+                event_type="fault_investigation_updated",
+                asset_id=event.asset_id,
                 timestamp=_to_iso(event.timestamp),
             )
         )

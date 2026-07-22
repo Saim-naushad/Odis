@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
+    AiFaultInvestigationUpdated,
     HealthChanged,
     InvestigationTransitionRecorded,
     NotificationCreated,
@@ -126,6 +127,15 @@ def _deserialize_domain_event(
             actor_display_name=str(payload["actor_display_name"]),
             occurred_at=_parse_datetime(str(payload["occurred_at"])),
             notes=(str(notes) if notes is not None else None),
+            timestamp=_parse_datetime(str(payload["timestamp"])),
+        )
+    if event_type == "AiFaultInvestigationUpdated":
+        return AiFaultInvestigationUpdated(
+            asset_id=str(payload["asset_id"]),
+            investigation_id=str(payload["investigation_id"]),
+            diagnosed_fault_class=str(payload["diagnosed_fault_class"]),
+            investigation_status=str(payload["investigation_status"]),
+            alert_transition_type=str(payload["alert_transition_type"]),
             timestamp=_parse_datetime(str(payload["timestamp"])),
         )
     return None

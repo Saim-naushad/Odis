@@ -385,11 +385,14 @@ approximate. See the PR178 smoke-test report for exact commands,
 timestamps, and observed corroboration/recommendation output from a real
 single-process run.
 
-## What PR179 (dashboard) will consume next
+## Dashboard integration (PR179)
 
-`fault_reasoning_result.v1` — already carrying `investigation_id`,
-`corroboration_result`, `recommendation_status`/`recommendation_action_
-summary`, `urgency`, and full rule/model provenance, so a dashboard can
-render an AI-driven investigation's current state and recommendation
-without recomputing anything this bridge already determined. This PR does
-not add any dashboard UI, FastAPI endpoint, or new monitoring dashboard.
+The dashboard reads the persisted `AiFaultEvidence` rows this bridge
+writes — not `fault_reasoning_result.v1` directly, since browser delivery
+must not depend on live Kafka connectivity. PR179 added a read-model API,
+an SSE bridge (this worker now calls `bootstrap_application_runtime` so a
+processed alert also reaches the existing outbox → `DomainEventBus` →
+Redis pub/sub → SSE pipeline), and dashboard components. See
+`docs/fault-investigation-dashboard.md` for the full design. This bridge
+itself gained no new UI or FastAPI endpoint of its own — only the SSE
+wiring described above and in that doc.
