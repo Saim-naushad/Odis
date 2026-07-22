@@ -18,11 +18,13 @@ For platform context, see [Platform Architecture](platform-architecture.md).
 | **kafka** | `apache/kafka:3.9.0` (KRaft) | Event streaming backbone | internal |
 | **mosquitto** | `eclipse-mosquitto:2.0.20` | MQTT broker for the production ingestion path | internal |
 | **mqtt-bridge** | `infra/docker/mqtt-bridge/Dockerfile` | Subscribes to Mosquitto, forwards telemetry to `POST /observations` | internal |
-| **prometheus** | `prom/prometheus` | Metrics collection | internal |
+| **fault-inference-worker** | `infra/docker/fault-inference-worker/Dockerfile` | Consumes Kafka telemetry, runs the promoted model, publishes `fault_inference.v1`/`fault_alert_transition.v1` (v1.1) | internal, metrics `:9108` |
+| **reasoning-bridge-worker** | `infra/docker/reasoning-bridge-worker/Dockerfile` | Consumes confirmed alert transitions, corroborates against persisted observations, publishes `fault_reasoning_result.v1` (v1.1) | internal, metrics `:9109` |
+| **prometheus** | `prom/prometheus` | Metrics collection + demo/reference alert rules (`infra/docker/prometheus/rules.yml`) | internal |
 | **grafana** | `grafana/grafana` | Dashboards and visualization | internal |
-| **demo-plant** | `infra/docker/demo-plant/Dockerfile` | Plant Alpha MQTT simulator (`--profile demo`) | internal |
+| **demo-plant** | `infra/docker/demo-plant/Dockerfile` | Plant Alpha simulator (`--profile demo`); `SIMULATOR_TRANSPORT=kafka+http` so one tick feeds both the fault-inference worker (Kafka) and the deterministic reasoning path (HTTP) | internal |
 
-`mosquitto` and `mqtt-bridge` are always-on services (no Compose profile restriction) — they run in every `docker compose up`, not only with `--profile demo`. Only `demo-plant` is gated behind `--profile demo`.
+`mosquitto` and `mqtt-bridge` are always-on services (no Compose profile restriction) — they run in every `docker compose up`, not only with `--profile demo`. Only `demo-plant` is gated behind `--profile demo`. Since `demo-plant` publishes over `kafka+http` (not `mqtt`), `mosquitto`/`mqtt-bridge` are provisioned and available for manual MQTT-path testing but are not on the demo's critical path — see [AI-Assisted Fault Diagnosis Data Flow](platform-architecture.md#ai-assisted-fault-diagnosis-data-flow-v11).
 
 Kafka runs in **KRaft mode** (combined broker + controller). No Zookeeper service is required.
 
@@ -45,6 +47,8 @@ flowchart TB
         KF["kafka (KRaft)"]
         MQ["mosquitto"]
         BRIDGE["mqtt-bridge"]
+        FIW["fault-inference-worker"]
+        RBW["reasoning-bridge-worker"]
         PR["prometheus"]
         GF["grafana"]
     end
@@ -59,7 +63,14 @@ flowchart TB
     WRK --> KF
     BRIDGE -->|"subscribe"| MQ
     BRIDGE -->|"POST /observations"| API
+    KF -->|"odis.telemetry.observations.v1"| FIW
+    FIW -->|"odis.fault.alert-transitions.v1"| KF
+    KF --> RBW
+    RBW --> PG
+    RBW --> KF
     PR -->|"/metrics scrape"| API
+    PR -->|"/metrics scrape"| FIW
+    PR -->|"/metrics scrape"| RBW
     GF -->|"Prometheus datasource"| PR
 ```
 
@@ -142,6 +153,8 @@ Health probes use the endpoints from PR130:
 | **worker** | process check (`pgrep`) |
 | **mosquitto** | `mosquitto_sub` against `$SYS/broker/version` |
 | **mqtt-bridge** | process check (`pgrep`) |
+| **fault-inference-worker** | process check (`pgrep`) — liveness only; readiness (artifact verified, Kafka consumer connected) is inferred from `fault_inference_worker_starts_total`/log events, not a separate probe |
+| **reasoning-bridge-worker** | process check (`pgrep`) — same liveness-only caveat |
 | **frontend** | HTTP `GET /` |
 | **prometheus** | `/-/healthy` |
 | **grafana** | `/api/health` |
@@ -153,6 +166,11 @@ Startup dependencies (no arbitrary `sleep`):
 3. `worker`, `frontend`, and `prometheus` start after `api` is live
 4. `worker` records heartbeats; `/ready` returns 200 once the worker is healthy
 5. `grafana` starts after `prometheus` is healthy
+6. `fault-inference-worker` starts once `kafka` is healthy; verifies the promoted model bundle (SHA-256 + schema) and exits non-zero on any mismatch before ever reporting healthy
+7. `reasoning-bridge-worker` starts once `kafka` is healthy; connects its consumer/producer before processing
+8. `demo-plant` (`--profile demo`) starts once `kafka` and `api` are healthy — its `kafka+http` transport needs both
+
+**Known gap:** both new workers' Compose healthchecks are `pgrep`-based liveness, not true readiness (Kafka-connected, artifact-verified) — see the release scorecard's health/readiness audit.
 
 ---
 

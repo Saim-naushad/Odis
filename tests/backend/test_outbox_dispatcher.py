@@ -25,6 +25,7 @@ from backend.app.infrastructure.database.session import (
     create_db_engine,
     create_session_factory,
 )
+from backend.app.infrastructure.metrics.outbox_metrics import outbox_pending_events
 from backend.app.infrastructure.persistence.sqlalchemy_unit_of_work import (
     SqlAlchemyUnitOfWork,
 )
@@ -34,8 +35,33 @@ class _CapturingIntegrationPublisher:
     def __init__(self) -> None:
         self.published: list[IntegrationEvent] = []
 
-    def publish(self, event: IntegrationEvent) -> None:
+    def publish(self, event: IntegrationEvent) -> bool:
         self.published.append(event)
+        return True
+
+
+class _FailingIntegrationPublisher:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def publish(self, event: IntegrationEvent) -> bool:
+        self.calls += 1
+        return False
+
+
+class _FlakyIntegrationPublisher:
+    """Fails the first `fail_times` calls, then succeeds."""
+
+    def __init__(self, fail_times: int) -> None:
+        self._fail_times = fail_times
+        self.published: list[IntegrationEvent] = []
+
+    def publish(self, event: IntegrationEvent) -> bool:
+        if self._fail_times > 0:
+            self._fail_times -= 1
+            return False
+        self.published.append(event)
+        return True
 
 
 @pytest.fixture
@@ -256,4 +282,116 @@ def test_ai_fault_investigation_updated_round_trips_through_the_outbox(
     assert published[0].asset_id == "asset-1"
     assert published[0].investigation_id == "inv-1"
     assert integration_publisher.published == []
+
+
+def test_failed_kafka_publish_leaves_row_undispatched_for_retry(
+    session_factory: Callable[[], Session],
+) -> None:
+    bus = DomainEventBus()
+    integration_publisher = _FailingIntegrationPublisher()
+    dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        bus,
+        integration_publisher,
+    )
+
+    created_at = datetime.now(UTC)
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.session.add(
+            OutboxEvent(
+                id=str(uuid4()),
+                event_type="ReasoningCompleted",
+                payload={
+                    "asset_id": "asset-1",
+                    "run_id": "run-1",
+                    "timestamp": created_at.isoformat(),
+                },
+                created_at=created_at,
+                dispatched_at=None,
+            )
+        )
+        uow.commit()
+
+    dispatcher.dispatch()
+
+    assert integration_publisher.calls == 1
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        row = uow.session.scalars(select(OutboxEvent)).one()
+        assert row.dispatched_at is None
+
+
+def test_retry_dispatch_succeeds_after_transient_kafka_failure(
+    session_factory: Callable[[], Session],
+) -> None:
+    bus = DomainEventBus()
+    integration_publisher = _FlakyIntegrationPublisher(fail_times=1)
+    dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        bus,
+        integration_publisher,
+    )
+
+    created_at = datetime.now(UTC)
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.session.add(
+            OutboxEvent(
+                id=str(uuid4()),
+                event_type="ReasoningCompleted",
+                payload={
+                    "asset_id": "asset-1",
+                    "run_id": "run-1",
+                    "timestamp": created_at.isoformat(),
+                },
+                created_at=created_at,
+                dispatched_at=None,
+            )
+        )
+        uow.commit()
+
+    dispatcher.dispatch()
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        row = uow.session.scalars(select(OutboxEvent)).one()
+        assert row.dispatched_at is None
+    assert integration_publisher.published == []
+
+    dispatcher.dispatch()
+
+    assert len(integration_publisher.published) == 1
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        row = uow.session.scalars(select(OutboxEvent)).one()
+        assert row.dispatched_at is not None
+
+
+def test_pending_gauge_reflects_undispatched_backlog(
+    session_factory: Callable[[], Session],
+) -> None:
+    bus = DomainEventBus()
+    integration_publisher = _FailingIntegrationPublisher()
+    dispatcher = OutboxDispatcher(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        bus,
+        integration_publisher,
+    )
+
+    created_at = datetime.now(UTC)
+    with SqlAlchemyUnitOfWork(session_factory) as uow:
+        uow.session.add(
+            OutboxEvent(
+                id=str(uuid4()),
+                event_type="ReasoningCompleted",
+                payload={
+                    "asset_id": "asset-1",
+                    "run_id": "run-1",
+                    "timestamp": created_at.isoformat(),
+                },
+                created_at=created_at,
+                dispatched_at=None,
+            )
+        )
+        uow.commit()
+
+    dispatcher.dispatch()
+
+    metric_family = next(iter(outbox_pending_events.collect()))
+    assert metric_family.samples[0].value == 1.0
 

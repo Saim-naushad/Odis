@@ -53,6 +53,15 @@ npm test
 
 CI runs these same checks on every push and pull request (`.github/workflows/backend.yml`, `frontend.yml`, `docker.yml`). Pre-commit covers backend lint and type checks before commit; run pytest and the frontend checks yourself before pushing.
 
+CI intentionally does not run the `integration`-marked tests or boot the full Compose stack — that's too heavy for every push. The explicit command for a full, real-stack verification is:
+
+```bash
+docker compose --profile demo up --build -d
+./scripts/validate_demo_environment.sh --walkthrough
+```
+
+See [v1.1 Release Scorecard](docs/release/v1.1-scorecard.md) for what this validates end to end.
+
 To explore the reasoning engine interactively:
 
 ```bash

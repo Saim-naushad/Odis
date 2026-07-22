@@ -101,6 +101,29 @@ describe('ActiveFaultInvestigationCard', () => {
     expect(
       screen.getByText('Failed to load the active fault investigation'),
     ).toBeInTheDocument()
+    // Must not claim "no active fault" — that would misreport an unknown
+    // state (fetch failed) as a confirmed healthy one.
+    expect(
+      screen.queryByText('No active AI-detected fault investigation for this asset.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps a previously-loaded investigation visible when a background refresh fails', () => {
+    // Regression: React Query keeps `data` populated across a failed
+    // background refetch, so `investigation` and `error` can both be
+    // truthy at once — the last-good diagnosis must stay on screen.
+    render(
+      <ActiveFaultInvestigationCard
+        {...defaultProps}
+        investigation={baseInvestigation}
+        loading={false}
+        error="Refresh failed: network error"
+      />,
+    )
+
+    expect(screen.getByText('Refresh failed: network error')).toBeInTheDocument()
+    expect(screen.getByText('cooling degradation')).toBeInTheDocument()
+    expect(screen.getByText('Inspect cooling subsystem')).toBeInTheDocument()
   })
 
   it('shows a normal empty state (not an error) when there is no active investigation', () => {

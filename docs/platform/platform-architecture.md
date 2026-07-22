@@ -2,7 +2,7 @@
 
 This document is the canonical reference for how ODIS is structured as a production system. It describes the industrial platform that wraps the completed Reasoning Engine v1.
 
-**Status:** The Phase 2 platform build-out described in this document is complete as of v1.0.0 — FastAPI, persistence, MQTT ingestion, Kafka, the React dashboard, Kubernetes manifests, and observability (Prometheus/Grafana/OpenTelemetry) all exist and are documented in the platform guides below. Where a topic has its own dedicated platform doc, that doc is the source of truth for implementation detail; this document stays at the architectural level.
+**Status:** The Phase 2 platform build-out described in this document is complete as of v1.0.0 — FastAPI, persistence, MQTT ingestion, Kafka, the React dashboard, Kubernetes manifests, and observability (Prometheus/Grafana/OpenTelemetry) all exist and are documented in the platform guides below. Where a topic has its own dedicated platform doc, that doc is the source of truth for implementation detail; this document stays at the architectural level. v1.1 added a promoted AI-assisted fault-diagnosis capability on top of this platform — see [AI-Assisted Fault Diagnosis Data Flow](#ai-assisted-fault-diagnosis-data-flow-v11) below and [AI Methodology](../ai-methodology.md) for the full narrative.
 
 This is an evolving platform architecture document, not an RFC. It will grow alongside implementation.
 
@@ -277,6 +277,77 @@ Industrial Equipment
 8. **Dashboard** queries the API for current state and historical reasoning, presenting results to operators.
 
 This flow is conceptual. Implementation details — endpoint shapes, table schemas, message formats — are defined in subsequent implementation work.
+
+---
+
+## AI-Assisted Fault Diagnosis Data Flow (v1.1)
+
+The AI-fault-alert path runs alongside the deterministic flow above — it does not replace it. The
+model only ever raises a *candidate* alert; the existing deterministic reasoning engine is the sole
+authority that corroborates or rejects it before anything reaches an operator. See
+[AI Methodology](../ai-methodology.md) for how the model was trained/evaluated/promoted,
+[Kafka Fault Inference Worker](../kafka-fault-inference-worker.md) and
+[Reasoning Bridge](../reasoning-bridge.md) for the two runtime services below.
+
+```mermaid
+flowchart LR
+    subgraph telemetry["Telemetry plane"]
+        sim["Plant Alpha simulator\n(kafka+http transport)"]
+    end
+
+    subgraph inference["Inference plane"]
+        kafkaTelemetry["Kafka: odis.telemetry.observations.v1"]
+        infWorker["Fault-inference worker\n(promoted model: plant_alpha_fault_v1)"]
+        kafkaResults["Kafka: odis.fault.inference-results.v1"]
+        kafkaAlerts["Kafka: odis.fault.alert-transitions.v1"]
+    end
+
+    subgraph reasoning["Deterministic reasoning plane"]
+        bridge["Reasoning bridge worker\n(corroborates against real observations)"]
+        kafkaResultsOut["Kafka: odis.fault.reasoning-results.v1"]
+    end
+
+    subgraph persistence["Persistence / event plane"]
+        db[("Postgres: ai_fault_evidence,\nai_fault_investigation")]
+        outbox[("Outbox (transactional)")]
+        redis[("Redis: SSE fan-out")]
+    end
+
+    subgraph operator["Operator plane"]
+        api["API: /monitoring/assets/{id}/fault-investigation(s)"]
+        dashboard["Dashboard: Active Fault Investigation card\n+ History panel"]
+    end
+
+    subgraph monitoring["Monitoring plane"]
+        prom["Prometheus: 31 metrics across both workers"]
+        grafana["Grafana: AI Fault Alert Pipeline row"]
+    end
+
+    sim -->|"one synchronized tick"| kafkaTelemetry
+    sim -->|"same tick, HTTP"| api
+    kafkaTelemetry --> infWorker
+    infWorker --> kafkaResults
+    infWorker -->|"on confirmed/cleared/class_changed"| kafkaAlerts
+    kafkaAlerts --> bridge
+    bridge -->|"corroborates against\npersisted observations"| db
+    bridge --> kafkaResultsOut
+    db --> outbox --> redis --> dashboard
+    db --> api --> dashboard
+    infWorker -.-> prom
+    bridge -.-> prom
+    prom -.-> grafana
+```
+
+**Trust boundaries and state:**
+
+| Boundary | Detail |
+|---|---|
+| Model → reasoning | The model's score is evidence only; `DecisionPlanner`/reasoning-bridge corroboration is the sole authority for whether an operator-facing recommendation is produced. Every response carries a score caveat and authority-boundary note. |
+| Durable vs. in-memory | `ai_fault_evidence`/`ai_fault_investigation` (Postgres), the outbox, and the Kafka topics are durable. Fault-inference warm-up state (11-sample window) is **in-memory only** — a worker restart resets warm-up to zero. |
+| Artifact boundary | The promoted model bundle (`artifacts/models/plant_alpha_fault_v1/`) is SHA-256 hash- and schema-verified by the fault-inference worker at startup; the worker refuses to report healthy on a mismatch. |
+| Event topics | `odis.telemetry.observations.v1` → `odis.fault.inference-results.v1` / `odis.fault.alert-transitions.v1` → `odis.fault.reasoning-results.v1`. All four carry a versioned event name; see the event-contract inventory in [Release Scorecard](../release/v1.1-scorecard.md). |
+| Delivery semantics | Kafka publish and HTTP persistence in the `kafka+http` transport are not one atomic transaction. Deterministic UUIDv5 event IDs make replay idempotent (no duplicate evidence/investigations), but a failure between the two legs is possible — see the failure-mode matrix in the release scorecard. |
+| Operator authority | Operators read and can transition investigations; nothing in this path issues actuator commands or closed-loop control. |
 
 ---
 

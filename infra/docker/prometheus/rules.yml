@@ -1,0 +1,128 @@
+# ODIS v1.1 demo/reference operational alerts.
+#
+# These thresholds are chosen to be obviously-broken indicators for a
+# single-tenant demo deployment (Plant Alpha, 4 stacks) — they are NOT
+# calibrated SLOs and must not be read as production alerting policy.
+# See docs/platform/business-metrics.md for the underlying metrics.
+groups:
+  - name: odis-v1.1-availability
+    rules:
+      - alert: ODISFaultInferenceWorkerDown
+        expr: up{job="odis-fault-inference-worker"} == 0
+        for: 1m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "Fault-inference worker is unreachable"
+          description: >
+            Prometheus has not been able to scrape
+            odis-fault-inference-worker for at least 1m. No new
+            fault_inference.v1 events are being produced; the AI-fault-alert
+            path is effectively down even if telemetry is still arriving.
+
+      - alert: ODISReasoningBridgeWorkerDown
+        expr: up{job="odis-reasoning-bridge-worker"} == 0
+        for: 1m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "Reasoning-bridge worker is unreachable"
+          description: >
+            Prometheus has not been able to scrape
+            odis-reasoning-bridge-worker for at least 1m. Confirmed alert
+            transitions are no longer being corroborated into investigations.
+
+      - alert: ODISApiDown
+        expr: up{job="odis-backend"} == 0
+        for: 1m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "ODIS API is unreachable"
+          description: >
+            Prometheus has not been able to scrape odis-backend for at
+            least 1m. The operator dashboard and ingestion HTTP path are
+            both affected.
+
+  - name: odis-v1.1-pipeline-health
+    rules:
+      - alert: ODISSustainedKafkaPublishFailures
+        expr: >
+          (
+            increase(fault_inference_publish_failures_total[5m])
+            + increase(reasoning_bridge_publish_failures_total[5m])
+            + increase(integration_publish_failures_total[5m])
+          ) > 5
+        for: 5m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "Kafka publishes are failing across the fault-alert pipeline"
+          description: >
+            More than 5 Kafka publish failures in 5m across the
+            fault-inference worker, reasoning-bridge worker, or outbox
+            integration-event leg. Downstream consumers are missing events.
+
+      - alert: ODISNoValidInferenceDespiteTelemetryFlow
+        expr: >
+          increase(fault_inference_telemetry_events_consumed_total[10m]) > 0
+          and
+          increase(fault_inference_results_total{status="valid_prediction"}[10m]) == 0
+        for: 10m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "Telemetry is arriving but no valid predictions are being produced"
+          description: >
+            Telemetry events are being consumed but no valid_prediction
+            result has been published in 10m. Expected during the ~90s
+            warm-up window after a worker restart; sustained beyond that
+            suggests the model is stuck warming up or rejecting every
+            sample.
+
+      - alert: ODISHighInsufficientDataRate
+        expr: >
+          (
+            sum(rate(fault_inference_results_total{status="insufficient_data"}[10m]))
+            /
+            sum(rate(fault_inference_results_total[10m]))
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "Over half of recent inference results are insufficient_data"
+          description: >
+            More than 50% of fault_inference.v1 results over 10m are
+            insufficient_data rather than valid_prediction. Indicates
+            incomplete or malformed telemetry reaching the worker.
+
+      - alert: ODISReasoningFailureRateHigh
+        expr: >
+          increase(reasoning_bridge_failures_total[10m]) > 0
+          and
+          (
+            increase(reasoning_bridge_failures_total[10m])
+            /
+            increase(reasoning_bridge_alert_transitions_consumed_total[10m])
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "Reasoning-bridge is failing on more than 10% of alert transitions"
+          description: >
+            The reasoning bridge raised an unexpected failure on more than
+            10% of the alert-transition events it consumed over 10m.
+
+      - alert: ODISOutboxBacklogGrowing
+        expr: outbox_pending_events > 50
+        for: 10m
+        labels:
+          severity: demo-reference
+        annotations:
+          summary: "Outbox has more than 50 undispatched events for 10m"
+          description: >
+            outbox_pending_events has stayed above 50 for 10m. Either the
+            dispatcher has stopped running or downstream delivery (bus or
+            Kafka) is failing faster than it can be retried.

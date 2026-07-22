@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.application.events.domain_events import (
@@ -31,6 +31,7 @@ from backend.app.application.integration_event_publisher import (
 from backend.app.application.unit_of_work import UnitOfWork
 from backend.app.domain.outbox import OutboxEvent
 from backend.app.infrastructure.logging import get_logger
+from backend.app.infrastructure.metrics.outbox_metrics import record_outbox_pending
 
 logger = get_logger(__name__)
 
@@ -177,23 +178,36 @@ class OutboxDispatcher:
                     )
                     continue
                 self._event_bus.publish(domain_event)
-                self._publish_integration_event(domain_event)
+                if not self._publish_integration_event(domain_event):
+                    # Kafka leg failed; leave the row undispatched so the
+                    # next dispatch() cycle retries it. The in-process bus
+                    # publish above may fire again on that retry, which is
+                    # an acceptable duplicate SSE invalidation.
+                    continue
                 row.dispatched_at = now
                 published_any = True
             if published_any:
                 uow.commit()
+            pending_count = session.scalar(
+                select(func.count())
+                .select_from(OutboxEvent)
+                .where(OutboxEvent.dispatched_at.is_(None))
+            )
+            record_outbox_pending(pending_count or 0)
 
-    def _publish_integration_event(self, domain_event: object) -> None:
+    def _publish_integration_event(self, domain_event: object) -> bool:
+        """Return True once the event has no remaining Kafka leg to deliver."""
         publisher = self._integration_event_publisher
         if publisher is None:
-            return
+            return True
         integration_event = map_domain_event_to_integration_event(domain_event)
         if integration_event is None:
-            return
+            return True
         try:
-            publisher.publish(integration_event)
+            return publisher.publish(integration_event)
         except Exception:
-            # Integration boundary must never fail requests.
+            # Defensive: publishers are expected to swallow their own
+            # failures and return False, but never trust that blindly.
             logger.warning(
                 "integration_event_publish_failed",
                 domain_event_type=type(domain_event).__name__,
@@ -201,4 +215,5 @@ class OutboxDispatcher:
                 integration_event_id=integration_event.id,
                 exc_info=True,
             )
+            return False
 

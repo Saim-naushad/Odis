@@ -43,19 +43,19 @@ export function FaultInvestigationHistoryPanel({
         )}
       </div>
 
-      {error ? (
-        <p className="mt-2 text-xs" style={{ color: 'var(--status-warning)' }}>
+      {/* A refresh error never hides an already-loaded history list: the
+          banner and the list below are independent (mirrors
+          ActiveFaultInvestigationCard's same fix). */}
+      {error && (
+        <p className="mt-2 text-xs" role="alert" style={{ color: 'var(--status-warning)' }}>
           {error}
         </p>
-      ) : loading ? (
+      )}
+      {loading ? (
         <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
           Loading investigation history…
         </p>
-      ) : history.length === 0 ? (
-        <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-          No prior AI-detected fault investigations for this asset.
-        </p>
-      ) : (
+      ) : history.length > 0 ? (
         <ul className="mt-2 space-y-2">
           {history.map((item) => (
             <li
@@ -84,6 +84,12 @@ export function FaultInvestigationHistoryPanel({
             </li>
           ))}
         </ul>
+      ) : (
+        !error && (
+          <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+            No prior AI-detected fault investigations for this asset.
+          </p>
+        )
       )}
     </section>
   )

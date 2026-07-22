@@ -14,6 +14,7 @@ from backend.app.infrastructure.metrics import (  # noqa: F401
     notification_metrics,
     observation_metrics,
     operational_state_metrics,
+    outbox_metrics,
     reasoning_bridge_metrics,
     reasoning_metrics,
     recommendation_metrics,

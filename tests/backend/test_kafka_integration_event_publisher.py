@@ -42,8 +42,9 @@ def test_publisher_successful_publish_does_not_raise() -> None:
         payload={"asset_id": "asset-1"},
     )
 
-    publisher.publish(event)
+    result = publisher.publish(event)
 
+    assert result is True
     assert len(producer.sent) == 1
     topic, key, value = producer.sent[0]
     assert topic == "integration-events"
@@ -51,7 +52,7 @@ def test_publisher_successful_publish_does_not_raise() -> None:
     assert b'"type":"DigitalTwinUpdated"' in value
 
 
-def test_publisher_failure_is_swallowed() -> None:
+def test_publisher_failure_is_swallowed_and_reported() -> None:
     publisher = KafkaIntegrationEventPublisher(
         bootstrap_servers="kafka:9092",
         producer=_FakeProducer(should_fail=True),
@@ -63,5 +64,7 @@ def test_publisher_failure_is_swallowed() -> None:
         payload={"asset_id": "asset-1"},
     )
 
-    publisher.publish(event)
+    result = publisher.publish(event)
+
+    assert result is False
 

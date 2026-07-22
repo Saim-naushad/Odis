@@ -65,11 +65,15 @@ export function ActiveFaultInvestigationCard({
         </button>
       </div>
 
-      {error ? (
-        <p className="mt-4 text-sm" style={{ color: 'var(--status-warning)' }}>
+      {/* A refresh error never hides last-good content: the banner and the
+          content below are independent, so a transient background-refetch
+          failure surfaces without discarding a still-valid diagnosis. */}
+      {error && (
+        <p className="mt-4 text-sm" role="alert" style={{ color: 'var(--status-warning)' }}>
           {error}
         </p>
-      ) : loading ? (
+      )}
+      {loading ? (
         <p className="mt-4 text-sm" style={{ color: 'var(--text-muted)' }}>
           Loading AI fault investigation…
         </p>
@@ -77,11 +81,7 @@ export function ActiveFaultInvestigationCard({
         <p className="mt-4 text-sm" style={{ color: 'var(--text-muted)' }}>
           Select an asset to view AI-assisted fault diagnosis.
         </p>
-      ) : !investigation ? (
-        <p className="mt-4 text-sm" role="status" style={{ color: 'var(--text-muted)' }}>
-          No active AI-detected fault investigation for this asset.
-        </p>
-      ) : (
+      ) : investigation ? (
         <div className="mt-5 space-y-5">
           {/* Fault state */}
           <div className="flex flex-wrap items-center gap-2">
@@ -263,6 +263,12 @@ export function ActiveFaultInvestigationCard({
             </details>
           )}
         </div>
+      ) : (
+        !error && (
+          <p className="mt-4 text-sm" role="status" style={{ color: 'var(--text-muted)' }}>
+            No active AI-detected fault investigation for this asset.
+          </p>
+        )
       )}
     </section>
   )

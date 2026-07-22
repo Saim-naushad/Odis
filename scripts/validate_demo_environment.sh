@@ -119,6 +119,28 @@ print(int(float(os.environ["TWIN_SECONDS"]) * 1000))
 '
 }
 
+py_fault_investigation_report() {
+  FAULT_JSON="${1}" python3 -c '
+import json
+import os
+
+raw = os.environ["FAULT_JSON"]
+data = json.loads(raw) if raw else {}
+active = data.get("active_investigation")
+print("ai_fault_active=" + ("yes" if active else "no"))
+if active:
+    print("ai_fault_diagnosed_class=" + str(active.get("diagnosed_fault_class", "")))
+    print("ai_fault_corroboration_result=" + str(active.get("corroboration_result", "")))
+    print("ai_fault_investigation_status=" + str(active.get("investigation_status", "")))
+    missing = [
+        field
+        for field in ("authority_boundary_note", "corroboration_result", "diagnosed_fault_class")
+        if not active.get(field)
+    ]
+    print("ai_fault_missing_fields=" + (",".join(missing) if missing else "none"))
+'
+}
+
 py_latest_temperature() {
   TELEMETRY_JSON="${1}" python3 -c '
 import json
@@ -152,6 +174,7 @@ py_walkthrough_report() {
   WALK_MAX_PENDING="${6}" \
   WALK_RECOVERY="${7}" \
   WALK_LATENCY_FILE="${8}" \
+  WALK_AI_FAULT="${9}" \
   python3 -c '
 import os
 
@@ -168,6 +191,7 @@ fault = os.environ["WALK_FAULT"]
 max_pending = os.environ["WALK_MAX_PENDING"]
 recovery = os.environ["WALK_RECOVERY"]
 latency_file = os.environ["WALK_LATENCY_FILE"]
+ai_fault = os.environ["WALK_AI_FAULT"]
 
 latencies = []
 try:
@@ -181,6 +205,7 @@ print(f"time_until_four_assets={fmt(assets)}")
 print(f"time_until_digital_twin={fmt(twin)}")
 print(f"time_until_baseline_reasoning={fmt(reasoning)}")
 print(f"time_until_fault_transition={fmt(fault)}")
+print(f"time_until_ai_fault_investigation={fmt(ai_fault)}")
 print(f"max_pending_queue_depth={max_pending}")
 if latencies:
     latencies.sort()
@@ -324,6 +349,21 @@ else
   rm -f "${twin_tmp}"
 fi
 
+# AI fault-alert pipeline (v1.1): the endpoint must respond correctly even
+# before any fault has fired (active_investigation=null is a normal state,
+# not a failure) — this proves the fault-inference worker, reasoning
+# bridge, and API wiring are intact without requiring the full scenario
+# timeline to have run yet.
+fault_investigation_json="$(
+  curl -sS --max-time "${TWIN_TIMEOUT_SECONDS}" \
+    "${API_BASE_URL}/monitoring/assets/${TARGET_ASSET}/fault-investigation" 2>/dev/null || true
+)"
+if [[ -z "${fault_investigation_json}" ]]; then
+  fail "AI fault-investigation endpoint unreachable for ${TARGET_ASSET}"
+else
+  py_fault_investigation_report "${fault_investigation_json}"
+fi
+
 if [[ "${WALKTHROUGH}" -eq 1 ]]; then
   echo
   echo "--- walkthrough monitor (presentation mode, up to ${WALKTHROUGH_DEADLINE_SECONDS}s) ---"
@@ -332,6 +372,7 @@ if [[ "${WALKTHROUGH}" -eq 1 ]]; then
   twin_ready=0
   reasoning_ready=0
   fault_ready=0
+  ai_fault_ready=0
   recovery_ready=0
   max_pending_seen=0
   baseline_health_score=""
@@ -467,6 +508,26 @@ if [[ "${WALKTHROUGH}" -eq 1 ]]; then
       fi
     fi
 
+    if [[ "${ai_fault_ready}" -eq 0 && "${elapsed}" -ge ${FAULT_CHECK_START_SECONDS} ]]; then
+      ai_fault_json="$(
+        curl -sS --max-time "${TWIN_TIMEOUT_SECONDS}" \
+          "${API_BASE_URL}/monitoring/assets/${TARGET_ASSET}/fault-investigation" 2>/dev/null || true
+      )"
+      ai_fault_class="$(
+        AI_FAULT_JSON="${ai_fault_json}" python3 -c '
+import json, os
+raw = os.environ.get("AI_FAULT_JSON", "")
+data = json.loads(raw) if raw else {}
+active = data.get("active_investigation")
+print(active.get("diagnosed_fault_class", "") if active else "")
+' 2>/dev/null || true
+      )"
+      if [[ -n "${ai_fault_class}" ]]; then
+        ai_fault_ready="${now}"
+        echo "event=ai_fault_investigation_confirmed elapsed=${elapsed}s diagnosed_class=${ai_fault_class}"
+      fi
+    fi
+
     if [[ "${recovery_ready}" -eq 0 && "${elapsed}" -ge ${RECOVERY_MARKER_SECONDS} ]]; then
       recovery_ready="${now}"
       echo "event=recovery_window_reached elapsed=${elapsed}s"
@@ -483,6 +544,10 @@ if [[ "${WALKTHROUGH}" -eq 1 ]]; then
     fail "fault scenario did not produce a verified transition during walkthrough"
   fi
 
+  if [[ "${ai_fault_ready}" -eq 0 ]]; then
+    fail "AI fault-inference pipeline did not produce a confirmed investigation during walkthrough (check demo-plant SIMULATOR_TRANSPORT=kafka+http, fault-inference-worker, reasoning-bridge-worker)"
+  fi
+
   py_walkthrough_report \
     "${walkthrough_start}" \
     "${assets_ready}" \
@@ -491,7 +556,8 @@ if [[ "${WALKTHROUGH}" -eq 1 ]]; then
     "${fault_ready}" \
     "${max_pending_seen}" \
     "${recovery_ready}" \
-    "${latency_file}"
+    "${latency_file}" \
+    "${ai_fault_ready}"
   rm -f "${latency_file}"
 fi
 

@@ -13,7 +13,11 @@
 name: odis
 
 x-odis-environment: &odis-environment
-  DATABASE_URL: postgresql+psycopg://odis:odis@postgres:5432/odis
+  # DEMO DEFAULTS — not for production: overridable via .env
+  # (POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB), but default to a known,
+  # public value ("odis"/"odis"/"odis") like every other credential in this
+  # compose file. Set real values in .env before running this outside a demo.
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-odis}:${POSTGRES_PASSWORD:-odis}@postgres:5432/${POSTGRES_DB:-odis}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   ENVIRONMENT: ${ENVIRONMENT:-production}
   REDIS_URL: redis://redis:6379/0
@@ -46,13 +50,17 @@ services:
     # See https://docs.tigerdata.com/self-hosted/latest/configuration/docker-config
     command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     environment:
-      POSTGRES_DB: odis
-      POSTGRES_USER: odis
-      POSTGRES_PASSWORD: odis
+      POSTGRES_DB: ${POSTGRES_DB:-odis}
+      POSTGRES_USER: ${POSTGRES_USER:-odis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-odis}
     volumes:
       - odis-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U odis -d odis -h localhost"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-odis} -d ${POSTGRES_DB:-odis} -h localhost",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -287,6 +295,7 @@ services:
       - odis-internal
     volumes:
       - ./infra/docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/docker/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
       - odis-prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -307,6 +316,8 @@ services:
     networks:
       - odis-internal
     environment:
+      # DEMO DEFAULT — not for production: set GRAFANA_ADMIN_PASSWORD in
+      # .env before exposing this outside a local/demo network.
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
@@ -334,17 +345,32 @@ services:
       - odis-internal
     environment:
       <<: *odis-environment
-      SIMULATOR_TRANSPORT: mqtt
-      SIMULATOR_MQTT_BROKER_URL: mqtt://mosquitto:1883
+      # kafka+http (not mqtt): this is the transport built specifically so
+      # the fault-inference worker and the deterministic reasoning path see
+      # the *same* one-tick telemetry (see docs/kafka-fault-inference-worker.md
+      # "Single-source telemetry provenance"). Plain mqtt here would leave
+      # fault-inference-worker/reasoning-bridge-worker running but permanently
+      # idle — the AI-fault-alert pipeline would never fire in the demo.
+      # Mosquitto/mqtt-bridge stay available for manual MQTT-path testing but
+      # are no longer on this service's critical path.
+      SIMULATOR_TRANSPORT: kafka+http
+      SIMULATOR_API_BASE_URL: http://api:8000
+      SIMULATOR_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # 1.1s wall-clock per 10s-simulated Kafka snapshot ~= the same 9x
+      # speed-up demo_presentation's phase timing was tuned for under the
+      # old HTTP/MQTT loop (see scenario_script.py's PRESENTATION_PHASES
+      # comment: ~6:40 total) — keeps scripts/validate_demo_environment.sh's
+      # FAULT_CHECK_START_SECONDS/RECOVERY_MARKER_SECONDS defaults valid.
+      SIMULATOR_KAFKA_PUBLISH_INTERVAL_SECONDS: ${SIMULATOR_KAFKA_PUBLISH_INTERVAL_SECONDS:-1.1}
       SIMULATOR_SITE_ID: plant-alpha
       SIMULATOR_SCENARIO_SCRIPT: ${SIMULATOR_SCENARIO_SCRIPT:-demo_presentation}
       SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS: ${SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS:-15}
       SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS: ${SIMULATOR_DERIVED_PUBLISH_INTERVAL_SECONDS:-60}
       SIMULATOR_SIM_DT_SECONDS: ${SIMULATOR_SIM_DT_SECONDS:-45}
     depends_on:
-      mosquitto:
+      kafka:
         condition: service_healthy
-      mqtt-bridge:
+      api:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f 'backend.simulator' >/dev/null || exit 1"]

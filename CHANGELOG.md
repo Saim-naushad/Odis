@@ -4,6 +4,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-07-22
+
+Adds a promoted AI-assisted fault-diagnosis capability on top of v1.0's
+deterministic platform, with deterministic reasoning kept as the sole
+decision authority. Grouped by area; not every commit is listed. See
+[AI Methodology](docs/ai-methodology.md) for the full dataset-to-promotion
+narrative and [Release Scorecard](docs/release/v1.1-scorecard.md) for the
+hardening-pass audit.
+
+### Added — Dataset and model (offline)
+- Versioned, offline Parquet dataset generation from Plant Alpha with a pilot quality/leakage audit
+- Numerically-safe, leakage-safe time-series feature pipeline with explicit insufficient-data handling
+- Leakage-safe baseline fault-diagnosis models (logistic regression, feature set D, `C=10.0`)
+- Calibrated-confidence experiment — found and documented as a regression, not promoted
+- A deterministic, uncalibrated temporal alert policy (entry probability 0.70 / persistence 4 samples, healthy exit 0.45 / persistence 2 samples) promoted instead
+- Fixed-policy out-of-distribution evaluation and isolated per-shift diagnosis (high-load, hot-start, late-onset, high-noise, combined)
+- Broader-regime robustness retraining and promotion criteria for the currently-promoted model (`plant_alpha_fault_v1`)
+
+### Added — Streaming inference and reasoning bridge (runtime)
+- Kafka fault-inference worker: consumes Plant Alpha telemetry, assembles bounded per-asset samples, runs the promoted model, publishes `fault_inference.v1` / `fault_alert_transition.v1`
+- Deterministic 11-sample warm-up then first prediction at sample 12, matching the model's trained window exactly; in-memory only, resets on worker restart
+- `kafka+http` simulator transport: one synchronized tick fans out to both Kafka and HTTP so corroboration data is provably the same telemetry that produced the alert
+- Reasoning bridge worker: corroborates confirmed ML alerts against real observations using deterministic telemetry rules, never the model's own score, and produces a bounded, explainable recommendation
+- Idempotent event processing end to end (deterministic UUIDv5 event IDs; Kafka replay does not duplicate evidence or investigations)
+- Prometheus metrics for both new workers (31 series total) and a small set of demo/reference Prometheus alert rules
+
+### Added — Operator-facing platform
+- Active AI fault investigation API, investigation history/detail, and deterministic-rule provenance in every response
+- Score caveats and an explicit authority-boundary note on every AI-assisted response (the model's score is never presented as a probability or as authoritative)
+- Outbox → Redis → SSE invalidation wired to AI fault investigation updates, reusing the existing event-driven cache-invalidation path
+- Dashboard: active fault investigation card, investigation history panel, and lifecycle states (clear / disagreement / insufficient-evidence)
+
+### Fixed — v1.1 release hardening
+- Outbox dispatcher: a failed Kafka publish no longer silently marks the event dispatched (it retried the Kafka leg on the next cycle instead of losing the event)
+- Dashboard: a transient background-refresh error no longer hides an already-loaded fault investigation or its history (last-good state now stays visible, per the platform's stated durable-state guarantee)
+- `docker compose --profile demo up` now actually exercises the AI-fault-alert pipeline (previously the demo's `mqtt`-only transport never fed the fault-inference worker's Kafka topic)
+- Compose `DATABASE_URL`/Postgres credentials are now overridable via `.env` like every other setting, instead of hardcoded in a file labeled "production runtime"
+- CI (`backend.yml`) now runs `pytest -m "not integration"`, matching `CONTRIBUTING.md`'s documented command, instead of a bare `pytest` that silently never ran the Postgres concurrency test
+
 ## [1.0.0] - 2026-07-14
 
 Everything below has shipped on top of the 0.1.0 reasoning library: a full

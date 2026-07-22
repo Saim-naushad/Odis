@@ -7,6 +7,15 @@ metadata:
     app.kubernetes.io/part-of: odis
     app.kubernetes.io/component: prometheus
 data:
+  # NOTE (v1.1 release audit): the fault-inference worker and reasoning-bridge
+  # worker (backend/simulator/inference_worker, backend/app reasoning bridge)
+  # have no Deployment manifest under k8s/ yet, so they are intentionally not
+  # scraped here — a static target for a service that doesn't exist would
+  # just be a permanently-red false alarm. k8s/worker/deployment.yaml only
+  # covers the original digital-twin reasoning worker. Add scrape jobs for
+  # both AI-fault-alert workers in the same PR that adds their Deployments.
+  # See docker-compose.yml + infra/docker/prometheus/prometheus.yml for the
+  # equivalent (already-scraped) Compose topology.
   prometheus.yml: |
     global:
       scrape_interval: 15s

@@ -1,3 +1,91 @@
+# ODIS v1.1.0
+
+Adds a promoted AI-assisted fault-diagnosis capability — trained on Plant Alpha
+telemetry, evaluated under distribution shift, and wired into a streaming
+inference path — while keeping v1.0's deterministic reasoning engine as the
+sole decision authority. The model's job is to raise a candidate alert;
+deterministic telemetry rules corroborate or reject it, and every operator-facing
+response carries an explicit score caveat and authority-boundary note. See
+[AI Methodology](docs/ai-methodology.md) for the full dataset-to-promotion
+narrative and [Release Scorecard](docs/release/v1.1-scorecard.md) for this
+release's hardening-pass audit and honest readiness verdict.
+
+## Promoted AI system
+
+- Model: logistic regression, feature set D, `C=10.0` — the best-performing
+  leakage-safe baseline evaluated (see
+  [Baseline Fault Diagnosis Models](docs/baseline-fault-diagnosis-models.md)).
+  A calibrated-confidence variant was evaluated and found to regress alert
+  quality; it was not promoted (see
+  [Calibrated Confidence and Alert Policy](docs/calibrated-confidence-and-alert-policy.md)).
+- Alert policy: deterministic hysteresis — entry probability 0.70 sustained
+  for 4 samples, healthy exit at probability 0.45 sustained for 2 samples
+  (see [Uncalibrated Temporal Alert Policy](docs/uncalibrated-temporal-alert-policy.md)).
+- Evaluated on the original pilot distribution, a broader training
+  distribution, and isolated high-load / hot-start / late-onset / high-noise
+  / combined out-of-distribution shifts, with the model retrained once
+  against the broader regime and re-promoted under documented criteria (see
+  [Robustness Training](docs/robustness-training.md)).
+- Runtime artifact bundle: `artifacts/models/plant_alpha_fault_v1/`, hash- and
+  schema-verified by the fault-inference worker before it reports healthy.
+
+## Streaming inference and reasoning bridge
+
+- Kafka fault-inference worker: consumes Plant Alpha telemetry, assembles
+  bounded per-asset samples, runs the promoted model, publishes
+  `fault_inference.v1` / `fault_alert_transition.v1`. Warm-up is exactly
+  11 samples then a first prediction at sample 12 (the model's trained
+  window), held in memory only — a worker restart resets warm-up.
+  See [Kafka Fault Inference Worker](docs/kafka-fault-inference-worker.md).
+- Reasoning bridge worker: corroborates a confirmed ML alert against real
+  observations using deterministic telemetry rules — never the model's own
+  score — and produces a bounded recommendation or explicitly withholds one.
+  See [Reasoning Bridge](docs/reasoning-bridge.md).
+- Idempotent end to end: deterministic UUIDv5 event IDs mean Kafka replay
+  does not duplicate evidence or investigations.
+- Kafka and HTTP delivery are not one atomic transaction — see
+  [Release Scorecard](docs/release/v1.1-scorecard.md)'s failure-mode matrix
+  for exactly what is and isn't retried on partial failure.
+
+## Operator-facing dashboard
+
+- Active AI fault investigation API, investigation history/detail, and
+  deterministic-rule provenance (rule IDs, corroboration result, supporting
+  observations) in every response.
+- Every AI-assisted response carries a score caveat ("uncalibrated diagnostic
+  ranking, not a probability") and an authority-boundary note — the model is
+  evidence, not a confirmed diagnosis.
+- Outbox → Redis → SSE invalidation wired to AI fault investigation updates,
+  reusing the same event-driven cache-invalidation path as v1.0.
+- Dashboard: active fault investigation card, investigation history panel,
+  and lifecycle states (clear / disagreement / insufficient-evidence). See
+  [Fault Investigation Dashboard](docs/fault-investigation-dashboard.md).
+
+## Important limitations
+
+- Trained and evaluated entirely on simulator-generated data — no real-plant
+  validation.
+- The model's native score is an uncalibrated ranking, not a calibrated
+  real-world probability; a calibration attempt regressed alert quality and
+  was explicitly not promoted.
+- Fault-inference warm-up state is in-memory only and resets on worker
+  restart.
+- Kafka and HTTP delivery are not a single atomic transaction (see the
+  failure-mode matrix in the release scorecard).
+- Deterministic reasoning remains the sole authority — no autonomous control,
+  no closed-loop actuation.
+- Evaluation cohorts are small (simulator-scale), not production traffic
+  volumes.
+
+## Upgrading from v1.0.0
+
+No destructive migration; `alembic upgrade head` applies the v1.1 schema
+additions (AI fault evidence/investigation tables, outbox) on top of a v1.0
+database. See [Migration and Fresh Database](docs/release/v1.1-scorecard.md)
+for the verified fresh-database and upgrade paths.
+
+---
+
 # ODIS v1.0.0
 
 First tagged release. ODIS is a deterministic operational reasoning engine plus a

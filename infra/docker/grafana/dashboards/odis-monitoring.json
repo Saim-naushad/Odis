@@ -480,7 +480,7 @@
         "tooltip": {
           "mode": "single"
         }
-        },
+      },
       "targets": [
         {
           "expr": "sum(monitoring_sse_connections{job=\"odis-backend\"})",
@@ -948,6 +948,311 @@
       ],
       "title": "Prometheus process memory (bytes)",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 84
+      },
+      "id": 27,
+      "panels": [],
+      "title": "AI Fault Alert Pipeline (v1.1)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 85
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(fault_inference_results_total{job=\"odis-fault-inference-worker\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Fault inference results by status (rate / 5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 85
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (topic_role) (rate(fault_inference_publish_failures_total{job=\"odis-fault-inference-worker\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Fault inference Kafka publish failures (rate / 5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 93
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (result) (rate(reasoning_bridge_corroboration_results_total{job=\"odis-reasoning-bridge-worker\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Reasoning-bridge corroboration results (rate / 5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 93
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(reasoning_bridge_recommendations_produced_total{job=\"odis-reasoning-bridge-worker\"}[5m]))",
+          "legendFormat": "produced",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(reasoning_bridge_recommendations_withheld_total{job=\"odis-reasoning-bridge-worker\"}[5m]))",
+          "legendFormat": "withheld",
+          "refId": "B"
+        }
+      ],
+      "title": "Recommendations produced vs withheld (rate / 5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 101
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(reasoning_bridge_failures_total{job=\"odis-reasoning-bridge-worker\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Reasoning-bridge failures (rate / 5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 101
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "outbox_pending_events{job=\"odis-backend\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Outbox pending events (backlog)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 108
+      },
+      "id": 34,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "fault_inference_worker_starts_total{job=\"odis-fault-inference-worker\"}",
+          "legendFormat": "fault-inference-worker",
+          "refId": "A"
+        },
+        {
+          "expr": "reasoning_bridge_worker_starts_total{job=\"odis-reasoning-bridge-worker\"}",
+          "legendFormat": "reasoning-bridge-worker",
+          "refId": "B"
+        }
+      ],
+      "title": "Worker restarts (starts_total)",
+      "type": "timeseries"
     }
   ],
   "schemaVersion": 39,
@@ -967,7 +1272,6 @@
   "timezone": "browser",
   "title": "ODIS Monitoring",
   "uid": "odis-monitoring",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
-

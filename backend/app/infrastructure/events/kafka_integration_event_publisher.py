@@ -21,8 +21,10 @@ logger = get_logger(__name__)
 class KafkaIntegrationEventPublisher(IntegrationEventPublisher):
     """Publish integration events to Kafka.
 
-    Failures are swallowed (logged + metrics) because Kafka is an integration
-    boundary and must never fail requests.
+    Failures never raise (logged + metrics) because Kafka is an integration
+    boundary and must never fail requests; ``publish`` instead returns False
+    so the caller (the outbox dispatcher) can leave the event undispatched
+    and retry it on the next cycle.
     """
 
     def __init__(
@@ -36,7 +38,7 @@ class KafkaIntegrationEventPublisher(IntegrationEventPublisher):
         self._topic = topic
         self._producer = producer
 
-    def publish(self, event: IntegrationEvent) -> None:
+    def publish(self, event: IntegrationEvent) -> bool:
         try:
             producer = self._get_producer()
             payload = _serialize_event(event)
@@ -48,6 +50,7 @@ class KafkaIntegrationEventPublisher(IntegrationEventPublisher):
             # Synchronous confirmation to count as "published".
             future.get(timeout=5)
             record_integration_event_published(event.type)
+            return True
         except Exception:
             record_integration_publish_failure()
             logger.warning(
@@ -58,6 +61,7 @@ class KafkaIntegrationEventPublisher(IntegrationEventPublisher):
                 bootstrap_servers=self._bootstrap_servers,
                 exc_info=True,
             )
+            return False
 
     def _get_producer(self) -> Any:
         if self._producer is not None:

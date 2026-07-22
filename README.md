@@ -26,13 +26,18 @@ flowchart LR
     db[("TimescaleDB")]
     worker["ReasoningWorker"]
     ui["ReactDashboard"]
+    kafka[("Kafka")]
+    infW["FaultInferenceWorker\n(promoted model)"]
+    bridge["ReasoningBridgeWorker\n(deterministic corroboration)"]
 
     plant --> mqtt --> api --> db
     api --> worker --> db
     ui --> api
+
+    plant -->|"same tick"| kafka --> infW --> kafka --> bridge --> db
 ```
 
-Telemetry flows from the simulator through MQTT into the API, persists in TimescaleDB, triggers reasoning in the background worker, and surfaces assessments and recommendations to the dashboard over Server-Sent Events.
+Telemetry flows from the simulator through MQTT into the API, persists in TimescaleDB, triggers deterministic reasoning in the background worker, and surfaces assessments and recommendations to the dashboard over Server-Sent Events. In parallel (v1.1), the same telemetry tick reaches Kafka, where a promoted fault-diagnosis model raises candidate alerts that a separate deterministic worker must corroborate against real observations before they reach the dashboard — see [AI Methodology](docs/ai-methodology.md).
 
 **The reasoning engine itself doesn't know any of this infrastructure exists.** It is a standalone library that accepts observations and produces a reasoning result, invoked the same way from unit tests, example programs, or the production worker.
 
@@ -54,6 +59,8 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 
 **Investigation workflow** (`InvestigationService`) — Operator response to recommendations is stored as an append-only sequence of transitions (`ACKNOWLEDGED → INVESTIGATING → RESOLVED`) rather than a mutable status field, preserving a complete operational history. See [docs/platform/platform-architecture.md#operator-investigation-lifecycle](docs/platform/platform-architecture.md#operator-investigation-lifecycle).
 
+**AI-fault-alert pipeline** (`backend/simulator/inference_worker/`, `backend/app` reasoning bridge) — A streaming Kafka worker runs a promoted fault-diagnosis model against live telemetry (11-sample warm-up, then a prediction per sample) and applies a deterministic temporal-hysteresis alert policy. A separate reasoning-bridge worker corroborates each confirmed alert against the platform's own persisted observations using explicit rules — the model never gets the final word. See [AI Methodology](docs/ai-methodology.md) and [docs/platform/platform-architecture.md#ai-assisted-fault-diagnosis-data-flow-v11](docs/platform/platform-architecture.md#ai-assisted-fault-diagnosis-data-flow-v11).
+
 <br>
 <p align="center">
   <img src="docs/assets/dashboard-investigation.png" width="40%" alt="Investigation Workflow">
@@ -65,7 +72,7 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 - **Deterministic reasoning** — Trend, variation, and correlation detectors produce explainable assessments with no hidden machine-learning models inside the reasoning pipeline.
 - **Explainable recommendations** — Every recommendation traces back to the supporting evidence, generated hypothesis, confidence breakdown, and reasoning history.
 - **Live operator dashboard** — A React monitoring console streams fleet health, telemetry, investigations, and recommendations over Server-Sent Events.
-- **AI-assisted fault diagnosis** — Diagnostic-model fault alerts are shown alongside their deterministic corroboration, urgency, and a bounded operator recommendation — the model is always evidence, never a confirmed diagnosis.
+- **AI-assisted fault diagnosis** (v1.1) — A promoted logistic-regression model watches streaming Kafka telemetry and raises candidate fault alerts; deterministic reasoning independently corroborates each one against real observations before a bounded recommendation reaches an operator. The model's score is always shown with an explicit "uncalibrated, not a probability" caveat and never presented as a confirmed diagnosis. See [AI Methodology](docs/ai-methodology.md) for the full dataset-to-promotion narrative, including a distribution-shift failure that was found, diagnosed, and fixed by retraining.
 - **Investigation workflow** — Operator actions are captured as an append-only acknowledge → investigate → resolve lifecycle rather than overwriting previous state.
 - **Event-driven architecture** — A transactional outbox and domain event bus decouple persistence from Kafka delivery, cache invalidation, and live UI updates.
 - **Physics-based simulator** — Plant Alpha models a four-stack PEM fuel-cell plant with coupled subsystem behavior instead of synthetic random telemetry.
@@ -163,6 +170,8 @@ For a guided introduction, see the [Quickstart](docs/quickstart.md).
 | Reasoning pipeline | [docs/reasoning-pipeline.md](docs/reasoning-pipeline.md) |
 | Platform architecture | [docs/platform/README.md](docs/platform/README.md) |
 | Simulator | [docs/simulator.md](docs/simulator.md) |
+| AI methodology (v1.1) | [docs/ai-methodology.md](docs/ai-methodology.md) |
+| v1.1 release scorecard | [docs/release/v1.1-scorecard.md](docs/release/v1.1-scorecard.md) |
 | Release notes | [RELEASE_NOTES.md](RELEASE_NOTES.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
@@ -183,6 +192,12 @@ ODIS intentionally prioritizes explainability and architectural clarity over pro
 - **No closed-loop execution** — Actions and outcomes are persisted for traceability but are not connected to external industrial control systems.
 
 - **Industrial protocol coverage** — MQTT and HTTP ingestion are implemented. Additional protocols such as OPC UA and SCADA integrations are intentionally outside the scope of v1.0.
+
+- **AI fault-diagnosis model is simulator-trained only** — Trained and evaluated entirely on Plant Alpha simulator data; no real-plant validation. The model's native score is an uncalibrated ranking, not a calibrated probability (a calibration attempt was tried, measurably regressed classification accuracy, and was not promoted — see [AI Methodology](docs/ai-methodology.md)). Evaluation cohorts are simulator-scale, not production traffic volumes.
+
+- **Fault-inference state is in-memory** — The streaming worker's warm-up window resets on every restart; nothing about inference state is persisted across process lifetimes.
+
+- **Kafka/HTTP delivery is not one atomic transaction** — The `kafka+http` simulator transport and the platform's own outbox-to-Kafka leg are each independently retried/idempotent, not wrapped in a distributed transaction. See the failure-mode matrix in the [v1.1 release scorecard](docs/release/v1.1-scorecard.md).
 
 ---
 
