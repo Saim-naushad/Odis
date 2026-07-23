@@ -10,11 +10,11 @@ ODIS is an industrial operations platform that turns telemetry from physical equ
 
 The repository contains both a standalone reasoning engine and a complete demonstration platform, including a physics-based simulator, an event-driven backend, and a live operator dashboard.
 
-
 <p align="center">
-  <img src="docs/assets/dashboard-overview.png" width="100%" alt="ODIS Dashboard Overview">
+  <img src="docs/assets/dashboard-incident.png" width="100%" alt="ODIS Dashboard — live investigation during an active incident">
 </p>
 
+*Additional dashboard screenshots covering the current UI (fleet overview, telemetry, investigation lifecycle) are pending a recapture session — see the [Screenshot Checklist](docs/release/screenshot-checklist.md).*
 
 ## How it works
 
@@ -47,12 +47,6 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 
 **Plant Alpha simulator** (`backend/simulator/`) — A four-stack PEM fuel-cell digital twin built on first-order-lag physics rather than random number generation. Cooling faults and hydrogen-supply faults propagate through the appropriate subsystems, producing realistic correlated telemetry instead of independent noise. The simulator publishes over MQTT exactly like a real industrial environment. See [docs/simulator.md](docs/simulator.md).
 
-<br>
-<p align="center">
-  <img src="docs/assets/dashboard-telemetry.png" width="82%" alt="Telemtry Visualization">
-</p>
-<br>
-
 **Event-driven backend** (`backend/app/`) — FastAPI and a background worker share one composition root. A transactional outbox guarantees domain events reach Kafka, while an in-process event bus drives cache invalidation and real-time dashboard updates without service polling.
 
 **Digital twin** (`DigitalTwinService`) — A read model that assembles current asset state from monitoring data and forecasts. Cached in Redis and invalidated through domain events, it never re-executes reasoning that has already been performed.
@@ -60,12 +54,6 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 **Investigation workflow** (`InvestigationService`) — Operator response to recommendations is stored as an append-only sequence of transitions (`ACKNOWLEDGED → INVESTIGATING → RESOLVED`) rather than a mutable status field, preserving a complete operational history. See [docs/platform/platform-architecture.md#operator-investigation-lifecycle](docs/platform/platform-architecture.md#operator-investigation-lifecycle).
 
 **AI-fault-alert pipeline** (`backend/simulator/inference_worker/`, `backend/app` reasoning bridge) — A streaming Kafka worker runs a promoted fault-diagnosis model against live telemetry (11-sample warm-up, then a prediction per sample) and applies a deterministic temporal-hysteresis alert policy. A separate reasoning-bridge worker corroborates each confirmed alert against the platform's own persisted observations using explicit rules — the model never gets the final word. See [AI Methodology](docs/ai-methodology.md) and [docs/platform/platform-architecture.md#ai-assisted-fault-diagnosis-data-flow-v11](docs/platform/platform-architecture.md#ai-assisted-fault-diagnosis-data-flow-v11).
-
-<br>
-<p align="center">
-  <img src="docs/assets/dashboard-investigation.png" width="40%" alt="Investigation Workflow">
-</p>
-<br>
 
 ## Key capabilities
 
@@ -76,6 +64,19 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 - **Investigation workflow** — Operator actions are captured as an append-only acknowledge → investigate → resolve lifecycle rather than overwriting previous state.
 - **Event-driven architecture** — A transactional outbox and domain event bus decouple persistence from Kafka delivery, cache invalidation, and live UI updates.
 - **Physics-based simulator** — Plant Alpha models a four-stack PEM fuel-cell plant with coupled subsystem behavior instead of synthetic random telemetry.
+
+## Measured performance (v1.1)
+
+Local-machine benchmark evidence from `scripts/benchmark_odis`, scaling the Plant Alpha fleet up to 100 simulated assets on a single developer laptop:
+
+| Metric | Result |
+|---|---|
+| Telemetry throughput | 86.2 events/sec sustained across 100 simulated assets (12,927 events processed) |
+| Fault-inference worker ceiling | ~10.7 samples/sec — the single-threaded inference consume loop is the primary throughput bottleneck at scale |
+| Fault detection → recommendation | 37.2s wall-clock, onset to operator-facing recommendation (1 asset) |
+| Reliability checks | Zero duplicate AI-fault-evidence rows on event replay; zero Kafka consumer lag at the end of every one of 9 benchmark runs |
+
+**Caveats:** single developer laptop, one repetition per configuration (not the target 3x/2x schedule), up to 100 simulated assets — not cloud, production, or enterprise-hardware numbers, and nothing here is extrapolated beyond what was directly measured. Full methodology, scaling data, and disclosed limitations: [v1.1 Performance Report](docs/release/v1.1-performance-report.md).
 
 ## Why ODIS exists
 
@@ -127,13 +128,6 @@ Open the dashboard at:
 ```
 http://localhost:8080
 ```
-<br>
-
-<p align="center">
-  <img src="docs/assets/dashboard-incident.png" width="82%" alt="Live Investigation">
-</p>
-
-<br>
 
 For the complete walkthrough, expected simulator timeline, and validation steps, see the [Demo Environment Guide](docs/platform/demo-environment.md).
 
@@ -172,6 +166,8 @@ For a guided introduction, see the [Quickstart](docs/quickstart.md).
 | Simulator | [docs/simulator.md](docs/simulator.md) |
 | AI methodology (v1.1) | [docs/ai-methodology.md](docs/ai-methodology.md) |
 | v1.1 release scorecard | [docs/release/v1.1-scorecard.md](docs/release/v1.1-scorecard.md) |
+| Benchmark methodology | [docs/benchmarking.md](docs/benchmarking.md) |
+| v1.1 performance report | [docs/release/v1.1-performance-report.md](docs/release/v1.1-performance-report.md) |
 | Release notes | [RELEASE_NOTES.md](RELEASE_NOTES.md) |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
@@ -198,6 +194,18 @@ ODIS intentionally prioritizes explainability and architectural clarity over pro
 - **Fault-inference state is in-memory** — The streaming worker's warm-up window resets on every restart; nothing about inference state is persisted across process lifetimes.
 
 - **Kafka/HTTP delivery is not one atomic transaction** — The `kafka+http` simulator transport and the platform's own outbox-to-Kafka leg are each independently retried/idempotent, not wrapped in a distributed transaction. See the failure-mode matrix in the [v1.1 release scorecard](docs/release/v1.1-scorecard.md).
+
+- **Fault-inference worker is single-threaded** — Its consume loop is the primary throughput bottleneck under load; sample-processing plateaus at roughly 10.7 samples/sec regardless of fleet size. See [v1.1 Performance Report](docs/release/v1.1-performance-report.md).
+
+- **Benchmark evidence is a single local run** — Performance numbers above come from one repetition per configuration on one developer laptop, not the target 3x/2x repeated schedule, and no cloud or production hardware was tested.
+
+---
+
+## Status
+
+**ODIS v1.1 DEMO READY WITH DOCUMENTED LIMITATIONS**
+
+The AI-fault-alert path (simulator → Kafka → fault-inference worker → deterministic reasoning-bridge corroboration → investigation lifecycle → operator recommendation) is implemented, demo-validated end-to-end, and benchmarked up to 100 simulated assets. It has not been validated against a real plant, is not calibrated to production SLOs, and does not perform autonomous control. See the [v1.1 Release Scorecard](docs/release/v1.1-scorecard.md) for the full audit trail and verdict, and [Current limitations](#current-limitations) above for the complete list.
 
 ---
 

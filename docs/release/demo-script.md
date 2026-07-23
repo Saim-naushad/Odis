@@ -1,4 +1,4 @@
-# v1.0.0 Demo Script (~6:40)
+# v1.1 Demo Script (~6:40)
 
 Companion to [Screenshot Checklist](screenshot-checklist.md). Both draw from
 the same `demo_presentation` recording session — see

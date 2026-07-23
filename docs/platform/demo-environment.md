@@ -244,6 +244,43 @@ Reshoot `docs/assets/dashboard-*.png` from a clean run whenever the layout
 changes materially; the phase-change log lines make repeat takes consistent
 without re-deriving timing by hand.
 
+### AI-fault-alert milestone (Kafka path, v1.1)
+
+The health-status arc above (NORMAL → WARNING → CRITICAL → recovery) is the
+platform's original MQTT-path reasoning. In parallel, the same telemetry
+tick also reaches Kafka (`SIMULATOR_TRANSPORT=kafka+http`, the default for
+`demo-plant`), where the v1.1 AI-fault-alert pipeline produces its own,
+separate milestone that the health-status timing above does not describe:
+
+1. **Warm-up** — the fault-inference worker's per-asset session requires an
+   11-sample warm-up window before it emits its first prediction.
+2. **Candidate alert** — each subsequent sample gets a model prediction; a
+   deterministic temporal-hysteresis alert policy (entry/exit persistence,
+   not a single-sample threshold) confirms a candidate alert once it holds
+   long enough — see [Uncalibrated Temporal Alert Policy](../uncalibrated-temporal-alert-policy.md).
+3. **Deterministic corroboration** — a separate reasoning-bridge worker
+   corroborates the confirmed alert against the platform's own persisted
+   observations before it becomes operator-facing — see [Reasoning Bridge](../reasoning-bridge.md).
+4. **Investigation appears** — a confirmed, corroborated investigation
+   (with `diagnosed_fault_class`, corroboration result, and investigation
+   status) becomes visible via the AI Fault Investigation panel and API —
+   see [Fault Investigation Dashboard](../fault-investigation-dashboard.md).
+
+This is exactly what `./scripts/validate_demo_environment.sh --walkthrough`
+gates on: it starts polling for a confirmed investigation at
+`DEMO_FAULT_CHECK_START_SECONDS` (default 130s into the run) and fails the
+whole walkthrough if none appears by `DEMO_WALKTHROUGH_DEADLINE_SECONDS`
+(default 450s / 7:30), logging `event=ai_fault_investigation_confirmed`
+the moment it does. As a reference point (not a demo-specific measurement),
+isolated single-asset benchmark evidence at the same ~9x sim:real
+acceleration ratio recorded a 37.2s fault-onset-to-recommendation wall time
+for this path — see the [v1.1 Performance Report](../release/v1.1-performance-report.md).
+
+For a recording session, treat this as a second thing to watch for
+alongside the health-status badge: the AI Fault Investigation panel
+populating is its own milestone, on its own timeline, driven by the Kafka
+path rather than the MQTT path described above.
+
 ---
 
 ## Validation

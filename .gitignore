@@ -16,6 +16,8 @@ dist/
 
 .env
 
+.DS_Store
+
 # Generated offline ML datasets (backend/simulator/dataset generate.py output)
 /datasets/
 

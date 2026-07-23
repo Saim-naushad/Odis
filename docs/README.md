@@ -8,10 +8,9 @@ Portfolio assets for the monitoring dashboard live in [`assets/`](assets/).
 
 | Image | Description |
 |-------|-------------|
-| [dashboard-overview.png](assets/dashboard-overview.png) | Fleet overview during an active cooling degradation incident |
-| [dashboard-telemetry.png](assets/dashboard-telemetry.png) | Telemetry correlated with operational reasoning |
-| [dashboard-investigation.png](assets/dashboard-investigation.png) | Reasoning timeline from evidence to recommendation |
 | [dashboard-incident.png](assets/dashboard-incident.png) | Live investigation during an active incident |
+
+`dashboard-overview.png`, `dashboard-telemetry.png`, and `dashboard-investigation.png` were removed from this set — they predate the operator investigation lifecycle and no longer reflect the current UI (stale "Platform degraded" header, missing investigation controls). See the [Screenshot Checklist](release/screenshot-checklist.md) for the shot list planned for the next recapture session.
 
 ## Getting Started
 
@@ -86,6 +85,9 @@ results; the rest are the detailed pages it links to.
 |----------|-------------|
 | [Release Notes](../RELEASE_NOTES.md) | v1.1.0 and v1.0.0 summaries by subsystem |
 | [v1.1 Release Scorecard](release/v1.1-scorecard.md) | Hardening-pass audit findings, fixes, live validation, and final verdict |
+| [Benchmarking Methodology](benchmarking.md) | `scripts/benchmark_odis` design — scenarios, isolation, measurement contracts |
+| [v1.1 Performance Report](release/v1.1-performance-report.md) | Measured throughput, latency, and reliability results up to 100 simulated assets |
+| [v1.1 Benchmark Evidence](release/v1.1-benchmark-evidence/README.md) | Raw per-run evidence (environment, metrics, reports) backing the performance report |
 | [Portfolio Summary](release/portfolio-summary.md) | Resume bullets and interview explanations for this release |
 | [Screenshot Checklist](release/screenshot-checklist.md) | Shot list for portfolio and release screenshots |
 | [Demo Script](release/demo-script.md) | 3–5 minute narrated recording script |

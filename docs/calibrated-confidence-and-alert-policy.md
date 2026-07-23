@@ -1,5 +1,11 @@
 # Calibrated Confidence, Abstention, and Alert Policy
 
+> **Not adopted.** This experiment measurably regressed classification
+> accuracy relative to the uncalibrated baseline and was not promoted. It is
+> retained as a historical design record of what was tried and why it was
+> rejected. The policy actually running in production is documented in
+> [Uncalibrated Temporal Alert Policy](uncalibrated-temporal-alert-policy.md).
+
 This page describes the PR169 decision layer built on top of the
 PR168-selected baseline model — sigmoid probability calibration, an
 explicit `"uncertain"` abstention state, and a validation-selected

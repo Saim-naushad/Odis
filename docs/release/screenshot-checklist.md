@@ -1,4 +1,4 @@
-# v1.0.0 Screenshot Checklist
+# v1.1 Screenshot Checklist
 
 Screenshots to capture for the GitHub release, README, and portfolio use. All
 shots come from the `demo_presentation` scenario on a clean database (see
@@ -45,15 +45,49 @@ set — they cover baseline, fault, the new investigation-lifecycle feature,
 and telemetry correlation, which is also the minimum cut described in the
 demo script.
 
-## Capture notes
+## Manual capture workflow
 
+There is no maintained capture script in this repository — a prior
+Playwright-based helper (`scripts/capture_dashboard_screenshots.py`) was
+removed because it targeted the pre-investigation-lifecycle dashboard: it
+took the first available shot immediately (reproducing the exact
+"Platform degraded" / missing-controls problem described above), used
+filenames and content that no longer match the shot list (no
+`dashboard-cooling-alert.png`, `dashboard-investigation-lifecycle.png`, or
+`dashboard-investigation-timeline.png` support), and its Playwright
+dependency was never declared in `pyproject.toml`. Reintroducing automated
+capture is future work, not part of this checklist. Capture manually:
+
+1. **States to capture** — the six rows in the [Shot list](#shot-list)
+   above; each row's "Simulator phase" and "What should be visible" columns
+   are the acceptance criteria for that shot.
+2. **Viewport and resolution** — use a **1440×900** browser window at **2x**
+   device pixel ratio (DevTools → toggle device toolbar → set a custom
+   viewport with 2x scaling, or an equivalent OS-level Retina/HiDPI
+   capture). This reproduces the existing set's ~2880px-wide source PNGs,
+   downscaled to 1024px wide for README embedding — keep this consistent
+   across all six shots so the set matches stylistically.
+3. **Filenames** — use exactly the filenames in the Shot list table's
+   `Filename` column (e.g. `dashboard-cooling-alert.png`), not generic or
+   timestamped names.
+4. **Where to save** — `docs/assets/`, alongside the existing
+   `dashboard-incident.png`.
+5. **Avoiding local/personal information** — capture from the standard
+   `docker compose --profile demo up --build -d` stack on `localhost:8080`
+   only; do not include browser chrome, OS menu bars, notification
+   toasters, or any second monitor/desktop content in the crop. If the
+   investigation-lifecycle shots (#3) require selecting an operator, use a
+   generic operator name (e.g. `operator-1`), never a real name or email.
+6. **Use the current, post-AI dashboard** — every shot must come from a
+   build that includes the v1.1 operator investigation lifecycle and
+   AI-fault-alert path (this checklist's whole point is that the previous
+   set predated both). Confirm `git log -1` on the running build includes
+   `8b40ffb` (investigation lifecycle) and the AI-fault-alert commits
+   before shooting.
 - Use the phase-change log lines from `docker compose logs -f demo-plant` to
   know when each *scenario* phase starts, but time the CRITICAL/recovered
   shots off the actual dashboard state (or the digital-twin API) — the
   health badge lags a phase-change line by tens of seconds, per
   [Demo Environment → Verified timing](../platform/demo-environment.md#verified-timing-presentation-cadence).
-- Keep browser window width consistent across all shots (the current set
-  appears to be a standard 2880px-wide capture, downscaled to 1024px for
-  README embedding).
 - Re-run `./scripts/validate_demo_environment.sh` after capture to confirm
   the session used to shoot these screenshots also passes acceptance.
