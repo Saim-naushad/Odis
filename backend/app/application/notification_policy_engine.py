@@ -13,10 +13,15 @@ class NotificationPolicyEngine:
     """Compute a Notification from a Recommendation only."""
 
     def compute(self, recommendation: Recommendation) -> Notification | None:
+        # P0 is a confirmed CRITICAL health reading; P1 is elevated risk
+        # (decision priority alone) that has not yet been confirmed as a
+        # CRITICAL health reading - see RecommendationEngine.compute(). They
+        # must not share a severity label, or the notification claims
+        # "CRITICAL" for a state that may currently read NORMAL or WARNING.
         severity: NotificationSeverity
-        if recommendation.priority in ("P0", "P1"):
+        if recommendation.priority == "P0":
             severity = "CRITICAL"
-        elif recommendation.priority == "P2":
+        elif recommendation.priority in ("P1", "P2"):
             severity = "WARNING"
         else:
             return None

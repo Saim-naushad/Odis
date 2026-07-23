@@ -1,7 +1,12 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import { ActiveAlertBanner } from './ActiveAlertBanner'
 import type { NotificationResponse } from '../../types/monitoring'
+
+// No global test-cleanup hook is registered in src/test/setup.ts, so
+// multiple renders within this file accumulate in the DOM unless each test
+// file cleans up after itself.
+afterEach(cleanup)
 
 const notification: NotificationResponse = {
   id: 'notif-1',
@@ -30,5 +35,33 @@ describe('ActiveAlertBanner', () => {
     expect(
       screen.queryByText('Cooling flow may be insufficient.'),
     ).not.toBeInTheDocument()
+  })
+
+  it('does not show a mismatch note when current health status is unknown', () => {
+    render(<ActiveAlertBanner notification={notification} />)
+
+    expect(screen.queryByText(/while conditions were more severe/)).not.toBeInTheDocument()
+  })
+
+  it('does not show a mismatch note when severity matches current health status', () => {
+    render(
+      <ActiveAlertBanner notification={notification} currentHealthStatus="WARNING" />,
+    )
+
+    expect(screen.queryByText(/while conditions were more severe/)).not.toBeInTheDocument()
+  })
+
+  it('explains the distinction when a CRITICAL notification stays open after health recovers to NORMAL', () => {
+    const critical: NotificationResponse = { ...notification, severity: 'CRITICAL' }
+    render(<ActiveAlertBanner notification={critical} currentHealthStatus="NORMAL" />)
+
+    expect(screen.getByText(/while conditions were more severe/)).toBeInTheDocument()
+    expect(screen.getByText('NORMAL')).toBeInTheDocument()
+  })
+
+  it('explains the distinction when a WARNING notification stays open after health recovers to NORMAL', () => {
+    render(<ActiveAlertBanner notification={notification} currentHealthStatus="NORMAL" />)
+
+    expect(screen.getByText(/while conditions were more severe/)).toBeInTheDocument()
   })
 })

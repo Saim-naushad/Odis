@@ -24,6 +24,17 @@ from domain.value_objects.variation_level import VariationLevel
 # measurement limitation note.
 HIGH_VARIATION_THRESHOLD = 60.0
 
+# Minimum window size before a HIGH classification is trusted at all -
+# mirrors TrendDetector's _MIN_SAMPLES_FOR_DIRECTIONAL_TREND (same file
+# family, same rationale): a max-min spread over only 2-7 samples can
+# trivially clear HIGH_VARIATION_THRESHOLD from normal sinusoidal load
+# cycling alone, before enough of a cycle has been observed to tell real
+# instability apart from a window that simply landed on a steep part of the
+# oscillation. Below this many samples, variation defaults to LOW (the same
+# "not enough evidence yet" default TrendDetector uses for direction) rather
+# than raising or guessing HIGH.
+_MIN_SAMPLES_FOR_VARIATION_CLASSIFICATION = 8
+
 
 class VariationDetector:
     def detect(self, observations: Sequence[Observation]) -> DetectedVariation:
@@ -42,13 +53,16 @@ class VariationDetector:
                 )
 
         ordered = sorted(observations, key=lambda observation: observation.timestamp)
-        values = [observation.value for observation in ordered]
-        variation = max(values) - min(values)
 
-        if variation > HIGH_VARIATION_THRESHOLD:
-            level = VariationLevel.HIGH
-        else:
+        if len(ordered) < _MIN_SAMPLES_FOR_VARIATION_CLASSIFICATION:
             level = VariationLevel.LOW
+        else:
+            values = [observation.value for observation in ordered]
+            variation = max(values) - min(values)
+            if variation > HIGH_VARIATION_THRESHOLD:
+                level = VariationLevel.HIGH
+            else:
+                level = VariationLevel.LOW
 
         return DetectedVariation(
             asset_id=asset_id,

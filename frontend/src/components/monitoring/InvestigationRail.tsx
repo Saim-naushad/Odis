@@ -4,7 +4,11 @@ import type {
   MonitoringRunDetailsResponse,
   TimelineEventResponse,
 } from '../../types/monitoring'
-import { getTimelineEventRunId } from '../../utils/timelineEvent'
+import {
+  getTimelineEventInvestigationId,
+  getTimelineEventRunId,
+} from '../../utils/timelineEvent'
+import { useFaultInvestigationDetail } from '../../hooks/useFaultInvestigation'
 
 interface InvestigationRailProps {
   events: TimelineEventResponse[]
@@ -88,8 +92,18 @@ export function InvestigationRail({
   // selected run whenever the operator hasn't clicked one explicitly.
   const selectedEvent = manuallySelectedEvent ?? findDefaultEvent(events, selectedRunId)
   const metadataEntries = selectedEvent
-    ? Object.entries(selectedEvent.metadata).filter(([key]) => key !== 'run_id')
+    ? Object.entries(selectedEvent.metadata).filter(
+        ([key]) => key !== 'run_id' && key !== 'investigation_id',
+      )
     : []
+
+  // ai_fault_* events carry investigation_id, not run_id (see
+  // getTimelineEventInvestigationId) - they resolve to AI fault
+  // investigation detail instead of a reasoning run.
+  const selectedEventInvestigationId = selectedEvent
+    ? getTimelineEventInvestigationId(selectedEvent)
+    : undefined
+  const investigationDetail = useFaultInvestigationDetail(selectedEventInvestigationId)
 
   function handleSelectEvent(event: TimelineEventResponse): void {
     setManuallySelectedEvent(event)
@@ -126,7 +140,13 @@ export function InvestigationRail({
       </div>
 
       <RailSection title="Event context">
-        {!selectedEvent && !runDetails && !runDetailsLoading && !runDetailsError ? (
+        {!selectedEvent &&
+        !runDetails &&
+        !runDetailsLoading &&
+        !runDetailsError &&
+        !investigationDetail.detail &&
+        !investigationDetail.loading &&
+        !investigationDetail.error ? (
           <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             Select a timeline event to inspect context and correlate with telemetry.
           </p>
@@ -169,6 +189,82 @@ export function InvestigationRail({
               </div>
             )}
 
+            {selectedEventInvestigationId ? (
+            <div>
+              <h4
+                className="text-[10px] font-semibold uppercase tracking-wide"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                Associated AI fault investigation
+              </h4>
+              {investigationDetail.detail ? (
+                <div className="mt-1 space-y-2">
+                  <p style={{ color: 'var(--text-primary)' }}>
+                    {investigationDetail.detail.current.diagnosed_fault_class.replace(
+                      /_/g,
+                      ' ',
+                    )}{' '}
+                    · {investigationDetail.detail.current.alert_transition_type.replace(
+                      /_/g,
+                      ' ',
+                    )}
+                  </p>
+                  <p style={{ color: 'var(--text-secondary)' }}>
+                    Deterministic corroboration:{' '}
+                    {investigationDetail.detail.current.corroboration_result.replace(
+                      /_/g,
+                      ' ',
+                    )}
+                  </p>
+                  <p style={{ color: 'var(--text-muted)' }}>
+                    {investigationDetail.detail.current.corroboration_notes}
+                  </p>
+                  {investigationDetail.detail.current.recommendation && (
+                    <div
+                      className="rounded border p-2"
+                      style={{ borderColor: 'var(--surface-border)' }}
+                    >
+                      <p
+                        className="font-semibold"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        {investigationDetail.detail.current.recommendation.action_summary}
+                      </p>
+                      <p style={{ color: 'var(--text-muted)' }}>
+                        {investigationDetail.detail.current.recommendation.reason}
+                      </p>
+                    </div>
+                  )}
+                  <p style={{ color: 'var(--text-muted)' }}>
+                    {investigationDetail.detail.current.authority_boundary_note}
+                  </p>
+                </div>
+              ) : investigationDetail.loading ? (
+                <p className="mt-1" style={{ color: 'var(--text-muted)' }}>
+                  Loading AI fault investigation context…
+                </p>
+              ) : investigationDetail.error ? (
+                <div className="mt-1 flex items-start justify-between gap-2">
+                  <p className="text-amber-400">{investigationDetail.error}</p>
+                  <button
+                    type="button"
+                    onClick={() => void investigationDetail.retry()}
+                    className="rounded border px-2 py-0.5 text-[10px] transition-colors hover:opacity-90"
+                    style={{
+                      borderColor: 'var(--surface-border)',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-1" style={{ color: 'var(--text-muted)' }}>
+                  No AI fault investigation context available.
+                </p>
+              )}
+            </div>
+            ) : (
             <div>
               <h4
                 className="text-[10px] font-semibold uppercase tracking-wide"
@@ -275,6 +371,7 @@ export function InvestigationRail({
                 </p>
               )}
             </div>
+            )}
           </div>
         )}
       </RailSection>

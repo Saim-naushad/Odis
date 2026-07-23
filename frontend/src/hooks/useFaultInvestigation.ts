@@ -2,7 +2,10 @@ import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { monitoringClient } from '../api/monitoringClient'
 import type { MonitoringSseConnectionState } from '../monitoring/useMonitoringSse'
-import type { FaultInvestigationSummaryResponse } from '../types/monitoring'
+import type {
+  FaultInvestigationDetailResponse,
+  FaultInvestigationSummaryResponse,
+} from '../types/monitoring'
 
 /** Fallback poll interval when SSE is unavailable; SSE invalidation is primary. */
 const DEFAULT_POLL_INTERVAL_MS = 60_000
@@ -135,6 +138,54 @@ export function useFaultInvestigation(
     },
     retryHistory: async () => {
       await historyQuery.refetch()
+    },
+  }
+}
+
+export interface FaultInvestigationDetailState {
+  detail: FaultInvestigationDetailResponse | undefined
+  loading: boolean
+  error?: string
+  retry: () => Promise<void>
+}
+
+/**
+ * Resolves a single investigation_id (from an `ai_fault_*` timeline event's
+ * metadata - see getTimelineEventInvestigationId) to its full detail record.
+ * Standalone for the same reason useFaultInvestigation is: a focused hook
+ * per concern, not folded into useMonitoringDashboard's god hook.
+ */
+export function useFaultInvestigationDetail(
+  investigationId: string | undefined,
+): FaultInvestigationDetailState {
+  const hasLoadedRef = useRef(false)
+
+  const query = useQuery({
+    queryKey: ['monitoring', 'fault-investigation-detail', investigationId],
+    enabled: Boolean(investigationId),
+    queryFn: ({ signal }) =>
+      monitoringClient.getFaultInvestigationDetail(investigationId as string, signal),
+  })
+
+  useEffect(() => {
+    if (query.isSuccess) hasLoadedRef.current = true
+  }, [query.isSuccess])
+
+  const error =
+    investigationId && query.isError
+      ? query.error instanceof Error
+        ? query.error.message
+        : hasLoadedRef.current
+          ? 'Failed to refresh the AI fault investigation detail'
+          : 'Failed to load the AI fault investigation detail'
+      : undefined
+
+  return {
+    detail: investigationId ? query.data : undefined,
+    loading: Boolean(investigationId) && query.isLoading,
+    error,
+    retry: async () => {
+      await query.refetch()
     },
   }
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 
 from backend.app.domain.operational_state import OperationalState
@@ -19,16 +20,14 @@ class RecommendationEngine:
 
     def compute(self, state: OperationalState) -> Recommendation:
         created_at = state.last_updated
-        stable_timestamp = created_at.strftime("%Y%m%dT%H%M%SZ")
-        recommendation_id = f"rec-{state.asset_id}-{stable_timestamp}"
 
         category: RecommendationCategory
         priority: RecommendationPriority
         urgency: RecommendationUrgency
         steps: tuple[str, ...]
 
-        if state.health_status == "CRITICAL" or state.risk_level == "HIGH":
-            priority = "P0" if state.health_status == "CRITICAL" else "P1"
+        if state.health_status == "CRITICAL":
+            priority = "P0"
             urgency = "IMMEDIATE"
             category = "mitigate"
             estimated_impact = (
@@ -42,7 +41,39 @@ class RecommendationEngine:
             )
             title = "Immediate mitigation required"
             description = (
-                "Operational state indicates elevated risk requiring immediate action. "
+                "Operational state indicates critical risk requiring immediate "
+                "action. "
+                f"Primary driver: {state.primary_driver}. "
+                f"Recommended action: {state.recommended_action}."
+            )
+        elif state.risk_level == "HIGH":
+            # risk_level can read HIGH from decision priority alone before
+            # health_score has caught up to a CRITICAL reading (see
+            # OperationalStateEngine's risk_level docstring - it is
+            # deliberately a leading indicator, not a lagging one). That is a
+            # real, useful signal, but it must not be labeled with the same
+            # "critical/immediate mitigation" language as a confirmed
+            # CRITICAL health reading - health is currently NORMAL or
+            # WARNING, not CRITICAL, and the recommendation/notification must
+            # say so rather than overclaiming.
+            priority = "P1"
+            urgency = "IMMEDIATE"
+            category = "investigate"
+            estimated_impact = (
+                "Confirm whether elevated risk is an early warning sign "
+                "before it progresses to a critical health reading."
+            )
+            steps = (
+                f"Investigate the primary driver: {state.primary_driver}.",
+                f"Apply the recommended action if corroborated: "
+                f"{state.recommended_action}.",
+                "Increase monitoring frequency until risk returns to normal.",
+            )
+            title = "Elevated risk identified"
+            description = (
+                "Operational state indicates elevated risk ahead of a confirmed "
+                f"critical health reading (current health status: "
+                f"{state.health_status}). "
                 f"Primary driver: {state.primary_driver}. "
                 f"Recommended action: {state.recommended_action}."
             )
@@ -85,6 +116,24 @@ class RecommendationEngine:
                 "Recommended action (if conditions change): "
                 f"{state.recommended_action}."
             )
+
+        # Identity is derived from the recommendation's own material
+        # classification (category/priority/urgency/title), not from
+        # state.last_updated. Reasoning re-runs every few seconds and
+        # get_recommendation() recomputes fresh on every call, but the
+        # operator-facing recommendation does not need a new identity each
+        # time nothing about it actually changed - a timestamp-derived id
+        # churned on every cycle even when two consecutive recommendations
+        # were materially identical, which broke investigation transitions
+        # (Acknowledge/Start investigating/Resolve) keyed to recommendation_id:
+        # a transition would 404 as soon as the next reasoning cycle minted a
+        # new id for the same underlying situation. Narrative fields
+        # (description/steps, which embed primary_driver/recommended_action)
+        # are deliberately excluded from the identity so minor wording
+        # drift between cycles doesn't fragment identity either.
+        identity_key = "|".join((state.asset_id, category, priority, urgency, title))
+        identity_hash = hashlib.sha256(identity_key.encode("utf-8")).hexdigest()[:16]
+        recommendation_id = f"rec-{state.asset_id}-{identity_hash}"
 
         return Recommendation(
             id=recommendation_id,

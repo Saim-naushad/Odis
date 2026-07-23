@@ -1,12 +1,31 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { InvestigationRail } from './InvestigationRail'
 import type {
+  FaultInvestigationDetailResponse,
   MonitoringRunDetailsResponse,
   TimelineEventResponse,
 } from '../../types/monitoring'
 
 afterEach(cleanup)
+
+const mockGetFaultInvestigationDetail = vi.fn()
+
+vi.mock('../../api/monitoringClient', () => ({
+  monitoringClient: {
+    getFaultInvestigationDetail: (...args: unknown[]) =>
+      mockGetFaultInvestigationDetail(...args),
+  },
+}))
+
+function renderWithClient(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+}
 
 const events: TimelineEventResponse[] = [
   {
@@ -86,7 +105,7 @@ describe('InvestigationRail', () => {
   it('renders toolbox sections and expert entry point', () => {
     const props = baseProps()
 
-    render(<InvestigationRail {...props} />)
+    renderWithClient(<InvestigationRail {...props} />)
 
     expect(screen.getByLabelText('Investigation')).toBeInTheDocument()
     expect(screen.getByText('Event context')).toBeInTheDocument()
@@ -98,7 +117,7 @@ describe('InvestigationRail', () => {
   })
 
   it('shows the placeholder when nothing is selected yet', () => {
-    render(<InvestigationRail {...baseProps()} />)
+    renderWithClient(<InvestigationRail {...baseProps()} />)
 
     expect(
       screen.getByText(
@@ -108,7 +127,7 @@ describe('InvestigationRail', () => {
   })
 
   it('defaults to the newest event for the currently selected run', () => {
-    render(
+    renderWithClient(
       <InvestigationRail
         {...baseProps()}
         selectedRunId="run-1"
@@ -125,7 +144,7 @@ describe('InvestigationRail', () => {
   it('selects the exact clicked event and calls onSelectRun with its run_id', () => {
     const props = baseProps()
 
-    render(<InvestigationRail {...props} />)
+    renderWithClient(<InvestigationRail {...props} />)
 
     fireEvent.click(screen.getByRole('button', { name: /Reasoning completed/i }))
 
@@ -137,7 +156,7 @@ describe('InvestigationRail', () => {
   it('does not offer a click target for events without a run_id', () => {
     const props = baseProps()
 
-    render(<InvestigationRail {...props} />)
+    renderWithClient(<InvestigationRail {...props} />)
 
     expect(
       screen.queryByRole('button', { name: /Observation received/i }),
@@ -145,7 +164,7 @@ describe('InvestigationRail', () => {
   })
 
   it('renders evidence, confidence, and alternative hypotheses for the associated run', () => {
-    render(
+    renderWithClient(
       <InvestigationRail
         {...baseProps()}
         selectedRunId="run-1"
@@ -162,7 +181,7 @@ describe('InvestigationRail', () => {
   })
 
   it('shows a loading state while the reasoning run is being fetched', () => {
-    render(
+    renderWithClient(
       <InvestigationRail
         {...baseProps()}
         selectedRunId="run-1"
@@ -176,7 +195,7 @@ describe('InvestigationRail', () => {
   it('shows an error state with a retry action', () => {
     const onRetryRunDetails = vi.fn()
 
-    render(
+    renderWithClient(
       <InvestigationRail
         {...baseProps()}
         selectedRunId="run-1"
@@ -188,5 +207,107 @@ describe('InvestigationRail', () => {
     expect(screen.getByText('Failed to load run details')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /Retry/i }))
     expect(onRetryRunDetails).toHaveBeenCalled()
+  })
+
+  describe('AI-fault timeline events (Issue 3 regression)', () => {
+    const aiFaultEvent: TimelineEventResponse = {
+      id: 'evt-ai-1',
+      asset_id: 'fc-stack-01',
+      timestamp: '2026-01-01T10:10:00Z',
+      event_type: 'ai_fault_corroboration_completed',
+      title: 'Deterministic corroboration: partially_corroborated',
+      description: 'stack_temperature is increasing while coolant_flow is stable.',
+      metadata: { investigation_id: 'inv-1', corroboration_result: 'partially_corroborated' },
+    }
+
+    const investigationDetail: FaultInvestigationDetailResponse = {
+      investigation_id: 'inv-1',
+      asset_id: 'fc-stack-01',
+      current: {
+        investigation_id: 'inv-1',
+        asset_id: 'fc-stack-01',
+        investigation_status: 'OPEN',
+        diagnosed_fault_class: 'cooling_degradation',
+        previous_diagnosed_fault_class: null,
+        alert_transition_type: 'confirmed',
+        observed_at: '2026-01-01T10:10:00Z',
+        corroboration_result: 'partially_corroborated',
+        corroboration_notes:
+          'stack_temperature is increasing while coolant_flow is stable.',
+        corroboration_rule_ids: ['cooling_degradation.stack_temperature_increasing'],
+        urgency: 'INSPECTION_REQUIRED',
+        recommendation_status: 'produced',
+        recommendation: {
+          id: 'ai-fault-rec-1',
+          status: 'produced',
+          category: 'investigate',
+          urgency: 'INSPECTION_REQUIRED',
+          action_summary: 'Verify cooling loop before acting.',
+          reason: 'Evidence partially supports the diagnosis.',
+          recommended_steps: ['Cross-check stack temperature against a secondary sensor.'],
+          limitations: 'Evidence is ambiguous.',
+        },
+        authority_boundary_note:
+          'This fault was detected by a diagnostic model and is evidence, not a confirmed diagnosis.',
+        supporting_evidence: [],
+        provenance: null,
+      },
+      timeline: [],
+    }
+
+    it('offers a click target for an ai_fault_* event carrying investigation_id', () => {
+      mockGetFaultInvestigationDetail.mockResolvedValue(investigationDetail)
+      const props = { ...baseProps(), events: [...events, aiFaultEvent] }
+
+      renderWithClient(<InvestigationRail {...props} />)
+
+      expect(
+        screen.getByRole('button', { name: /Deterministic corroboration/i }),
+      ).toBeInTheDocument()
+    })
+
+    it('renders real AI fault investigation detail in Event Context when selected', async () => {
+      mockGetFaultInvestigationDetail.mockResolvedValue(investigationDetail)
+      const props = { ...baseProps(), events: [...events, aiFaultEvent] }
+
+      renderWithClient(<InvestigationRail {...props} />)
+      fireEvent.click(
+        screen.getByRole('button', { name: /Deterministic corroboration/i }),
+      )
+
+      expect(await screen.findByText('Associated AI fault investigation')).toBeInTheDocument()
+      expect(
+        await screen.findByText(/cooling degradation.*confirmed/i),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText('Verify cooling loop before acting.'),
+      ).toBeInTheDocument()
+      expect(mockGetFaultInvestigationDetail).toHaveBeenCalledWith(
+        'inv-1',
+        expect.anything(),
+      )
+      // Never leaves Event Context on the generic/blank placeholder.
+      expect(
+        screen.queryByText(
+          'Select a timeline event to inspect context and correlate with telemetry.',
+        ),
+      ).not.toBeInTheDocument()
+    })
+
+    it('does not fabricate a reasoning-run relationship for an ai_fault_* event', async () => {
+      mockGetFaultInvestigationDetail.mockResolvedValue(investigationDetail)
+      const props = { ...baseProps(), events: [...events, aiFaultEvent] }
+
+      renderWithClient(<InvestigationRail {...props} />)
+      fireEvent.click(
+        screen.getByRole('button', { name: /Deterministic corroboration/i }),
+      )
+
+      await waitFor(() =>
+        expect(screen.getByText('Associated AI fault investigation')).toBeInTheDocument(),
+      )
+      expect(screen.queryByText('Associated reasoning run')).not.toBeInTheDocument()
+      expect(props.onSelectRun).not.toHaveBeenCalled()
+    })
   })
 })

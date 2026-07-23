@@ -169,6 +169,16 @@ SIMULATOR_TRANSPORT=http python -m backend.simulator --scenario normal_operation
 4. Health scores appear after ≥2 `stack_temperature` samples (~30s)
 5. Run `demo_presentation` to observe the full baseline → cooling degradation → warning/critical → recovery arc on stack-01 (~6:40)
 
+### Operator lifecycle
+
+A recommendation always exists once reasoning has run at least once (a
+baseline P3/"monitor" recommendation exists even at NORMAL health — no fault
+is required to try this). Select an operator, then walk the sequence in
+order: **Acknowledge → Start investigating → Resolve**. Live-verified
+2026-07-23: the full `NEW → ACKNOWLEDGED → INVESTIGATING → RESOLVED`
+sequence now completes reliably through the real dashboard, with each
+transition reflected immediately.
+
 ---
 
 ## Reproducible screenshots & demo video
@@ -205,6 +215,30 @@ but note the health-status badge (NORMAL/WARNING/CRITICAL) lags a phase
 boundary by tens of seconds (see the table below); don't assume the badge
 flips the instant a phase-change line appears.
 
+### Notification severity now matches current health (2026-07-23)
+
+**The dashboard no longer shows a CRITICAL banner unless health is
+genuinely CRITICAL.** Two tiers exist and are labeled distinctly:
+
+| | Trigger | Severity shown | Recommendation |
+|---|---|---|---|
+| **P0** | Confirmed `health_status == CRITICAL` | CRITICAL | "Immediate mitigation required" |
+| **P1** | Elevated risk (`risk_level == HIGH`) without a confirmed CRITICAL health reading — a leading indicator, ahead of health_score catching up | WARNING | "Elevated risk identified" — investigation recommended, not mitigation |
+
+Previously, elevated risk alone (P1) could mint the same CRITICAL-severity,
+"Immediate mitigation required" notification as a confirmed CRITICAL
+reading, even while the fleet showed NORMAL health and LOW risk — visually
+contradictory with no explanation. Live-verified over a 60-second sweep
+across all four assets from a clean stack start: zero instances of a
+CRITICAL-severity notification while `health_status != CRITICAL`.
+
+Because notifications are an intentional append-only log (an entry doesn't
+auto-clear when health recovers — see [Known limitations](#known-limitations)),
+an older, still-open notification can still be visible after current health
+improves. The banner now explains this explicitly whenever it applies,
+naming the asset's current health status rather than leaving the two facts
+side by side unexplained.
+
 ### Verified timing (presentation cadence)
 
 **Superseded 2026-07-23**: the table this section used to carry (CRITICAL
@@ -214,12 +248,20 @@ measured against a real bug and is no longer accurate — see
 (`backend/app/application/reasoning_compatibility.py`'s legacy trend calls
 silently used an 8-sample window instead of the platform's configured
 20-sample `observation_window`, which is short enough to be less than one
-Plant Alpha load-cycle at demo cadence). Before the fix, stack-01's health
+Plant Alpha load-cycle at demo cadence). Before that fix, stack-01's health
 status flapped between NORMAL/WARNING/CRITICAL roughly every 6–13 seconds,
 continuously, for minutes at a time — the fix resolved that chaotic
-multi-state flapping, but what replaced it is **not** a single held state
-either, and this section now reports that honestly instead of repeating the
-old claim.
+multi-state flapping, but what replaced it was **not** a single held state
+either.
+
+A second pass on 2026-07-23 fixed the remaining contributors to that
+flapping (an ungated variation classifier and a double-counted signal in the
+health-score formula — see [Known limitations](#known-limitations)) and the
+CRITICAL-notification mismatch described above. This reduces both how often
+and how severely the badge swings, but a full multi-minute timing
+re-characterization was not repeated after this second pass — only a
+60-second contradiction sweep. Treat the table below as directional and do a
+fresh dry run before relying on exact numbers, same as before.
 
 `PRESENTATION_PHASES` durations are defined in *simulated* seconds; at the
 presentation cadence (`SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=10`,
@@ -319,6 +361,24 @@ populating is its own milestone, on its own timeline, driven by the Kafka
 path rather than the MQTT path described above, and is the more reliable of
 the two to build a recording around.
 
+### Investigation timeline: AI-fault events are now selectable
+
+Clicking a visible `ai_fault_*` timeline entry (alert received, corroboration
+completed, investigation updated, recommendation recorded, alert cleared)
+now opens the associated AI fault investigation in Event Context — the
+diagnosed class, corroboration result and notes, and recommendation, not a
+fabricated reasoning-run relationship. A deterministic reasoning event
+(`reasoning_started`/`reasoning_completed`) remains selectable the same way
+it always was.
+
+**Limitation:** the timeline preview shows only the 5 most recent events for
+an asset, and high-frequency `observation_received` events can crowd
+`ai_fault_*` events out of that window — an `ai_fault_*` event is selectable
+whenever one is visible, but one is not guaranteed to be visible at any
+given moment. If none is showing, a populated deterministic reasoning event
+is a reliable fallback for showing Event Context is real, not a canned
+message.
+
 ---
 
 ## Validation
@@ -383,7 +443,8 @@ ODIS_DEMO_SMOKE=1 pytest tests/integration/test_demo_mqtt_smoke.py
 - **PR141 scope:** This PR validates demo infrastructure and end-to-end MQTT ingestion through reasoning and the operator dashboard. It does not claim long-duration scalability; `demo_realistic` remains disabled for that reason.
 - **Resolved: healthy peers reading CRITICAL alongside the actual fault target.** A clean `demo_presentation` run previously showed `fuel-cell-stack-02/03/04` reaching `CRITICAL` at the same time as the actual fault target (`fuel-cell-stack-01`), and staying there through `recovery`, with no fault ever injected into their physics model. Root cause: `VariationDetector`'s threshold and `TrendDetector`'s first-vs-last comparison were both miscalibrated for Plant Alpha's real sinusoidal load-cycling amplitude, and reasoning reloaded unbounded observation history on every run so a resolved fault's stale extremes never aged out. Fixed via `ReasoningSessionConfig.observation_window` (bounded, per-measurement-type recent history), a recalibrated `HIGH_VARIATION_THRESHOLD`, and a `TrendDetector` rewrite (split-half mean comparison instead of endpoint comparison) — see `docs/architecture.md`'s reasoning-pipeline section.
 - **Resolved: transient false WARNING/CRITICAL on healthy peers, cold-start and mid-session.** A later clean-stack characterization run found a smaller residual: individual healthy, unfaulted assets would briefly flip to `WARNING` or `CRITICAL` (a stale `OPEN` notification, since notifications are append-only and don't auto-clear when health recovers) throughout a session, not just at startup. Two distinct causes, both outside the core reasoning pipeline and the `DecisionPlanner`: (1) `TrendDetector`'s split-half comparison degenerates toward a raw endpoint comparison at very low sample counts (`n=2` gives one point per half) — verified against real telemetry, ratios spiked as high as 2.2x threshold at `n=2-7` before settling under 0.72 from `n=8` on. (2) A second, separate, previously-uncalibrated trend algorithm in the backend platform layer (`backend/app/application/time_series_analysis.py`, used only for `OperationalStateEngine`'s health-score penalty) was pinned at a fixed 5-sample window for the life of the session, not just at startup, and its volatility measure divided step noise by *net window drift* — which trends toward zero for any window that straddles a peak or trough of an oscillating signal, inflating `volatility_score` to 90-100 almost continuously even for a perfectly healthy asset. Fixed by requiring at least one full load-cycle's worth of history (8 samples, matching the cycle length in the cadence comment below) before either module trusts a directional classification, and widening the legacy module's window to match. Verified on a fresh clean stack: all four assets read `NORMAL` (health score 90) at baseline with no notification present, and the value held for the duration of a full `normal_operation` window.
-- **Resolved: chaotic multi-state health flapping on the fault target itself.** A 2026-07-23 pre-recording audit found `fuel-cell-stack-01` (the actual fault target, not a healthy peer) cycling through NORMAL/WARNING/CRITICAL roughly every 6–13 seconds, continuously, for minutes at a time during `cooling_degradation`/`recovery` — distinct from the two healthy-peer issues above. Root cause: `backend/app/application/reasoning_compatibility.py`'s `build_explainable_decision` called `analyze_trend`/`analyze_trend_diagnostics` without an explicit `observation_window`, silently falling back to those functions' own 8-sample minimum instead of the platform's configured `DEFAULT_REASONING_SESSION_CONFIG.observation_window` (20) — a value already sized (see the cadence comment in `reasoning_config.py`) to span multiple Plant Alpha load-cycles specifically to prevent this failure mode, but never wired through to this call site. At presentation cadence, 8 samples is *less* than one full load-cycle, so the window's phase relative to the cycle flipped the classified trend direction on nearly every reasoning run. Fixed by passing the platform's configured window through explicitly (no threshold, detector, or `DecisionPlanner` changes); regression test: `tests/backend/test_reasoning_compatibility.py::test_build_explainable_decision_uses_platform_observation_window_not_legacy_minimum`. **This did not fully eliminate oscillation** — see the updated [Verified timing](#verified-timing-presentation-cadence) table for the new, much calmer but still-oscillating steady state.
+- **Resolved: chaotic multi-state health flapping on the fault target itself.** A 2026-07-23 pre-recording audit found `fuel-cell-stack-01` (the actual fault target, not a healthy peer) cycling through NORMAL/WARNING/CRITICAL roughly every 6–13 seconds, continuously, for minutes at a time during `cooling_degradation`/`recovery` — distinct from the two healthy-peer issues above. Root cause: `backend/app/application/reasoning_compatibility.py`'s `build_explainable_decision` called `analyze_trend`/`analyze_trend_diagnostics` without an explicit `observation_window`, silently falling back to those functions' own 8-sample minimum instead of the platform's configured `DEFAULT_REASONING_SESSION_CONFIG.observation_window` (20) — a value already sized (see the cadence comment in `reasoning_config.py`) to span multiple Plant Alpha load-cycles specifically to prevent this failure mode, but never wired through to this call site. At presentation cadence, 8 samples is *less* than one full load-cycle, so the window's phase relative to the cycle flipped the classified trend direction on nearly every reasoning run. Fixed by passing the platform's configured window through explicitly (no threshold, detector, or `DecisionPlanner` changes); regression test: `tests/backend/test_reasoning_compatibility.py::test_build_explainable_decision_uses_platform_observation_window`. **This did not fully eliminate oscillation** — see the updated [Verified timing](#verified-timing-presentation-cadence) table for the new, much calmer but still-oscillating steady state.
+- **Resolved: a CRITICAL notification could be minted from elevated risk alone, without a confirmed CRITICAL health reading.** A 2026-07-23 audit found two further contributors to the residual oscillation above, plus a separate, more visible bug: (1) `VariationDetector` had no minimum-sample gate (unlike its sibling `TrendDetector`), so a 2-sample window could trip `HIGH_VARIATION_THRESHOLD` from ordinary load-cycling noise within seconds of a clean start; (2) the same variation signal was scored twice in the health formula — once via `priority_penalty`, again via `assessment_penalty`; (3) `RecommendationEngine` used `risk_level == HIGH` (a leading indicator, by design) alone to select the same CRITICAL-severity, "Immediate mitigation required" notification as a confirmed CRITICAL health reading. Fixed by gating `VariationDetector` to match `TrendDetector`'s precedent, removing the double-count, and splitting the notification into two properly distinct, correctly-labeled tiers — see [Notification severity now matches current health](#notification-severity-now-matches-current-health-2026-07-23) above. Regression tests: `tests/application/test_variation_detector.py`, `tests/backend/test_recommendation_engine.py`, `tests/backend/test_notification_policy_engine.py`.
 - **Remaining limitation: one primary measurement per reasoning run.** The fix above does not make every fault type discriminable simultaneously — Plant Alpha's `cooling_degradation` and `hydrogen_supply_issue` faults are physically orthogonal (temperature vs. current/fuel_flow), and a single fixed primary-measurement preference cannot serve both without risking a regression in one to fix the other. See `docs/architecture.md`'s "Known limitation: single primary measurement per run"; multi-signal reasoning is planned as the first architectural milestone after v1.0, not forced into this release. Do a dry run of your recording window before shooting to confirm the specific scenario you intend to record behaves as expected.
 
 ---

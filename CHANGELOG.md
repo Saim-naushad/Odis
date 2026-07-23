@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Three fixes found and root-caused during a pre-recording live audit of the
+v1.1 dashboard, verified against a rebuilt live stack (not just unit tests).
+
+### Fixed
+- **Fleet-state / notification contradiction**: elevated risk alone
+  (`risk_level == HIGH`, a leading indicator ahead of a confirmed CRITICAL
+  health reading) could mint the same CRITICAL-severity, "Immediate
+  mitigation required" notification as a confirmed CRITICAL health reading —
+  visible on the dashboard as a CRITICAL banner over an otherwise-NORMAL,
+  LOW-risk fleet with no explanation. Root cause was three stacked issues:
+  `VariationDetector` had no minimum-sample gate (unlike its sibling
+  `TrendDetector`), letting a 2-sample window trip the HIGH-variation
+  threshold from ordinary load-cycling noise within seconds of a clean
+  start; the same variation signal was then scored twice in the health
+  formula (`priority_penalty` and `assessment_penalty`); and
+  `RecommendationEngine`/`NotificationPolicyEngine` collapsed the
+  CRITICAL/elevated-risk distinction into one severity tier. Fixed by
+  gating the detector, removing the double-count, and splitting
+  recommendations into P0 (confirmed CRITICAL → CRITICAL severity,
+  "Immediate mitigation required") and P1 (elevated risk only → WARNING
+  severity, "Elevated risk identified"). The dashboard's alert banner also
+  now explicitly names the asset's current health status whenever a
+  still-open notification (notifications are an intentional append-only
+  log) implies worse than current reality, instead of leaving the two facts
+  side by side unexplained.
+- **Operator investigation lifecycle reliability**: `recommendation_id` was
+  derived from the reasoning run's own timestamp, so it changed on every
+  reasoning cycle (roughly every 4 seconds) even when the recommendation's
+  content hadn't materially changed. Because Acknowledge/Start
+  investigating/Resolve are keyed to `recommendation_id`, a transition
+  request frequently 404'd against an already-superseded id, and reaching
+  RESOLVED reliably required racing 15-20+ retries. Fixed by deriving the
+  id from the recommendation's own material classification (asset, category,
+  priority, urgency, title) instead of a timestamp, so it stays stable
+  across cycles until the recommendation actually changes. No frontend
+  retry logic was added — the identity itself was the fix. Live-verified:
+  the full `NEW → ACKNOWLEDGED → INVESTIGATING → RESOLVED` sequence now
+  completes on the first click for every transition.
+- **AI-fault timeline events were not selectable**: `ai_fault_*` timeline
+  events (alert received, corroboration completed, investigation updated,
+  recommendation recorded, alert cleared) already carried an
+  `investigation_id`, and the detail endpoint already existed, but the
+  Timeline component only recognized `run_id`-bearing events as clickable.
+  Selecting one now shows the associated AI fault investigation in Event
+  Context — never a fabricated reasoning-run relationship. Known
+  limitation, unchanged by this fix: the timeline preview shows only 5
+  recent events, and high-frequency observation events can crowd an
+  `ai_fault_*` event out of that window, so one is selectable when visible
+  but not guaranteed to be visible at any given moment.
+
 ## [1.1.0] - 2026-07-22
 
 Adds a promoted AI-assisted fault-diagnosis capability on top of v1.0's

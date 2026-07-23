@@ -1,5 +1,8 @@
 import type { TimelineEventResponse, TimelineEventType } from '../types/monitoring'
-import { getTimelineEventRunId } from '../utils/timelineEvent'
+import {
+  getTimelineEventInvestigationId,
+  getTimelineEventRunId,
+} from '../utils/timelineEvent'
 
 interface TimelineProps {
   events: TimelineEventResponse[]
@@ -68,7 +71,8 @@ export function Timeline({
                 ? event.id === selectedEventId
                 : event.id === newestEventId
               const runId = getTimelineEventRunId(event)
-              const isSelectable = Boolean(runId) && Boolean(onSelectEvent)
+              const investigationId = getTimelineEventInvestigationId(event)
+              const isSelectable = Boolean(runId ?? investigationId) && Boolean(onSelectEvent)
               const row = (
                 <div className="flex items-start gap-3 px-3 py-2">
                   <span

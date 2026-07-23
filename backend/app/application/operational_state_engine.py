@@ -103,18 +103,19 @@ class OperationalStateEngine:
             if structured_assessment is not None
             else False
         )
-        variation_level = getattr(structured_assessment, "variation_level", None)
-        variation_value = getattr(
-            variation_level, "value", str(variation_level or "")
-        ).casefold()
-        variation_high = "high" in variation_value
+        # variation_level is deliberately NOT scored again here: every signal
+        # combination that produces variation_level == HIGH also produces
+        # "increasing"/"unstable" assessment text (see
+        # _assessment_from_signals in operational_situation_assessor.py),
+        # which DecisionPlanner._planning_outcome always maps to
+        # Priority.HIGH - already scored above via priority_penalty (10->45,
+        # a 35-point jump). Adding a further variation-based penalty here
+        # double-counted the same underlying signal in the same score.
 
         assessment_penalty = 0
         if contradictions:
             assessment_penalty += 15
         if unexpected:
-            assessment_penalty += 10
-        if variation_high:
             assessment_penalty += 10
 
         raw_score = 100 - priority_penalty - trend_penalty - assessment_penalty

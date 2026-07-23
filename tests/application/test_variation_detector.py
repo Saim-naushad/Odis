@@ -27,11 +27,30 @@ def test_low_variation_sequence_is_classified_as_low(
 def test_high_variation_sequence_is_classified_as_high(
     detector: VariationDetector,
 ) -> None:
-    observations = build_observation_sequence([100, 150, 80, 160, 70])
+    # At least _MIN_SAMPLES_FOR_VARIATION_CLASSIFICATION observations are
+    # required before a HIGH classification is trusted at all.
+    observations = build_observation_sequence(
+        [100, 150, 80, 160, 70, 140, 90, 155]
+    )
 
     result = detector.detect(observations)
 
     assert result.level == VariationLevel.HIGH
+
+
+def test_short_windows_are_classified_as_low_regardless_of_spread(
+    detector: VariationDetector,
+) -> None:
+    # Below _MIN_SAMPLES_FOR_VARIATION_CLASSIFICATION, a max-min spread can
+    # trivially clear HIGH_VARIATION_THRESHOLD from ordinary sinusoidal load
+    # cycling alone - a short window defaults to LOW rather than trusting a
+    # HIGH reading off too little evidence (mirrors TrendDetector's identical
+    # short-window-defaults-to-the-calm-reading convention).
+    observations = build_observation_sequence([100, 150, 80, 160, 70, 140, 90])
+
+    result = detector.detect(observations)
+
+    assert result.level == VariationLevel.LOW
 
 
 def test_single_observation_is_rejected(detector: VariationDetector) -> None:
@@ -80,7 +99,9 @@ def test_mixed_measurement_types_are_rejected(detector: VariationDetector) -> No
 def test_unordered_timestamps_are_sorted_before_classification(
     detector: VariationDetector,
 ) -> None:
-    observations = build_observation_sequence([100, 150, 80, 160, 70])
+    observations = build_observation_sequence(
+        [100, 150, 80, 160, 70, 140, 90, 155]
+    )
 
     result = detector.detect(tuple(reversed(observations)))
 

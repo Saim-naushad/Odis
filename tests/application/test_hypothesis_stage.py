@@ -50,7 +50,11 @@ def test_hypothesis_stage_generates_load_change_by_default() -> None:
 
 
 def test_hypothesis_stage_generates_sensor_drift_for_high_variation() -> None:
-    observations = build_observation_sequence([10.0, 90.0, 5.0, 100.0])
+    # At least VariationDetector's minimum sample count is required before a
+    # HIGH classification is trusted at all.
+    observations = build_observation_sequence(
+        [10.0, 90.0, 5.0, 100.0, 8.0, 95.0, 3.0, 105.0]
+    )
     context = _context_with_stages(observations)
 
     assert context.artifacts.hypotheses[0].kind == HypothesisKind.SENSOR_DRIFT

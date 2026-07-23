@@ -25,7 +25,7 @@ def _recommendation(*, priority: str) -> Recommendation:
     ("priority", "expected"),
     [
         ("P0", "CRITICAL"),
-        ("P1", "CRITICAL"),
+        ("P1", "WARNING"),
         ("P2", "WARNING"),
     ],
 )
@@ -38,6 +38,16 @@ def test_policy_creates_notification_for_p0_p1_p2(
     assert notification.severity == expected
     assert notification.status == "OPEN"
     assert notification.recommendation_id.startswith("rec-")
+
+
+def test_only_p0_is_critical_severity() -> None:
+    # P1 is elevated risk that has not been confirmed as a CRITICAL health
+    # reading (see RecommendationEngine.compute()) - it must read WARNING,
+    # not CRITICAL, so the notification never overclaims severity relative
+    # to the underlying health status.
+    engine = NotificationPolicyEngine()
+    assert engine.compute(_recommendation(priority="P0")).severity == "CRITICAL"  # type: ignore[union-attr]
+    assert engine.compute(_recommendation(priority="P1")).severity == "WARNING"  # type: ignore[union-attr]
 
 
 def test_policy_returns_none_for_p3() -> None:

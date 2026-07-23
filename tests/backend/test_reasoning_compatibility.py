@@ -98,9 +98,7 @@ def test_assessment_confidence_differs_from_legacy_plan_severity_confidence() ->
     assert "Severity" not in assessment_confidence.rationale
 
 
-def test_build_explainable_decision_uses_platform_observation_window_not_legacy_minimum() -> (
-    None
-):
+def test_build_explainable_decision_uses_platform_observation_window() -> None:
     """Regression test for a live oscillation bug.
 
     `analyze_trend`/`analyze_trend_diagnostics` default to an 8-sample

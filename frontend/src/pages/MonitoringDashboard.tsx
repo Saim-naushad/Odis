@@ -56,7 +56,12 @@ export function MonitoringDashboard() {
       {/* Reserve the alert banner's footprint so it appearing/disappearing
           doesn't shift the grid below it. */}
       <div className="min-h-[96px]">
-        {twin?.notification && <ActiveAlertBanner notification={twin.notification} />}
+        {twin?.notification && (
+          <ActiveAlertBanner
+            notification={twin.notification}
+            currentHealthStatus={twin.operational_state.health_status}
+          />
+        )}
       </div>
 
       <main className="grid flex-1 gap-4 p-4 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)]">

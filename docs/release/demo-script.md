@@ -91,11 +91,15 @@ around — see Demo Environment for the live-verified range.
 (roughly 1–2.5 minutes in, live-verified — see Demo Environment); show the
 active alert banner, Recommended Action panel, and the investigation
 timeline. **Corrected 2026-07-23:** the legacy health badge does not hold a
-CRITICAL-then-WARNING state for several minutes — post-fix, it's not
-observed to reach CRITICAL at all, and instead alternates NORMAL/WARNING
-roughly every 28–32 seconds indefinitely. Don't plan an extended narration
-around it holding a state; the AI-Assisted Fault Diagnosis card is the more
-stable thing to narrate over.
+CRITICAL-then-WARNING state for several minutes — don't plan an extended
+narration around it holding a state; the AI-Assisted Fault Diagnosis card is
+the more stable thing to narrate over. **Updated 2026-07-23 (second pass):**
+a CRITICAL banner now only ever appears for a confirmed CRITICAL health
+reading, correctly distinguished from elevated-risk/WARNING states — see
+[Demo Environment → Notification severity now matches current
+health](../platform/demo-environment.md#notification-severity-now-matches-current-health-2026-07-23).
+If the banner shows WARNING while the fleet reads NORMAL elsewhere, that's
+an older still-open notification and the banner now explains that itself.
 
 > "Once the fault crosses a threshold, a prioritized recommendation appears
 > — priority, category, and numbered operator steps. This is where the
@@ -117,7 +121,13 @@ correction at the top of this file.)*
 ## 6. Reasoning (6:15–6:35)
 
 **On screen:** click a timeline event, show Event Context and the evidence/
-alternative-hypotheses panel in the investigation rail.
+alternative-hypotheses panel in the investigation rail. **Updated
+2026-07-23:** a visible AI-fault event (alert received, corroboration
+completed, etc.) is now selectable too, and shows the associated AI fault
+investigation instead of a reasoning run — prefer one if visible, since it
+demonstrates the newer capability, but the timeline preview only shows 5
+events and observation events can crowd it out, so a populated reasoning
+event remains a reliable fallback.
 
 > "Every recommendation traces back to evidence: which measurements
 > contributed, their weights, and alternative hypotheses the engine

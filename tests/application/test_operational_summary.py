@@ -254,7 +254,9 @@ def test_summarize_reflects_stability_change() -> None:
     ) = _build_stack()
     previous_run_id = _run_session(
         session,
-        [100.0, 150.0, 80.0, 160.0, 70.0, 100.0],
+        # At least VariationDetector's minimum sample count is required
+        # before a HIGH ("unstable") classification is trusted at all.
+        [100.0, 150.0, 80.0, 160.0, 70.0, 140.0, 90.0, 155.0],
         id_prefix="prev",
     )
     current_run_id = _clone_run_with_assessment(

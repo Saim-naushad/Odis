@@ -1,3 +1,37 @@
+# Unreleased
+
+Three fixes from a pre-recording live audit of the v1.1 dashboard, each
+root-caused and verified against a rebuilt live stack before being applied.
+
+- **The dashboard could show a CRITICAL banner over an otherwise-healthy
+  fleet.** Elevated risk — a leading indicator that can precede a confirmed
+  CRITICAL health reading — was treated the same as a confirmed CRITICAL
+  reading when generating operator notifications. The two are now
+  distinguished explicitly: **P0** (confirmed CRITICAL health) shows a
+  CRITICAL-severity "Immediate mitigation required" notification; **P1**
+  (elevated risk, health not yet confirmed CRITICAL) shows a
+  WARNING-severity "Elevated risk identified" notification instead.
+  Notifications remain an intentional append-only record — one can still
+  legitimately stay open after health recovers — but the dashboard now
+  explains that distinction inline rather than showing two contradictory
+  facts side by side.
+- **The operator investigation workflow (Acknowledge → Start investigating →
+  Resolve) could fail to complete.** The identifier a transition referenced
+  changed on every reasoning cycle even when nothing about the underlying
+  recommendation had materially changed, so a transition request could be
+  rejected as stale seconds after the recommendation it targeted was shown
+  on screen. The identifier is now stable across cycles until the
+  recommendation's actual classification changes. The full lifecycle now
+  completes reliably.
+- **AI-detected fault events in the investigation timeline are now
+  selectable.** Clicking one shows the associated AI fault investigation —
+  diagnosis, corroboration, and recommendation — directly in the timeline's
+  event detail panel. (The timeline only previews the 5 most recent events
+  for an asset, so an AI-fault event isn't guaranteed to be visible at every
+  moment — it's selectable whenever one is showing.)
+
+---
+
 # ODIS v1.1.0
 
 Adds a promoted AI-assisted fault-diagnosis capability — trained on Plant Alpha
