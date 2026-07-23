@@ -1,5 +1,19 @@
 # v1.1 Demo Script (~6:40)
 
+**Superseded 2026-07-23 for recording purposes.** This narrated-voiceover
+script has been replaced by a silent, app-only recording guide (see the
+project's current demo-video planning materials) — the project no longer
+records a spoken walkthrough. This file is kept for historical reference,
+with two stale claims corrected below rather than left wrong: the
+"~2:50–3:23 CRITICAL" and "~6:12 held NORMAL" timings this script was built
+around **no longer hold**, even after fixing the flapping bug that partly
+caused them (see [Demo Environment → Verified
+timing](../platform/demo-environment.md#verified-timing-presentation-cadence)
+for what actually happens now — a live-verified, oscillating NORMAL/WARNING
+state with no CRITICAL observed in post-fix rehearsals, not a held
+CRITICAL-then-WARNING arc). Do not use the timings below to plan a new
+recording.
+
 Companion to [Screenshot Checklist](screenshot-checklist.md). Both draw from
 the same `demo_presentation` recording session — see
 [Demo Environment → Recording procedure](../platform/demo-environment.md#reproducible-screenshots--demo-video)
@@ -7,20 +21,18 @@ for exact startup and timing mechanics.
 
 **Before recording:** start from a clean database
 (`docker compose down -v && docker compose --profile demo up --build -d`).
-`cooling_degradation` starts at **0:30** into the script, but the health
-badge stays a healthy-looking NORMAL for about another minute — watch
-`docker compose logs -f demo-plant` for phase-change lines to know when each
-*scenario* phase starts, but time your CRITICAL/recovered shots off the
-actual dashboard state, not those log lines. See
-[Demo Environment → Verified timing](../platform/demo-environment.md#verified-timing-presentation-cadence)
-for the full measured timeline this script's cue points are built around —
-notably, the CRITICAL alert doesn't appear until **~2:50-3:23**, and health
-doesn't settle back to a held NORMAL until **~6:12**.
+`cooling_degradation` starts around **0:30–1:30** into the run (real
+run-to-run variance observed — see [Demo Environment → Verified
+timing](../platform/demo-environment.md#verified-timing-presentation-cadence)),
+but the health badge stays a healthy-looking NORMAL for a while longer —
+watch `docker compose logs -f demo-plant` for phase-change lines to know
+when each *scenario* phase starts, but time your shots off the actual
+dashboard state, not those log lines.
 
-Target run time: **~6:40** (the full, automatically-resolving walkthrough).
-For a shorter cut, the ~02:50–03:30 CRITICAL window plus one
-investigation-lifecycle transition is the minimum viable segment — see cut
-points marked below.
+Target run time: **~6:40** (the full, automatically-resolving walkthrough),
+though the AI-Assisted Fault Diagnosis card now confirms within roughly
+1–2.5 minutes and is the more reliable segment to build a short recording
+around — see Demo Environment for the live-verified range.
 
 ---
 
@@ -75,12 +87,15 @@ points marked below.
 
 ## 5. Investigation workflow (2:15–6:15)
 
-**On screen:** wait for the fault window (CRITICAL typically appears around
-~2:50–3:23); show the active alert banner, Recommended Action panel, and the
-investigation timeline. This is the longest section — health holds at
-CRITICAL then WARNING for several minutes before automatically settling
-back to NORMAL around ~6:12, which gives comfortable, unhurried time to
-narrate and demonstrate the operator workflow rather than rushing it.
+**On screen:** wait for the AI-Assisted Fault Diagnosis card to confirm
+(roughly 1–2.5 minutes in, live-verified — see Demo Environment); show the
+active alert banner, Recommended Action panel, and the investigation
+timeline. **Corrected 2026-07-23:** the legacy health badge does not hold a
+CRITICAL-then-WARNING state for several minutes — post-fix, it's not
+observed to reach CRITICAL at all, and instead alternates NORMAL/WARNING
+roughly every 28–32 seconds indefinitely. Don't plan an extended narration
+around it holding a state; the AI-Assisted Fault Diagnosis card is the more
+stable thing to narrate over.
 
 > "Once the fault crosses a threshold, a prioritized recommendation appears
 > — priority, category, and numbered operator steps. This is where the
@@ -92,9 +107,12 @@ narrate and demonstrate the operator workflow rather than rushing it.
 investigating**, then **Resolve** once health has visibly settled. Show the
 status badge and actor line updating live at each step.
 
-*(Cut point for a shorter highlight: capture only the ~2:50–3:30 CRITICAL
-window plus "Acknowledge" and cut there — see [Demo Environment → minimum
-viable segment](../platform/demo-environment.md#reproducible-screenshots--demo-video).)*
+*(Cut point for a shorter highlight: capture the AI-Assisted Fault Diagnosis
+card's confirmation (roughly 1–2.5 minutes in) plus "Acknowledge" and cut
+there — see [Demo Environment → minimum viable
+segment](../platform/demo-environment.md#reproducible-screenshots--demo-video).
+The old ~2:50–3:30 CRITICAL-window cut point no longer applies — see the
+correction at the top of this file.)*
 
 ## 6. Reasoning (6:15–6:35)
 

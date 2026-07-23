@@ -33,17 +33,18 @@ recording session, so the whole set is internally consistent.
 
 | # | Filename | Purpose | Simulator phase | What should be visible |
 |---|----------|---------|------------------|-------------------------|
-| 1 | `dashboard-overview.png` | Hero shot for README and release notes — proves the platform is live and healthy | `normal_operation` (00:00–00:30, before `cooling_degradation` starts) | Header shows "Platform healthy" and "LIVE"; all four fleet chips with resolved names and NORMAL status; no active alert banner |
-| 2 | `dashboard-cooling-alert.png` | Shows a real fault surfacing as an explainable, prioritized recommendation | CRITICAL window, **~02:50–03:23** into the script | Fleet chip for stack-01 in CRITICAL with a low health score; active alert banner; Recommended Action panel with priority/urgency/category badges and numbered steps |
-| 3 | `dashboard-investigation-lifecycle.png` | Documents the operator investigation workflow — the newest capability, not shown in any current asset | Same window as #2 (CRITICAL persists into WARNING through ~06:12, so there's no rush), after clicking "Acknowledge" or "Start investigating" | Recommended Action panel with an investigation-status badge (e.g. ACKNOWLEDGED), the "Acting as [operator]" control, the transition timestamp/actor line, and the next available action button (e.g. "Resolve") |
-| 4 | `dashboard-telemetry.png` | Shows telemetry correlated with reasoning, not just a status summary | Same window as #2 (**~02:50–06:12**) | Telemetry panel with `stack_temperature` or `coolant_flow` trending adversely, time range/resolution controls visible, investigation timeline panel visible alongside it |
-| 5 | `dashboard-investigation-timeline.png` | Shows the reasoning trace is real evidence, not a canned message | Same window as #2–4, with a timeline event selected | Investigation timeline with multiple reasoning-run and notification events; Event Context panel populated after selecting an event (not the empty "Select a timeline event…" placeholder) |
-| 6 | `dashboard-recovery.png` | Closes the narrative loop — shows reasoning re-assessing automatically, not a manual reset | `recovery`, once health has settled back to a held NORMAL, **~06:12–06:40** | Health score trending back up on stack-01, holding at NORMAL; alert banner cleared or notification marked resolved; investigation status shows RESOLVED if step #3 was carried through |
+| 1 | `dashboard-overview.png` | Hero shot for README and release notes — proves the platform is live and healthy | `normal_operation` (00:00–00:30, before `cooling_degradation` starts) | Header shows a green "LIVE" indicator and **no** platform-status text (the header only renders status text when the platform is *not* healthy — see `ProductHeader.tsx`'s `showPlatformSecondary`); all four fleet chips with resolved names and NORMAL status; no active alert banner |
+| 2 | `dashboard-ai-fault-diagnosis.png` | Shows the v1.1 flagship capability — a model-detected fault corroborated by deterministic rules — which no existing screenshot covers | AI-fault (Kafka) path, ~0:55–1:05 after a clean start — well before the legacy MQTT-path CRITICAL window | AI-Assisted Fault Diagnosis card: `cooling_degradation`/`confirmed` badges, the Deterministic corroboration block (`partially_corroborated`, rule IDs), the recommendation block, and the always-visible authority-boundary sentence |
+| 3 | `dashboard-cooling-alert.png` | Shows a real fault surfacing as an explainable, prioritized recommendation | Any tick where the legacy health badge reads CRITICAL — see [Demo Environment → Known limitations](../platform/demo-environment.md#known-limitations) for why this is now opportunistic rather than a fixed window | Fleet chip for stack-01 in CRITICAL with a low health score; active alert banner; Recommended Action panel with priority/urgency/category badges and numbered steps |
+| 4 | `dashboard-investigation-lifecycle.png` | Documents the operator investigation workflow — the newest capability, not shown in any current asset | Any point where a Recommended Action exists (does not require CRITICAL — a baseline P3/"monitor" recommendation is enough), after clicking "Acknowledge" or "Start investigating" | Recommended Action panel with an investigation-status badge (e.g. ACKNOWLEDGED), the "Acting as [operator]" control, the transition timestamp/actor line, and the next available action button (e.g. "Resolve") |
+| 5 | `dashboard-telemetry.png` | Shows telemetry correlated with reasoning, not just a status summary | Same window as #3 | Telemetry panel with `stack_temperature` or `coolant_flow` trending adversely, time range/resolution controls visible, investigation timeline panel visible alongside it |
+| 6 | `dashboard-investigation-timeline.png` | Shows the reasoning trace is real evidence, not a canned message | Any point with ≥3 timeline events, with one selected | Investigation timeline with multiple reasoning-run and notification events; Event Context panel populated after selecting an event (not the empty "Select a timeline event…" placeholder) |
+| 7 | `dashboard-recovery.png` | Closes the narrative loop — shows reasoning re-assessing automatically, not a manual reset | `recovery`, best-effort — see [Demo Environment → Known limitations](../platform/demo-environment.md#known-limitations); the legacy health badge is not currently guaranteed to settle into a held NORMAL. Capturing the AI investigation's `cleared` empty state is an acceptable substitute if the legacy badge doesn't cooperate | Health score trending back up on stack-01, holding at NORMAL; alert banner cleared or notification marked resolved; investigation status shows RESOLVED if step #4 was carried through — or, as a substitute, the AI-Assisted Fault Diagnosis card's cleared empty state |
 
-Six shots is the target set. If time is limited, 1–4 are the minimum viable
-set — they cover baseline, fault, the new investigation-lifecycle feature,
-and telemetry correlation, which is also the minimum cut described in the
-demo script.
+Seven shots is the target set. If time is limited, 1–4 are the minimum viable
+set — they cover baseline, the AI-assisted diagnosis path, the legacy fault
+alert, and the investigation-lifecycle feature, which is also the minimum
+cut described in the demo script.
 
 ## Manual capture workflow
 
@@ -58,7 +59,7 @@ filenames and content that no longer match the shot list (no
 dependency was never declared in `pyproject.toml`. Reintroducing automated
 capture is future work, not part of this checklist. Capture manually:
 
-1. **States to capture** — the six rows in the [Shot list](#shot-list)
+1. **States to capture** — the seven rows in the [Shot list](#shot-list)
    above; each row's "Simulator phase" and "What should be visible" columns
    are the acceptance criteria for that shot.
 2. **Viewport and resolution** — use a **1440×900** browser window at **2x**
@@ -66,7 +67,7 @@ capture is future work, not part of this checklist. Capture manually:
    viewport with 2x scaling, or an equivalent OS-level Retina/HiDPI
    capture). This reproduces the existing set's ~2880px-wide source PNGs,
    downscaled to 1024px wide for README embedding — keep this consistent
-   across all six shots so the set matches stylistically.
+   across all seven shots so the set matches stylistically.
 3. **Filenames** — use exactly the filenames in the Shot list table's
    `Filename` column (e.g. `dashboard-cooling-alert.png`), not generic or
    timestamped names.
@@ -76,7 +77,7 @@ capture is future work, not part of this checklist. Capture manually:
    `docker compose --profile demo up --build -d` stack on `localhost:8080`
    only; do not include browser chrome, OS menu bars, notification
    toasters, or any second monitor/desktop content in the crop. If the
-   investigation-lifecycle shots (#3) require selecting an operator, use a
+   investigation-lifecycle shot (#4) requires selecting an operator, use a
    generic operator name (e.g. `operator-1`), never a real name or email.
 6. **Use the current, post-AI dashboard** — every shot must come from a
    build that includes the v1.1 operator investigation lifecycle and

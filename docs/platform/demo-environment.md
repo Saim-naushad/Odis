@@ -207,38 +207,58 @@ flips the instant a phase-change line appears.
 
 ### Verified timing (presentation cadence)
 
+**Superseded 2026-07-23**: the table this section used to carry (CRITICAL
+holding ~30s, then WARNING holding until a settled NORMAL by ~06:12) was
+measured against a real bug and is no longer accurate — see
+[Known limitations](#known-limitations) for the root cause and fix
+(`backend/app/application/reasoning_compatibility.py`'s legacy trend calls
+silently used an 8-sample window instead of the platform's configured
+20-sample `observation_window`, which is short enough to be less than one
+Plant Alpha load-cycle at demo cadence). Before the fix, stack-01's health
+status flapped between NORMAL/WARNING/CRITICAL roughly every 6–13 seconds,
+continuously, for minutes at a time — the fix resolved that chaotic
+multi-state flapping, but what replaced it is **not** a single held state
+either, and this section now reports that honestly instead of repeating the
+old claim.
+
 `PRESENTATION_PHASES` durations are defined in *simulated* seconds; at the
 presentation cadence (`SIMULATOR_CORE_PUBLISH_INTERVAL_SECONDS=10`,
-`SIMULATOR_SIM_DT_SECONDS=90`, a 9x sim:real ratio) they map to the real-time
-schedule below. Unlike phase-boundary timing, health-status transitions are
-**not** purely a function of elapsed sim-time — they depend on the platform's
-reasoning/trend-window and notification state (outside the simulator), so
-the table reports what was consistently observed across three independent
-clean-database runs (`docker compose down -v` between each), not just a
-formula prediction:
+`SIMULATOR_SIM_DT_SECONDS=90`, a 9x sim:real ratio) they map to real time.
+Unlike phase-boundary timing, health-status transitions are **not** purely a
+function of elapsed sim-time — they depend on the platform's
+reasoning/trend-window and notification state (outside the simulator).
 
-| Real time (mm:ss) | Event | What to capture | Talking point |
-|---|---|---|---|
-| 00:00 | `normal_operation` starts | Fleet strip, all four assets NORMAL (score 90) | All four Plant Alpha stacks healthy; telemetry is live over MQTT, not mocked |
-| 00:30 | `cooling_degradation` starts on stack-01 | Health score dips slightly (NORMAL, score 80) — the fault is ramping but not yet classified as a threshold breach | A fault is injected in the simulator's physics model — not a scripted UI state |
-| 02:30 | `recovery` starts (cooling ramp has reached its worst point) | — | The fault's physical peak lags the phase boundary by design (first-order-lag physics) — the alert appears a little after this line, not before |
-| ~02:50–03:23 | stack-01 reaches CRITICAL (score 35) | Primary hero shot: fleet overview + Recommended Action panel + investigation timeline, all populated | The recommendation and priority come from the deterministic reasoning pipeline (evidence → signal → assessment → decision), traceable in the investigation timeline — not a black-box ML call |
-| ~03:30–06:12 | WARNING (score 45), then settles | Health score visibly recovering; good moment to click Acknowledge → Start investigating → Resolve to show the operator lifecycle closing the loop | Reasoning re-assesses on new evidence automatically; the operator lifecycle is a separate, append-only record of who acted, when |
-| ~06:12 onward | stack-01 back to a held NORMAL (score 80) | Final recovery shot | Reasoning settled back to a healthy read automatically, without a manual reset |
-| 06:40 | script holds (no further phase) | — | — |
+**Post-fix verified behavior** (three rehearsal runs, `docker compose down
+-v` between each, post `reasoning_compatibility.py` fix):
 
-Total script length to a fully-settled recovery: **~6:40** real time. Use the
-`phase changed` log lines to know when each scenario phase starts, but time
-the CRITICAL/WARNING/recovered screenshots off the actual dashboard state
-(or the digital-twin API), not the log lines — the two are offset by design.
-If the cadence env vars above are overridden, or `PRESENTATION_PHASES`
-durations change, re-verify against a fresh run rather than recomputing by
-formula, since the health-status settling time is not purely ratio-based.
+| Event | Observed | Notes |
+|---|---|---|
+| `normal_operation` starts | 00:00 | All four assets NORMAL (score 90), no notification — reproduced exactly across all three runs |
+| `cooling_degradation` phase change (log line) | between 00:29 and 01:27 across runs | Real run-to-run variance in absolute wall-clock time before the first phase change — see the variance note below. Use the `phase changed` log line as the cue, not a fixed clock |
+| Health first leaves NORMAL/90 | shortly after the phase change in each run | Score drops to 80, still NORMAL — matches the original "ramping but not yet a threshold breach" description |
+| **stack-01 health alternates NORMAL(80) ⟷ WARNING(45)** | continuously, roughly every **28–32 seconds**, for the remainder of the observed window (10+ minutes) | This is the new steady-state behavior — a **regular, predictable two-state oscillation**, not a held state. It correlates with Plant Alpha's own load-cycling period at this cadence, and is plausibly a genuine (if not very presentable) reflection of the physical signal rather than a detector defect. **CRITICAL was not observed at all** in the post-fix rehearsals |
+| `recovery` phase change (log line) | between 02:02 and 03:33 after the cooling-degradation phase change, across runs | Also shows real run-to-run variance — see below |
+| A held, single NORMAL state | not observed within a 10+ minute window post-fix | The NORMAL⟷WARNING alternation continued through the entire observed `recovery` phase in every run; do not plan a shot around a firmly "settled" legacy badge |
 
-For a shorter cut, the ~02:50–03:30 CRITICAL window plus one
-investigation-lifecycle transition is the minimum viable segment: it shows
-live ingestion, a real fault, an explainable recommendation, and an operator
-response in under a minute of footage, even though the full run is ~6:40.
+**Real variance, not just measurement noise:** phase-change timing and the
+legacy health-status arc were measured across three separate clean runs in
+this session (two before the fix, one after) and did **not** reproduce the
+same absolute wall-clock timing each time — e.g. the cooling-degradation→
+recovery phase gap measured 122s in one run and 213s in another, despite
+both using the same fixed simulated-second durations and cadence. The most
+likely explanation is variable container/scenario-loop startup lag under
+concurrent host load (these rehearsals ran alongside a full test-suite
+execution and image rebuilds), not a code defect — but it means **this
+table's timestamps are directional, not a clock to record against**. Always
+do a fresh, unencumbered dry run immediately before the real recording
+session, and cue off the `phase changed` log lines and the dashboard's own
+state (or the digital-twin API) rather than a stopwatch.
+
+For a shorter cut, the AI-Assisted Fault Diagnosis card (see
+[AI-fault-alert milestone](#ai-fault-alert-milestone-kafka-path-v11) below)
+is now the more reliable "hero" moment to build a short recording around —
+it confirms and corroborates faster and more consistently than the legacy
+health badge, and doesn't depend on the behavior described in this section.
 
 Reshoot `docs/assets/dashboard-*.png` from a clean run whenever the layout
 changes materially; the phase-change log lines make repeat takes consistent
@@ -276,10 +296,28 @@ isolated single-asset benchmark evidence at the same ~9x sim:real
 acceleration ratio recorded a 37.2s fault-onset-to-recommendation wall time
 for this path — see the [v1.1 Performance Report](../release/v1.1-performance-report.md).
 
+**Live-verified range (2026-07-23, three rehearsal runs):** confirmed +
+corroborated (`corroboration_result` populated, recommendation `produced`
+or `withheld`) between **~0:57 and ~2:18** after a clean stack start — real
+run-to-run variance, not a fixed number; consistent with the phase-timing
+variance noted above. In every run this was still faster and more
+consistent than the legacy health badge reaching a first WARNING/CRITICAL
+transition, and it does not depend on `reasoning_compatibility.py`'s
+trend-window computation at all (that fix only touches the MQTT-path health
+badge, not this pipeline). Also observed live: the diagnosed class is not
+stable for the life of a run — in two of three rehearsals it later flipped
+from `cooling_degradation` to `hydrogen_supply_issue` (`alert_transition_type:
+class_changed`), and deterministic corroboration correctly downgraded that
+to `not_corroborated` / a withheld recommendation both times. A `cleared`
+(empty) investigation state was not observed within any single rehearsal's
+~9–10 minute window — don't plan a recording step around it appearing
+reliably.
+
 For a recording session, treat this as a second thing to watch for
 alongside the health-status badge: the AI Fault Investigation panel
 populating is its own milestone, on its own timeline, driven by the Kafka
-path rather than the MQTT path described above.
+path rather than the MQTT path described above, and is the more reliable of
+the two to build a recording around.
 
 ---
 
@@ -338,13 +376,14 @@ ODIS_DEMO_SMOKE=1 pytest tests/integration/test_demo_mqtt_smoke.py
 
 ## Known limitations
 
-- **Recovery settling time is not just the physical ramp:** `demo_presentation`'s `recovery` phase runs ~250s (not the ~100s its physical ramp alone needs) because returning to a *held, stable* NORMAL reading depends on the platform's trend window and append-only notifications aging out the stale fault classification — this took a consistent ~205-220s of real time within `recovery` across repeated clean runs, independent of the ramp's own length. This is existing platform behavior (not introduced by this PR); `PRESENTATION_PHASES` is sized around it rather than working around it.
+- **Recovery settling time is not just the physical ramp:** `demo_presentation`'s `recovery` phase runs ~250s (not the ~100s its physical ramp alone needs) because returning to a *held, stable* NORMAL reading depends on the platform's trend window and append-only notifications aging out the stale fault classification. **Update 2026-07-23:** post the `reasoning_compatibility.py` observation-window fix below, a held NORMAL was not observed at all within a 10+ minute rehearsal window — health now alternates NORMAL(80)/WARNING(45) roughly every 28-32s indefinitely rather than settling. `PRESENTATION_PHASES` is still sized around the *phase* durations described here; treat the settling claim itself as superseded by the timing note in [Verified timing](#verified-timing-presentation-cadence).
 - **Fresh stack for acceptance:** Run acceptance validation on a clean database for deterministic results (`docker compose down -v` before `up` and `./scripts/validate_demo_environment.sh`). Reusing a long-lived volume can leave benchmark assets, large observation history, or elevated digital twin latency that does not reflect a first-run demo.
 - **Digital twin latency grows with session length:** Long-running demo sessions (roughly 15–20 minutes or more) may increase digital twin response time because the current reasoning pipeline reloads growing per-asset observation history on each run.
 - **Expected, not a correctness bug:** That latency behavior is a known scalability characteristic of the present pipeline, tracked for a future performance PR (e.g. bounded reasoning windows). It does not indicate incorrect ingestion, scenario logic, or dashboard behavior.
 - **PR141 scope:** This PR validates demo infrastructure and end-to-end MQTT ingestion through reasoning and the operator dashboard. It does not claim long-duration scalability; `demo_realistic` remains disabled for that reason.
 - **Resolved: healthy peers reading CRITICAL alongside the actual fault target.** A clean `demo_presentation` run previously showed `fuel-cell-stack-02/03/04` reaching `CRITICAL` at the same time as the actual fault target (`fuel-cell-stack-01`), and staying there through `recovery`, with no fault ever injected into their physics model. Root cause: `VariationDetector`'s threshold and `TrendDetector`'s first-vs-last comparison were both miscalibrated for Plant Alpha's real sinusoidal load-cycling amplitude, and reasoning reloaded unbounded observation history on every run so a resolved fault's stale extremes never aged out. Fixed via `ReasoningSessionConfig.observation_window` (bounded, per-measurement-type recent history), a recalibrated `HIGH_VARIATION_THRESHOLD`, and a `TrendDetector` rewrite (split-half mean comparison instead of endpoint comparison) — see `docs/architecture.md`'s reasoning-pipeline section.
 - **Resolved: transient false WARNING/CRITICAL on healthy peers, cold-start and mid-session.** A later clean-stack characterization run found a smaller residual: individual healthy, unfaulted assets would briefly flip to `WARNING` or `CRITICAL` (a stale `OPEN` notification, since notifications are append-only and don't auto-clear when health recovers) throughout a session, not just at startup. Two distinct causes, both outside the core reasoning pipeline and the `DecisionPlanner`: (1) `TrendDetector`'s split-half comparison degenerates toward a raw endpoint comparison at very low sample counts (`n=2` gives one point per half) — verified against real telemetry, ratios spiked as high as 2.2x threshold at `n=2-7` before settling under 0.72 from `n=8` on. (2) A second, separate, previously-uncalibrated trend algorithm in the backend platform layer (`backend/app/application/time_series_analysis.py`, used only for `OperationalStateEngine`'s health-score penalty) was pinned at a fixed 5-sample window for the life of the session, not just at startup, and its volatility measure divided step noise by *net window drift* — which trends toward zero for any window that straddles a peak or trough of an oscillating signal, inflating `volatility_score` to 90-100 almost continuously even for a perfectly healthy asset. Fixed by requiring at least one full load-cycle's worth of history (8 samples, matching the cycle length in the cadence comment below) before either module trusts a directional classification, and widening the legacy module's window to match. Verified on a fresh clean stack: all four assets read `NORMAL` (health score 90) at baseline with no notification present, and the value held for the duration of a full `normal_operation` window.
+- **Resolved: chaotic multi-state health flapping on the fault target itself.** A 2026-07-23 pre-recording audit found `fuel-cell-stack-01` (the actual fault target, not a healthy peer) cycling through NORMAL/WARNING/CRITICAL roughly every 6–13 seconds, continuously, for minutes at a time during `cooling_degradation`/`recovery` — distinct from the two healthy-peer issues above. Root cause: `backend/app/application/reasoning_compatibility.py`'s `build_explainable_decision` called `analyze_trend`/`analyze_trend_diagnostics` without an explicit `observation_window`, silently falling back to those functions' own 8-sample minimum instead of the platform's configured `DEFAULT_REASONING_SESSION_CONFIG.observation_window` (20) — a value already sized (see the cadence comment in `reasoning_config.py`) to span multiple Plant Alpha load-cycles specifically to prevent this failure mode, but never wired through to this call site. At presentation cadence, 8 samples is *less* than one full load-cycle, so the window's phase relative to the cycle flipped the classified trend direction on nearly every reasoning run. Fixed by passing the platform's configured window through explicitly (no threshold, detector, or `DecisionPlanner` changes); regression test: `tests/backend/test_reasoning_compatibility.py::test_build_explainable_decision_uses_platform_observation_window_not_legacy_minimum`. **This did not fully eliminate oscillation** — see the updated [Verified timing](#verified-timing-presentation-cadence) table for the new, much calmer but still-oscillating steady state.
 - **Remaining limitation: one primary measurement per reasoning run.** The fix above does not make every fault type discriminable simultaneously — Plant Alpha's `cooling_degradation` and `hydrogen_supply_issue` faults are physically orthogonal (temperature vs. current/fuel_flow), and a single fixed primary-measurement preference cannot serve both without risking a regression in one to fix the other. See `docs/architecture.md`'s "Known limitation: single primary measurement per run"; multi-signal reasoning is planned as the first architectural milestone after v1.0, not forced into this release. Do a dry run of your recording window before shooting to confirm the specific scenario you intend to record behaves as expected.
 
 ---

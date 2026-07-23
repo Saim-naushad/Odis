@@ -14,6 +14,7 @@ from application.reasoning.explanation_stage import ExplanationStage
 from application.reasoning.hypothesis_stage import HypothesisStage
 from application.reasoning.signal_extraction_stage import SignalExtractionStage
 from application.reasoning.stage import ReasoningStage
+from backend.app.application.reasoning_config import DEFAULT_REASONING_SESSION_CONFIG
 from backend.app.application.time_series_analysis import (
     TrendDiagnostics,
     analyze_trend,
@@ -161,11 +162,24 @@ def build_explainable_decision(
         if primary_observations
         else None
     )
+    # Match the observation_window the core reasoning pipeline already uses
+    # (DEFAULT_REASONING_SESSION_CONFIG) instead of falling back to
+    # analyze_trend's own 8-sample minimum: at Plant Alpha's demo cadence, 8
+    # samples can be less than one full load-oscillation cycle, so the
+    # window's phase relative to the cycle flips the classified direction
+    # from one reasoning run to the next. 20 was already sized (see
+    # reasoning_config.py) to span multiple cycles for exactly this reason;
+    # this call site just wasn't using it.
+    trend_kwargs: dict[str, int] = {}
+    configured_window = DEFAULT_REASONING_SESSION_CONFIG.observation_window
+    if configured_window is not None:
+        trend_kwargs["observation_window"] = configured_window
     trend_analysis = analyze_trend(
         primary_observations,
         measurement_label=measurement_type,
+        **trend_kwargs,
     )
-    diagnostics = analyze_trend_diagnostics(primary_observations)
+    diagnostics = analyze_trend_diagnostics(primary_observations, **trend_kwargs)
     evidence = _build_legacy_evidence(
         trend_analysis=trend_analysis,
         primary_observations=primary_observations,

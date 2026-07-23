@@ -96,3 +96,43 @@ def test_assessment_confidence_differs_from_legacy_plan_severity_confidence() ->
 
     assert "Severity" in legacy.confidence.rationale
     assert "Severity" not in assessment_confidence.rationale
+
+
+def test_build_explainable_decision_uses_platform_observation_window_not_legacy_minimum() -> (
+    None
+):
+    """Regression test for a live oscillation bug.
+
+    `analyze_trend`/`analyze_trend_diagnostics` default to an 8-sample
+    window, which can be shorter than one full Plant Alpha load-oscillation
+    cycle at demo cadence — the window's phase relative to the cycle then
+    flips the classified direction from one reasoning run to the next
+    (observed live as rapid NORMAL/WARNING/CRITICAL flapping on the fault
+    target). `build_explainable_decision` must pass the platform's own
+    configured `observation_window` (20) through explicitly rather than
+    silently falling back to that 8-sample default.
+    """
+    base_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+    observations = [
+        _obs(id=f"o{i}", value=30.0 + i, timestamp=base_time.replace(minute=i))
+        for i in range(12)
+    ]
+    plan = DecisionPlan(
+        id="plan-1",
+        context_id="ctx-1",
+        created_at=base_time,
+        priority=Priority.HIGH,
+        recommendation="Investigate operational conditions",
+        justification="Operational assessment indicates increasing stress.",
+    )
+
+    legacy = build_explainable_decision(
+        assessment="Increasing trend detected",
+        observations=observations,
+        decision_plan=plan,
+        structured_assessment=None,
+    )
+
+    # With the legacy 8-sample default, this would have been capped at 8
+    # regardless of the 12 observations supplied.
+    assert legacy.trend_analysis.observation_window == 12

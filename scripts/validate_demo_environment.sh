@@ -42,7 +42,14 @@ fail() {
 
 metric_value() {
   local name="$1"
-  curl -fsS "${API_BASE_URL}/metrics" | awk -v name="${name}" '$1 == name {print $2; exit}'
+  local body
+  # Read the full response before handing it to awk: piping curl straight
+  # into `awk '... {exit}'` lets awk close its end of the pipe as soon as
+  # it finds a match, which can SIGPIPE curl mid-write (exit 23) once
+  # /metrics grows large enough for that race to matter — not a real
+  # failure, but set -e treated it as one and killed the whole script.
+  body="$(curl -fsS "${API_BASE_URL}/metrics")" || return 1
+  awk -v name="${name}" '$1 == name {print $2; exit}' <<<"${body}"
 }
 
 py_asset_ids() {
