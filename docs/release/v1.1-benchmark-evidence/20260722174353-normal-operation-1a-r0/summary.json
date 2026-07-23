@@ -1,0 +1,113 @@
+{
+  "hop_latencies": {
+    "telemetry_acquisition_to_inference_publish_ms": {
+      "metric_name": "telemetry_acquisition_to_inference_publish_ms",
+      "count": 80,
+      "excluded_count": 0,
+      "median_ms": 23.042,
+      "p95_ms": 88.274,
+      "max_ms": 318.983
+    },
+    "alert_publish_to_reasoning_persist_ms": {
+      "metric_name": "alert_publish_to_reasoning_persist_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "source_sample_to_durable_reasoning_record_ms": {
+      "metric_name": "source_sample_to_durable_reasoning_record_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "reasoning_persist_to_api_observed_ms": {
+      "metric_name": "reasoning_persist_to_api_observed_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "reasoning_persist_to_sse_observed_ms": {
+      "metric_name": "reasoning_persist_to_sse_observed_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "fault_onset_to_confirmation_sim_seconds": null,
+    "fault_onset_to_recommendation_wall_ms": null
+  },
+  "onset": {
+    "fault_onset_sample_index": 2,
+    "fault_onset_source_timestamp": null,
+    "target_asset": "fuel-cell-stack-01"
+  },
+  "throughput_including_warmup": {
+    "telemetry_measurement_events_per_second": 7.111111111111111,
+    "complete_samples_per_second": 0.8888888888888888,
+    "valid_inference_results_per_second": 0.7666666666666667,
+    "all_inference_results_per_second": 0.8888888888888888,
+    "measurement_window_seconds": 90.0,
+    "steady_state": false
+  },
+  "steady_state_boundary": "2026-07-22 17:44:32.977275+00:00",
+  "reconciliation": {
+    "observation_rows": 635,
+    "timeline_event_rows": 2190,
+    "ai_fault_evidence_rows": 0,
+    "outbox_pending_rows": 0,
+    "distinct_investigation_ids": 0
+  },
+  "consumer_lag_at_end": {
+    "odis.telemetry.observations.v1": 0,
+    "odis.fault.alert-transitions.v1": 0
+  },
+  "resource_usage": {
+    "odis-benchmark-20260722174353-normal-operation-1a-r0-api-1": {
+      "container": "odis-benchmark-20260722174353-normal-operation-1a-r0-api-1",
+      "sample_count": 13,
+      "avg_cpu_percent": 10.152307692307692,
+      "peak_cpu_percent": 31.82,
+      "avg_memory_bytes": 110527169.7723077,
+      "peak_memory_bytes": 111568486.4
+    },
+    "odis-benchmark-20260722174353-normal-operation-1a-r0-worker-1": {
+      "container": "odis-benchmark-20260722174353-normal-operation-1a-r0-worker-1",
+      "sample_count": 13,
+      "avg_cpu_percent": 43.01538461538462,
+      "peak_cpu_percent": 79.09,
+      "avg_memory_bytes": 81204145.23076923,
+      "peak_memory_bytes": 89024102.4
+    },
+    "odis-benchmark-20260722174353-normal-operation-1a-r0-reasoning-bridge-worker-1": {
+      "container": "odis-benchmark-20260722174353-normal-operation-1a-r0-reasoning-bridge-worker-1",
+      "sample_count": 13,
+      "avg_cpu_percent": 0.5623076923076923,
+      "peak_cpu_percent": 1.5,
+      "avg_memory_bytes": 74696521.25538462,
+      "peak_memory_bytes": 74952212.48
+    },
+    "odis-benchmark-20260722174353-normal-operation-1a-r0-fault-inference-worker-1": {
+      "container": "odis-benchmark-20260722174353-normal-operation-1a-r0-fault-inference-worker-1",
+      "sample_count": 12,
+      "avg_cpu_percent": 2.6266666666666665,
+      "peak_cpu_percent": 10.94,
+      "avg_memory_bytes": 114548189.86666667,
+      "peak_memory_bytes": 114819072.0
+    }
+  },
+  "observability": {
+    "api_poll_interval_seconds": 2.0,
+    "sse_connection_established_at": "2026-07-22 22:44:20.424053+05:00",
+    "sse_subscribed_before_simulator_launch": true,
+    "malformed_kafka_messages_observed": 0
+  },
+  "total_telemetry_events": 640,
+  "max_stable_asset_count": 1
+}

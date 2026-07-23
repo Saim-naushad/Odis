@@ -1,0 +1,74 @@
+# Host-port overlay for scripts/benchmark_odis (PR181).
+#
+# Maps infra ports the benchmark runner needs to reach from the host (the
+# simulator subprocess, the passive Kafka observer, and direct Postgres
+# reconciliation queries all run on the host, not in a container) onto
+# non-default host ports, so a benchmark run can never collide with an
+# already-running dev/demo stack on the standard ports from
+# docker-compose.dev.yml. `api`'s host port is already parameterized via
+# `API_PORT` in docker-compose.yml itself and needs no override here.
+#
+# Usage (always with a dedicated -p project name):
+#   docker compose -p odis-benchmark-<run-id> \
+#     -f docker-compose.yml -f docker-compose.benchmark.yml up -d
+#
+# `scripts/benchmark_odis/stack.py` is the only intended caller — it resolves
+# these ports, pre-flight-checks they're free before creating anything, and
+# passes the resolved endpoints to every client it constructs.
+#
+# Pinned `image:` tags on the built services: Compose's default image name
+# for a service with a `build:` section is `<project-name>-<service>`, so a
+# fresh `-p odis-benchmark-<run-id>` project on every repetition would force
+# a full rebuild-under-a-new-tag every single run (observed: >300s, even
+# with Docker's layer cache warm). Pinning these to the same stable tags a
+# plain `docker compose build` under the default `odis` project already
+# produces means every benchmark repetition reuses one built image — built
+# once (here or by the user's normal `docker compose up --build`), reused by
+# every run-id thereafter. `build:` stays in docker-compose.yml unchanged,
+# so a completely fresh checkout still builds these tags the first time.
+
+# Kafka needs a dual-listener setup, not just a port mapping: the base
+# docker-compose.yml's single `PLAINTEXT://kafka:9092` listener works for
+# in-network containers, but a host-side client (the benchmark's simulator
+# subprocess, Kafka observer, and consumer-lag helper — all run on the host,
+# not in a container) can bootstrap-connect through a mapped port, then gets
+# redirected by the broker's metadata response to `kafka:9092`, which does
+# not resolve outside the Docker network (`KafkaConnectionError: DNS
+# Resolution failure`, observed directly running this benchmark). Adding a
+# second `EXTERNAL` listener that advertises `localhost:<mapped-port>` fixes
+# this for every host-side client at once. `KAFKA_NODE_ID`/`KAFKA_PROCESS_
+# ROLES`/etc are untouched — Compose merges `environment:` per-key, so only
+# the three listener-related keys below are overridden.
+
+services:
+  postgres:
+    ports:
+      - "${BENCHMARK_POSTGRES_PORT:-15432}:5432"
+
+  kafka:
+    environment:
+      KAFKA_LISTENERS: PLAINTEXT://:9092,EXTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:${BENCHMARK_KAFKA_PORT:-19092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+    ports:
+      - "${BENCHMARK_KAFKA_PORT:-19092}:29092"
+
+  redis:
+    ports:
+      - "${BENCHMARK_REDIS_PORT:-16379}:6379"
+
+  prometheus:
+    ports:
+      - "${BENCHMARK_PROMETHEUS_PORT:-19090}:9090"
+
+  api:
+    image: odis-api
+
+  worker:
+    image: odis-worker
+
+  reasoning-bridge-worker:
+    image: odis-reasoning-bridge-worker
+
+  fault-inference-worker:
+    image: odis-fault-inference-worker

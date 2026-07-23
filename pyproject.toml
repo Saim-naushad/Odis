@@ -86,6 +86,7 @@ where = ["src"]
 testpaths = ["tests"]
 markers = [
     "integration: tests that require docker compose services",
+    "benchmark: real-stack PR181 benchmark orchestration tests (slow; not run by default)",
 ]
 
 # ---------------------------------------------------------------------------

@@ -18,3 +18,7 @@ dist/
 
 # Generated offline ML datasets (backend/simulator/dataset generate.py output)
 /datasets/
+
+# PR181 benchmark run artifacts (scripts/benchmark_odis) — reproducible from
+# the runner; only the consolidated report under docs/release/ is committed.
+/benchmark-results/

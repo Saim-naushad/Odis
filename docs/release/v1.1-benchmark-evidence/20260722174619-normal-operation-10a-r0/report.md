@@ -1,0 +1,136 @@
+# Benchmark run 20260722174619-normal-operation-10a-r0
+
+Mode: `performance` · Scenario: `normal_operation` · Assets: 10 · Duration: 90.0s
+
+Local-machine measurement only — not a production or cloud result.
+
+## Environment
+
+- **git_commit**: b006027d55d0f4907a37f864578a3c1ddfb22f29
+- **os**: Darwin
+- **cpu_architecture**: arm64
+- **cpu_model**: Apple M2
+- **cpu_count**: 8
+- **memory_bytes**: 17179869184
+- **docker_version**: Docker version 28.4.0, build d8eb465
+- **python_version**: 3.11.8
+- **model**: {'system_version': 'plant_alpha_fault_v1', 'model_hash': '30ae2bad5eca428b78e72756c49e71f89c0db8584b79ce3fef7790d7d6067a8f', 'policy_hash': 'e266aad024c8db0e4ced2e486c371b704df23fc5973954b2a17a948b5db22809', 'feature_schema_version': '1.0'}
+- **benchmark_timestamp**: 2026-07-22T17:46:19.820770+00:00
+
+## Summary
+
+```json
+{
+  "hop_latencies": {
+    "telemetry_acquisition_to_inference_publish_ms": {
+      "metric_name": "telemetry_acquisition_to_inference_publish_ms",
+      "count": 714,
+      "excluded_count": 0,
+      "median_ms": 523.257,
+      "p95_ms": 1651.751,
+      "max_ms": 3940.88
+    },
+    "alert_publish_to_reasoning_persist_ms": {
+      "metric_name": "alert_publish_to_reasoning_persist_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "source_sample_to_durable_reasoning_record_ms": {
+      "metric_name": "source_sample_to_durable_reasoning_record_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "reasoning_persist_to_api_observed_ms": {
+      "metric_name": "reasoning_persist_to_api_observed_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "reasoning_persist_to_sse_observed_ms": {
+      "metric_name": "reasoning_persist_to_sse_observed_ms",
+      "count": 0,
+      "excluded_count": 0,
+      "median_ms": 0.0,
+      "p95_ms": 0.0,
+      "max_ms": 0.0
+    },
+    "fault_onset_to_confirmation_sim_seconds": null,
+    "fault_onset_to_recommendation_wall_ms": null
+  },
+  "onset": {
+    "fault_onset_sample_index": 2,
+    "fault_onset_source_timestamp": null,
+    "target_asset": "fuel-cell-stack-01"
+  },
+  "throughput_including_warmup": {
+    "telemetry_measurement_events_per_second": 63.46666666666667,
+    "complete_samples_per_second": 7.933333333333334,
+    "valid_inference_results_per_second": 6.711111111111111,
+    "all_inference_results_per_second": 7.933333333333334,
+    "measurement_window_seconds": 90.0,
+    "steady_state": false
+  },
+  "steady_state_boundary": "2026-07-22 17:47:04.960578+00:00",
+  "reconciliation": {
+    "observation_rows": 5712,
+    "timeline_event_rows": 9654,
+    "ai_fault_evidence_rows": 0,
+    "outbox_pending_rows": 0,
+    "distinct_investigation_ids": 0
+  },
+  "consumer_lag_at_end": {
+    "odis.telemetry.observations.v1": 0,
+    "odis.fault.alert-transitions.v1": 0
+  },
+  "resource_usage": {
+    "odis-benchmark-20260722174619-normal-operation-10a-r0-api-1": {
+      "container": "odis-benchmark-20260722174619-normal-operation-10a-r0-api-1",
+      "sample_count": 13,
+      "avg_cpu_percent": 45.45230769230769,
+      "peak_cpu_percent": 59.24,
+      "avg_memory_bytes": 113084082.01846154,
+      "peak_memory_bytes": 125199974.4
+    },
+    "odis-benchmark-20260722174619-normal-operation-10a-r0-worker-1": {
+      "container": "odis-benchmark-20260722174619-normal-operation-10a-r0-worker-1",
+      "sample_count": 13,
+      "avg_cpu_percent": 71.12307692307692,
+      "peak_cpu_percent": 90.9,
+      "avg_memory_bytes": 85783195.96307692,
+      "peak_memory_bytes": 97999912.96
+    },
+    "odis-benchmark-20260722174619-normal-operation-10a-r0-reasoning-bridge-worker-1": {
+      "container": "odis-benchmark-20260722174619-normal-operation-10a-r0-reasoning-bridge-worker-1",
+      "sample_count": 13,
+      "avg_cpu_percent": 1.1715384615384616,
+      "peak_cpu_percent": 5.44,
+      "avg_memory_bytes": 74655384.81230769,
+      "peak_memory_bytes": 74669096.96
+    },
+    "odis-benchmark-20260722174619-normal-operation-10a-r0-fault-inference-worker-1": {
+      "container": "odis-benchmark-20260722174619-normal-operation-10a-r0-fault-inference-worker-1",
+      "sample_count": 12,
+      "avg_cpu_percent": 8.324166666666667,
+      "peak_cpu_percent": 12.2,
+      "avg_memory_bytes": 114600618.66666667,
+      "peak_memory_bytes": 115133644.8
+    }
+  },
+  "observability": {
+    "api_poll_interval_seconds": 2.0,
+    "sse_connection_established_at": "2026-07-22 22:46:42.196000+05:00",
+    "sse_subscribed_before_simulator_launch": true,
+    "malformed_kafka_messages_observed": 0
+  },
+  "total_telemetry_events": 5712,
+  "max_stable_asset_count": 10
+}
+```

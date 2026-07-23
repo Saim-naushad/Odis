@@ -1,0 +1,9 @@
+{
+  "inference_result_count": 113,
+  "alert_transition_count": 1,
+  "reasoning_results_count": 1,
+  "raw_telemetry_count": 904,
+  "raw_telemetry_count_by_asset": {
+    "fuel-cell-stack-01": 904
+  }
+}

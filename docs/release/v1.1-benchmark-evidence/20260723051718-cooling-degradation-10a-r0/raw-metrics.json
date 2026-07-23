@@ -1,0 +1,18 @@
+{
+  "inference_result_count": 1958,
+  "alert_transition_count": 1,
+  "reasoning_results_count": 1,
+  "raw_telemetry_count": 15664,
+  "raw_telemetry_count_by_asset": {
+    "fuel-cell-stack-01": 1568,
+    "fuel-cell-stack-02": 1568,
+    "fuel-cell-stack-03": 1568,
+    "fuel-cell-stack-04": 1568,
+    "fuel-cell-stack-bench-001": 1568,
+    "fuel-cell-stack-bench-002": 1568,
+    "fuel-cell-stack-bench-003": 1568,
+    "fuel-cell-stack-bench-004": 1568,
+    "fuel-cell-stack-bench-005": 1560,
+    "fuel-cell-stack-bench-006": 1560
+  }
+}

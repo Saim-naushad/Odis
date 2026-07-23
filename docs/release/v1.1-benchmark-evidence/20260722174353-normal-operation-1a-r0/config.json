@@ -1,0 +1,14 @@
+{
+  "run_id": "20260722174353-normal-operation-1a-r0",
+  "mode": "performance",
+  "scenario": "normal_operation",
+  "asset_count": 1,
+  "duration_seconds": 90.0,
+  "kafka_publish_interval_seconds": 1.1,
+  "kafka_sample_interval_seconds": 10.0,
+  "transport": "kafka+http",
+  "repetition_index": 0,
+  "asset_ids": [
+    "fuel-cell-stack-01"
+  ]
+}

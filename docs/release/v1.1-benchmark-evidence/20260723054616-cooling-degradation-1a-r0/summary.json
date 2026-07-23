@@ -1,0 +1,19 @@
+{
+  "replay_idempotency": {
+    "replayed_event_count": 1,
+    "ai_fault_evidence_row_count_before": 1,
+    "ai_fault_evidence_row_count_after": 1,
+    "passed": true
+  },
+  "malformed_telemetry_counter_total": 3.0,
+  "fault_inference_worker_still_running": true,
+  "outbox_kafka_leg_recovery": {
+    "dispatched_at_stayed_null_during_outage": true,
+    "dispatched_exactly_once_after_recovery": true,
+    "passed": true
+  },
+  "ai_investigation_durability": {
+    "outbox_row_dispatched_despite_redis_outage": true,
+    "note": "dispatch() completed normally with Redis stopped"
+  }
+}
