@@ -11,10 +11,8 @@ ODIS is an industrial operations platform that turns telemetry from physical equ
 The repository contains both a standalone reasoning engine and a complete demonstration platform, including a physics-based simulator, an event-driven backend, and a live operator dashboard.
 
 <p align="center">
-  <img src="docs/assets/dashboard-incident.png" width="100%" alt="ODIS Dashboard — live investigation during an active incident">
+  <img src="docs/assets/dashboard-ai-fault-diagnosis.png" width="100%" alt="ODIS AI-assisted fault diagnosis showing confirmed cooling degradation, deterministic corroboration, and a bounded operator recommendation.">
 </p>
-
-*Additional dashboard screenshots covering the current UI (fleet overview, telemetry, investigation lifecycle) are pending a recapture session — see the [Screenshot Checklist](docs/release/screenshot-checklist.md).*
 
 ## How it works
 
@@ -51,7 +49,13 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 
 **Digital twin** (`DigitalTwinService`) — A read model that assembles current asset state from monitoring data and forecasts. Cached in Redis and invalidated through domain events, it never re-executes reasoning that has already been performed.
 
-**Investigation workflow** (`InvestigationService`) — Operator response to recommendations is stored as an append-only sequence of transitions (`ACKNOWLEDGED → INVESTIGATING → RESOLVED`) rather than a mutable status field, preserving a complete operational history. See [docs/platform/platform-architecture.md#operator-investigation-lifecycle](docs/platform/platform-architecture.md#operator-investigation-lifecycle).
+**Investigation workflow** (`InvestigationService`) — Operator response to recommendations is stored as an append-only sequence of transitions (`NEW → ACKNOWLEDGED → INVESTIGATING → RESOLVED`) rather than a mutable status field, preserving a complete operational history. See [docs/platform/platform-architecture.md#operator-investigation-lifecycle](docs/platform/platform-architecture.md#operator-investigation-lifecycle).
+
+<p align="center">
+  <img src="docs/assets/dashboard-investigation-lifecycle.png" width="800" alt="ODIS operator investigation lifecycle showing a recommendation in the INVESTIGATING state with the acting operator, transition timestamp, and Resolve as the next action.">
+</p>
+
+*Each transition is attributed to an operator and timestamped — nothing is overwritten.*
 
 **AI-fault-alert pipeline** (`backend/simulator/inference_worker/`, `backend/app` reasoning bridge) — A streaming Kafka worker runs a promoted fault-diagnosis model against live telemetry (11-sample warm-up, then a prediction per sample) and applies a deterministic temporal-hysteresis alert policy. A separate reasoning-bridge worker corroborates each confirmed alert against the platform's own persisted observations using explicit rules — the model never gets the final word. See [AI Methodology](docs/ai-methodology.md) and [docs/platform/platform-architecture.md#ai-assisted-fault-diagnosis-data-flow-v11](docs/platform/platform-architecture.md#ai-assisted-fault-diagnosis-data-flow-v11).
 
@@ -64,6 +68,12 @@ Telemetry flows from the simulator through MQTT into the API, persists in Timesc
 - **Investigation workflow** — Operator actions are captured as an append-only acknowledge → investigate → resolve lifecycle rather than overwriting previous state.
 - **Event-driven architecture** — A transactional outbox and domain event bus decouple persistence from Kafka delivery, cache invalidation, and live UI updates.
 - **Physics-based simulator** — Plant Alpha models a four-stack PEM fuel-cell plant with coupled subsystem behavior instead of synthetic random telemetry.
+
+<p align="center">
+  <img src="docs/assets/dashboard-model-provenance.png" width="800" alt="ODIS diagnostic model provenance panel showing the diagnostic model score, an uncalibrated-score warning, model and policy hashes, feature schema, and the source event.">
+</p>
+
+*Every AI-assisted alert carries full provenance: a diagnostic model score — never called a confidence or probability — plus the model and policy hashes and source event it was computed from.*
 
 ## Measured performance (v1.1)
 
