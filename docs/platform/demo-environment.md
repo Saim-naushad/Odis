@@ -179,6 +179,25 @@ order: **Acknowledge → Start investigating → Resolve**. Live-verified
 sequence now completes reliably through the real dashboard, with each
 transition reflected immediately.
 
+**Recommendation identity changes are now visually explicit (2026-07-24).**
+`recommendation_id` is a stable hash of the recommendation's own material
+classification — the same classification always produces the same id, and a
+genuinely different classification (health status changed, e.g. because of
+the flapping described above) always produces a different one, each with
+its own independent, append-only investigation history. Without a visible
+cue, an operator mid-investigation on one classification who then sees a
+*different* classification appear could misread the fresh `NEW`/
+`ACKNOWLEDGED` state as their own progress being lost, rather than a
+different, legitimate recommendation taking its place — this is exactly
+what a manual recording surfaced as an apparent "regression from
+INVESTIGATING to ACKNOWLEDGED." Live-reproduced and confirmed: the backend
+was already correct (the same classification recurring later restores its
+own prior history intact); only the dashboard lacked a signal. `ActionPlaybook`
+now shows a brief "Recommendation changed — this is a new classification
+with its own investigation history" notice whenever the currently displayed
+`recommendation.id` differs from the previous one. See
+`frontend/src/components/monitoring/ActionPlaybook.test.tsx`.
+
 ---
 
 ## Reproducible screenshots & demo video
@@ -306,6 +325,22 @@ Reshoot `docs/assets/dashboard-*.png` from a clean run whenever the layout
 changes materially; the phase-change log lines make repeat takes consistent
 without re-deriving timing by hand.
 
+**Further superseded 2026-07-24:** a fresh rehearsal against the crash-fixed
+build found the whole walkthrough running noticeably slower in real
+wall-clock time than every number above — `cooling_degradation` alone was
+still running after ~9:50 real time (documented: ~120s), and the
+`[demo:demo_presentation] phase changed -> cooling_degradation` log line
+itself appeared at ~2:54 (documented: 0:29–1:27). Root cause: per-tick
+publish work (4 assets × 8 measurements × Kafka-then-HTTP = up to 32
+sequential network calls per simulated tick) routinely exceeds the
+configured 1.1s wall-clock pacing between ticks, so real time elapses
+faster than the schedule assumes — see the `kafka+http` cadence-mismatch
+limitation below for the underlying structural cause. **Do not plan a
+recording around the ~6:40 total figure; it no longer holds.** The
+AI-Assisted Fault Diagnosis milestone below is less affected (it's driven
+by sample count, not phase-duration arithmetic) and remains the anchor to
+build a recording around.
+
 ### AI-fault-alert milestone (Kafka path, v1.1)
 
 The health-status arc above (NORMAL → WARNING → CRITICAL → recovery) is the
@@ -360,6 +395,81 @@ alongside the health-status badge: the AI Fault Investigation panel
 populating is its own milestone, on its own timeline, driven by the Kafka
 path rather than the MQTT path described above, and is the more reliable of
 the two to build a recording around.
+
+**2026-07-24 rehearsal (post publisher-resilience fix, one run):**
+confirmed + corroborated at approximately **3:22–3:43** after a clean
+stack start — slower than the 2026-07-23 range above, consistent with the
+same per-tick real-time slowdown described in [Verified timing](#verified-timing-presentation-cadence)'s
+2026-07-24 addendum. Still the more consistent milestone to plan a
+recording around: it did not regress or flip class in this run, and a
+scripted warm-up (poll `/monitoring/assets/{id}/fault-investigation` until
+confirmed + corroborated) should be used instead of a fixed clock either
+way — see the recording automation in this repository's demo tooling.
+
+### Known limitation: `kafka+http` cadence mismatch drives the legacy health-badge flapping (2026-07-24)
+
+A 2026-07-24 audit (triggered by a manual recording that showed three of
+four fleet assets reaching `CRITICAL` within seconds of a clean start)
+root-caused *why* the flapping in [Verified timing](#verified-timing-presentation-cadence)
+is not fully eliminated, and confirmed it can be materially worse than that
+section's numbers on some runs — up to three simultaneous false `CRITICAL`
+peers, not just the `NORMAL(80)⟷WARNING(45)` two-state oscillation
+previously characterized.
+
+**Root cause:** `demo-plant` runs `SIMULATOR_TRANSPORT=kafka+http`
+(`_run_kafka_loop` in `backend/simulator/__main__.py`), which is a
+completely different code path from the dual-cadence HTTP/MQTT loop that
+`cadence_for_script`/`_PRESENTATION_CADENCE` were built to tune. For
+`kafka+http`, `sim_dt_seconds`/`core_publish_interval_seconds` are never
+applied at all — every published sample advances simulated time by exactly
+`kafka_sample_interval_seconds` (10s), a value pinned to match the promoted
+fault-inference model's trained window and **must not change** for ML
+correctness. Under the dual-cadence presentation tuning, 8 samples (the
+`TrendDetector`/`VariationDetector` minimum-sample gate — see
+[Known limitations](#known-limitations)) span 8 × 90 = 720 simulated
+seconds, comfortably more than one ~300-second Plant Alpha load cycle.
+Under `kafka+http`'s actual cadence, the same 8 samples span only
+8 × 10 = 80 simulated seconds — under a third of one load cycle — which is
+exactly the "partial-cycle window" failure mode the 8-sample gate exists to
+prevent. This affects every asset, including the three with no fault
+injected at all, because the gate only measures ordinary sinusoidal load
+noise, not the injected fault.
+
+**Why this isn't fixed here:** the only two levers that would restore
+"enough samples to span ≥1 load cycle" are (a) raising the minimum-sample
+gate in `TrendDetector`/`VariationDetector`, which are shared, transport-
+agnostic core detectors used by every reasoning invocation on the platform,
+not just this one demo transport — a change wide enough in blast radius
+that it needs its own scoped audit, not a bundled fix; or (b) publishing to
+the HTTP/reasoning leg less often than the Kafka/ML leg inside
+`_run_kafka_loop`, which changes the "one real tick, fanned out to both
+sinks identically" guarantee `composite_publisher.py` documents as
+load-bearing for AI-fault corroboration correctness. Both are real fixes,
+neither is small; this is flagged as follow-up work, not silently left
+undocumented.
+
+**What *is* fixed:** `demo-plant` no longer crashes mid-run. It previously
+raised an unhandled `httpx.ReadTimeout` on a single slow POST (32 sequential
+HTTP+Kafka publishes per tick — 4 assets × 8 measurements — made an
+occasional timeout under ordinary container load unsurprising), which
+Docker's `restart: unless-stopped` policy turned into a full scenario reset
+(new `run_id`, back to `normal_operation`) with no on-screen indication
+anything had gone wrong. A live rehearsal before this fix crashed once
+within ~10 minutes; an equivalent post-fix rehearsal ran the full ~10
+minutes with zero crashes. `HttpObservationPublisher` now retries transient
+transport errors with bounded backoff and treats an HTTP 409 (the platform
+correctly rejecting a replayed, already-persisted observation — identity is
+deterministic) as idempotent success rather than a failure. See
+`tests/backend/simulator/test_publisher.py`.
+
+**Practical guidance until the deeper fix lands:** don't build a recording
+around the legacy health badge holding any single state — it wasn't
+reliable before this audit and still isn't. The AI-Assisted Fault Diagnosis
+card remains the more reliable narrative anchor (see above). Before
+recording, poll `GET /monitoring/assets/{id}/digital-twin` for all four
+assets and only start capturing once none read `CRITICAL` and at most one
+reads `WARNING` — the same "wait for a calm snapshot" mitigation already
+used for screenshot capture, not a fix to the underlying rate of flapping.
 
 ### Investigation timeline: AI-fault events are now selectable
 

@@ -72,6 +72,8 @@ class _CapturingHttpClient:
 
 
 class _FakeResponse:
+    status_code = 202
+
     def raise_for_status(self) -> None:
         return None
 

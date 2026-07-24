@@ -158,6 +158,84 @@ describe('ActionPlaybook', () => {
     })
   })
 
+  it('does not show a "recommendation changed" notice on first render', () => {
+    renderWithClient(
+      <ActionPlaybook
+        selectedAssetId="fc-stack-01"
+        recommendation={recommendation}
+        investigation={null}
+        loading={false}
+      />,
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('shows a "recommendation changed" notice when a different recommendation id replaces the current one', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <ActionPlaybook
+          selectedAssetId="fc-stack-01"
+          recommendation={recommendation}
+          investigation={null}
+          loading={false}
+        />
+      </QueryClientProvider>,
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+    const changedRecommendation: RecommendationResponse = {
+      ...recommendation,
+      id: 'rec-2',
+      priority: 'P3',
+      title: 'Continue monitoring',
+    }
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <ActionPlaybook
+          selectedAssetId="fc-stack-01"
+          recommendation={changedRecommendation}
+          investigation={null}
+          loading={false}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent(/Recommendation changed/)
+  })
+
+  it('does not show a "recommendation changed" notice when the same recommendation id re-renders', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <ActionPlaybook
+          selectedAssetId="fc-stack-01"
+          recommendation={recommendation}
+          investigation={null}
+          loading={false}
+        />
+      </QueryClientProvider>,
+    )
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <ActionPlaybook
+          selectedAssetId="fc-stack-01"
+          recommendation={{ ...recommendation }}
+          investigation={null}
+          loading={false}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
   it('shows no actions once resolved', () => {
     const resolved: InvestigationTransitionResponse = {
       id: 'inv-2',

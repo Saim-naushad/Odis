@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type {
   InvestigationStatus,
   InvestigationTransitionResponse,
@@ -45,6 +45,40 @@ function currentStatus(
   return 'NEW'
 }
 
+const RECOMMENDATION_CHANGED_NOTICE_MS = 10_000
+
+// recommendation.id is a stable hash of the recommendation's own material
+// classification (asset/category/priority/urgency/title) - it only changes
+// when the underlying situation genuinely changes, and reverts to the same
+// id if a prior classification recurs (see recommendation_engine.py). Each
+// id carries its own independent, append-only investigation history, so an
+// operator who was mid-investigation on one classification and then sees a
+// *different* classification appear will legitimately see that new
+// recommendation start from NEW/ACKNOWLEDGED, not a regression of the one
+// they were just looking at. Without a visible cue, that reads as the
+// workflow silently losing progress rather than a different, genuine
+// recommendation taking its place.
+function useRecommendationChangedNotice(recommendationId: string | undefined): boolean {
+  const previousId = useRef<string | undefined>(undefined)
+  const [changed, setChanged] = useState(false)
+
+  useEffect(() => {
+    const isGenuineChange =
+      previousId.current !== undefined &&
+      recommendationId !== undefined &&
+      previousId.current !== recommendationId
+    previousId.current = recommendationId
+
+    if (!isGenuineChange) return
+
+    setChanged(true)
+    const timer = window.setTimeout(() => setChanged(false), RECOMMENDATION_CHANGED_NOTICE_MS)
+    return () => window.clearTimeout(timer)
+  }, [recommendationId])
+
+  return changed
+}
+
 function priorityAccentColor(priority: string): string {
   const variant = priorityVariant(priority)
   switch (variant) {
@@ -73,6 +107,7 @@ export function ActionPlaybook({
   const status = currentStatus(investigation)
   const nextTransitions = NEXT_TRANSITIONS[status]
   const canAct = Boolean(recommendation)
+  const recommendationJustChanged = useRecommendationChangedNotice(recommendation?.id)
 
   function handleTransition(nextStatus: InvestigationStatus) {
     if (!recommendation || !canAct) return
@@ -127,6 +162,21 @@ export function ActionPlaybook({
         </p>
       ) : recommendation ? (
         <div className="mt-5 space-y-5">
+          {recommendationJustChanged && (
+            <p
+              className="rounded border px-3 py-2 text-xs"
+              style={{
+                borderColor: 'var(--status-info)',
+                background: 'var(--surface-base)',
+                color: 'var(--text-secondary)',
+              }}
+              role="status"
+            >
+              Recommendation changed — this is a new classification with its
+              own investigation history, not a continuation of the previous
+              one.
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`status-badge ${semanticBadgeClass(priorityVariant(recommendation.priority))}`}
