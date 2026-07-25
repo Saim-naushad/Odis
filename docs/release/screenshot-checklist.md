@@ -1,17 +1,30 @@
 # v1.1 Screenshot Checklist
 
-Screenshots to capture for the GitHub release, README, and portfolio use. All
-shots come from the `demo_presentation` scenario on a clean database (see
+**Completed 2026-07-25.** The accepted v1.1 portfolio set is stored in
+`docs/assets/`:
+
+- `dashboard-overview.png`
+- `dashboard-ai-fault-diagnosis.png`
+- `dashboard-model-provenance.png`
+- `dashboard-investigation-lifecycle.png`
+- `dashboard-investigation-timeline.png`
+- `dashboard-incident.png`
+- `odis-v1.1-demo-final.mp4`
+
+The checklist below is retained as the acceptance record and as guidance for
+any future recapture. The final set intentionally favors six focused stills
+plus one 48-second silent walkthrough instead of forcing every opportunistic
+shot from the original seven-image target.
+
+All captures come from the `demo_presentation` scenario on a clean database (see
 [Demo Environment → Recording procedure](../platform/demo-environment.md#reproducible-screenshots--demo-video)
-for exact startup steps and phase-change log cues). Do not generate these
-images as part of this PR — this is the shot list for the next recording
-session.
+for exact startup steps and phase-change log cues).
 
 Capture at the existing resolution/crop used in `docs/assets/` (1024px wide
 in README, full browser width in the source PNG) so new shots match the
 existing set stylistically.
 
-## Why existing screenshots need to be redone
+## Historical recapture rationale
 
 `docs/assets/dashboard-overview.png`, `dashboard-telemetry.png`, and
 `dashboard-investigation.png` were captured on 2026-07-12, before the
@@ -26,13 +39,11 @@ polish (`49af982`) landed. They currently show:
 - Fleet chips for `fuel-cell-stack-02/03/04` showing raw asset IDs instead
   of resolved names, inconsistent with the resolved name shown for stack-01.
 
-All three should be recaptured alongside the new shots below, from the same
-recording session, so the whole set is internally consistent.
+The accepted 2026-07-25 set replaced those stale assets and is internally
+consistent.
 
-**Also stale as of 2026-07-23 (post fleet-state/lifecycle/timeline fixes):**
-the current `docs/assets/dashboard-overview.png` and
-`dashboard-investigation-lifecycle.png` (captured just before these fixes)
-predate them and should be recaptured:
+The final recapture also corrected two issues found in the intermediate
+2026-07-23 assets:
 
 - `dashboard-overview.png` shows a CRITICAL "Immediate mitigation required"
   banner alongside an otherwise-NORMAL, LOW-risk fleet, with no
@@ -54,12 +65,11 @@ predate them and should be recaptured:
 | 6 | `dashboard-investigation-timeline.png` | Shows the reasoning trace is real evidence, not a canned message | Any point with ≥3 timeline events, with one selected | Investigation timeline with multiple events, one selected; Event Context panel populated (not the empty "Select a timeline event…" placeholder). **Prefer a visible `ai_fault_*` event** (shows the newer AI-fault Event Context, not a reasoning run) if one is showing in the 5-event preview at capture time; a populated deterministic reasoning event (`reasoning_started`/`reasoning_completed`) is an equally acceptable fallback — the preview is capped at 5 recent events and observation events can crowd an AI-fault event out, so don't wait indefinitely for one to appear |
 | 7 | `dashboard-recovery.png` | Closes the narrative loop — shows reasoning re-assessing automatically, not a manual reset | `recovery`, best-effort — see [Demo Environment → Known limitations](../platform/demo-environment.md#known-limitations); the legacy health badge is not currently guaranteed to settle into a held NORMAL. Capturing the AI investigation's `cleared` empty state is an acceptable substitute if the legacy badge doesn't cooperate. **Do not force this shot** | Health score trending back up on stack-01, holding at NORMAL; alert banner cleared or notification marked resolved; investigation status shows RESOLVED if step #4 was carried through — or, as a substitute, the AI-Assisted Fault Diagnosis card's cleared empty state |
 
-Seven shots is the target set. If time is limited, 1–4 are the minimum viable
-set — they cover baseline, the AI-assisted diagnosis path, the legacy fault
-alert, and the investigation-lifecycle feature, which is also the minimum
-cut described in the demo script.
+The table records the original target set. The accepted portfolio package
+uses the six stills listed at the top of this document and the short final
+walkthrough; no additional capture is required for v1.1.
 
-## Manual capture workflow
+## Reference workflow for a future recapture
 
 There is no maintained capture script in this repository — a prior
 Playwright-based helper (`scripts/capture_dashboard_screenshots.py`) was

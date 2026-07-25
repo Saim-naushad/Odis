@@ -8,9 +8,17 @@ Portfolio assets for the monitoring dashboard live in [`assets/`](assets/).
 
 | Image | Description |
 |-------|-------------|
+| [dashboard-overview.png](assets/dashboard-overview.png) | Live four-stack fleet overview |
+| [dashboard-ai-fault-diagnosis.png](assets/dashboard-ai-fault-diagnosis.png) | AI candidate fault with deterministic corroboration |
+| [dashboard-model-provenance.png](assets/dashboard-model-provenance.png) | Model, policy, feature-schema, and source-event provenance |
+| [dashboard-investigation-lifecycle.png](assets/dashboard-investigation-lifecycle.png) | Operator investigation lifecycle and attributed transition |
+| [dashboard-investigation-timeline.png](assets/dashboard-investigation-timeline.png) | Selectable reasoning and AI-fault event history |
 | [dashboard-incident.png](assets/dashboard-incident.png) | Live investigation during an active incident |
 
-`dashboard-overview.png`, `dashboard-telemetry.png`, and `dashboard-investigation.png` were removed from this set — they predate the operator investigation lifecycle and no longer reflect the current UI (stale "Platform degraded" header, missing investigation controls). See the [Screenshot Checklist](release/screenshot-checklist.md) for the shot list planned for the next recapture session.
+The final silent portfolio walkthrough is
+[odis-v1.1-demo-final.mp4](assets/odis-v1.1-demo-final.mp4). The accepted
+capture inventory and historical recapture criteria are documented in the
+[Screenshot Checklist](release/screenshot-checklist.md).
 
 ## Getting Started
 
@@ -89,8 +97,8 @@ results; the rest are the detailed pages it links to.
 | [v1.1 Performance Report](release/v1.1-performance-report.md) | Measured throughput, latency, and reliability results up to 100 simulated assets |
 | [v1.1 Benchmark Evidence](release/v1.1-benchmark-evidence/README.md) | Raw per-run evidence (environment, metrics, reports) backing the performance report |
 | [Portfolio Summary](release/portfolio-summary.md) | Resume bullets and interview explanations for this release |
-| [Screenshot Checklist](release/screenshot-checklist.md) | Shot list for portfolio and release screenshots |
-| [Demo Script](release/demo-script.md) | 3–5 minute narrated recording script |
+| [Screenshot Checklist](release/screenshot-checklist.md) | Accepted portfolio assets and historical recapture criteria |
+| [Demo Script](release/demo-script.md) | Superseded long-form narrated walkthrough, retained for historical context |
 
 ## Research
 

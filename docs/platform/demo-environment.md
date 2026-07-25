@@ -404,7 +404,8 @@ same per-tick real-time slowdown described in [Verified timing](#verified-timing
 recording around: it did not regress or flip class in this run, and a
 scripted warm-up (poll `/monitoring/assets/{id}/fault-investigation` until
 confirmed + corroborated) should be used instead of a fixed clock either
-way — see the recording automation in this repository's demo tooling.
+way. The final v1.1 portfolio walkthrough used this state-based approach
+rather than relying on a fixed timestamp.
 
 ### Known limitation: `kafka+http` cadence mismatch drives the legacy health-badge flapping (2026-07-24)
 
